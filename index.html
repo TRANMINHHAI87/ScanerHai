@@ -3,94 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Scanner - Hỗ trợ PDF</title>
+    <title>Scanner Pro - Agribank Bắc Giang II</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; background: #f0f2f5; margin: 0; }
-        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .controls { margin-bottom: 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: #e9ecef; padding: 15px; border-radius: 8px; }
+        body { font-family: Arial, sans-serif; padding: 15px; background: #f4f6f9; margin: 0; }
+        .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         
-        button, select, input[type="file"] { padding: 10px; cursor: pointer; border: 1px solid #ccc; border-radius: 5px; background: #fff; font-size: 14px; }
+        /* --- Phần Header Thương Hiệu --- */
+        .brand-header { text-align: center; margin-bottom: 25px; }
+        .brand-wrapper { display: inline-flex; flex-direction: column; align-items: stretch; }
+        .brand-logo { height: 45px; object-fit: contain; margin: 0 auto; }
+        .branch-name {
+            color: #8a0c25; /* Đỏ boocdo */
+            font-size: 15px; font-weight: bold; margin-top: 5px;
+            text-align: justify; text-align-last: justify; /* Căn đều chữ bằng độ dài logo */
+            border-top: 2px solid #8a0c25; padding-top: 4px; letter-spacing: 0.5px;
+        }
+
+        /* --- Nút bấm và Điều khiển --- */
+        .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .controls-bottom { margin-top: 20px; background: #d1e7dd; border: 1px solid #badbcc; }
+        
+        button, select, input[type="file"] { padding: 10px 12px; cursor: pointer; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-size: 14px; }
         .btn-primary { background: #0d6efd; color: white; border: none; font-weight: bold; }
         .btn-primary:hover { background: #0b5ed7; }
-        .btn-success { background: #198754; color: white; border: none; font-weight: bold; }
+        .btn-success { background: #198754; color: white; border: none; font-weight: bold; width: 100%; padding: 12px;}
         .btn-success:hover { background: #157347; }
         .btn-warning { background: #ffc107; color: #000; border: none; font-weight: bold; }
-        .btn-warning:hover { background: #e0a800; }
-        .btn-camera { background: #dc3545; color: white; border: none; font-weight: bold; display: flex; align-items: center; gap: 5px;}
-        .btn-camera:hover { background: #c82333; }
+        .btn-camera { background: #dc3545; color: white; border: none; font-weight: bold; display: flex; align-items: center; gap: 5px; flex-grow: 1; justify-content: center;}
         button:disabled { background: #ccc; cursor: not-allowed; }
+        #cameraInput { display: none; }
         
+        /* --- Khu vực cắt ảnh --- */
         .workspace { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
-        .panel { flex: 1; min-width: 320px; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; background: #fff; }
+        .panel { flex: 1; min-width: 300px; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; background: #fff; }
         .panel h3 { margin-top: 0; font-size: 16px; color: #495057; border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
-        canvas { max-width: 100%; border: 1px dashed #aaa; display: block; margin: auto; }
+        canvas { max-width: 100%; border: 1px dashed #aaa; display: block; margin: auto; border-radius: 4px;}
         #canvasInput { cursor: crosshair; }
         
-        /* Thư viện ảnh */
-        .gallery-container { margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px; }
+        /* --- Thư viện ảnh --- */
+        .gallery-container { border-top: 2px solid #eee; padding-top: 15px; }
         .gallery { display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px; align-items: flex-end; }
-        .thumb-wrapper { position: relative; width: 120px; flex-shrink: 0; text-align: center; display: flex; flex-direction: column; gap: 5px; }
-        .thumb { width: 100%; height: 120px; object-fit: cover; border: 3px solid transparent; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .thumb-wrapper { position: relative; width: 100px; flex-shrink: 0; text-align: center; display: flex; flex-direction: column; gap: 5px; }
+        .thumb { width: 100%; height: 100px; object-fit: contain; border: 3px solid transparent; border-radius: 8px; cursor: pointer; transition: 0.2s; background: #f8f9fa;}
         .thumb.active { border-color: #0d6efd; box-shadow: 0 0 10px rgba(13,110,253,0.4); }
-        .thumb.cropped { border-color: #198754; }
-        .order-badge { display: inline-block; width: 28px; height: 28px; border-radius: 50%; background: #e9ecef; color: #6c757d; line-height: 28px; cursor: pointer; font-weight: bold; user-select: none; margin: 0 auto; border: 1px solid #ced4da; transition: 0.2s; }
-        .order-badge.selected { background: #0d6efd; color: white; border-color: #0d6efd; box-shadow: 0 0 5px rgba(13,110,253,0.5); }
+        .thumb.cropped { border-color: #198754; background: #fff;}
+        .order-badge { display: inline-block; width: 26px; height: 26px; border-radius: 50%; background: #e9ecef; color: #6c757d; line-height: 26px; cursor: pointer; font-weight: bold; user-select: none; margin: 0 auto; border: 1px solid #ced4da;}
+        .order-badge.selected { background: #0d6efd; color: white; border-color: #0d6efd; }
         .order-badge.disabled { cursor: not-allowed; opacity: 0.5; }
         
-        #status { font-weight: bold; color: #dc3545; margin-bottom: 15px; }
-        .export-group { display: flex; gap: 10px; margin-left: auto; align-items: center; background: #d1e7dd; padding: 10px; border-radius: 5px; border: 1px solid #badbcc; flex-wrap: wrap;}
-        .tools-group { display: flex; gap: 10px; margin-top: 10px; background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffe69c; align-items: center;}
-        #cameraInput { display: none; }
+        #status { font-weight: bold; color: #dc3545; margin-bottom: 15px; text-align: center; }
+        .tools-group { display: flex; gap: 10px; margin-top: 10px; background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffe69c; align-items: center; flex-wrap: wrap;}
+        
+        /* --- Footer --- */
+        .footer { text-align: center; padding: 20px; color: #6c757d; font-size: 14px; font-weight: bold; margin-top: 10px; }
+        
+        /* Reponsive Mobile */
+        @media (max-width: 600px) {
+            .controls { flex-direction: column; align-items: stretch; }
+            .btn-camera { width: 100%; }
+        }
     </style>
     
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady();"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
 <div class="container">
-    <h2>Scanner Pro: Xuất File PDF</h2>
-    <div id="status">Đang tải thư viện (Tùy tốc độ mạng có thể mất vài giây)...</div>
+    <div class="brand-header">
+        <div class="brand-wrapper">
+            <img src="logo.jpg" alt="Agribank Logo" class="brand-logo" onerror="this.style.display='none';">
+            <div class="branch-name">CHI NHÁNH BẮC GIANG II</div>
+        </div>
+    </div>
+
+    <div id="status">Đang tải hệ thống nắn chỉnh (Vui lòng đợi vài giây)...</div>
     
     <div class="controls">
-        <input type="file" id="fileInput" accept="image/*" multiple disabled title="Chọn ảnh có sẵn">
+        <input type="file" id="fileInput" accept="image/*" multiple disabled title="Chọn file có sẵn" style="flex-grow: 1;">
         <input type="file" id="cameraInput" accept="image/*" capture="environment" disabled>
         <button id="cameraBtn" class="btn-camera" disabled>📸 Chụp Ảnh Trực Tiếp</button>
-        
-        <div class="export-group">
-            <select id="paperSizeSelect" disabled>
-                <option value="a4" selected>Khổ A4</option>
-                <option value="a5">Khổ A5</option>
-            </select>
-            <select id="layoutSelect" disabled>
-                <option value="1">1 ảnh/trang (Tràn viền)</option>
-                <option value="2" selected>2 ảnh/trang (CCCD)</option>
-                <option value="3">3 ảnh/trang</option>
-            </select>
-            <select id="formatSelect" disabled>
-                <option value="pdf" selected>📄 Xuất PDF (Gộp 1 file)</option>
-                <option value="jpg">🖼️ Xuất Ảnh JPG (Rời rạc)</option>
-            </select>
-            <button id="exportBtn" class="btn-success" disabled>Xuất Bản Quét</button>
-        </div>
     </div>
 
     <div class="workspace">
         <div class="panel">
             <h3>
-                1. Căn chỉnh điểm neo
-                <button id="warpBtn" class="btn-primary" disabled>Cắt Ảnh Này</button>
+                1. Căn chỉnh mép giấy
+                <button id="warpBtn" class="btn-primary" disabled>✂️ Cắt Ảnh Này</button>
             </h3>
             
             <div class="tools-group">
-                <label><b>Chế độ cắt:</b></label>
-                <select id="cropModeSelect">
-                    <option value="warp" selected>Nắn phẳng 4 góc (Tài liệu)</option>
-                    <option value="polygon">Cắt bóc tách tự do (Nhiều điểm)</option>
+                <label><b>Chế độ:</b></label>
+                <select id="cropModeSelect" style="flex-grow: 1;">
+                    <option value="warp" selected>Nắn phẳng 4 góc (Chuẩn)</option>
+                    <option value="polygon">Bóc tách viền (Nhiều điểm)</option>
                 </select>
-                <button id="addPointBtn" class="btn-warning" style="display: none;">+ Thêm điểm neo</button>
-                <span id="polyTip" style="font-size: 12px; color: #666; display: none;">*Nhấp đúp chuột vào điểm neo để Xóa.</span>
+                <button id="addPointBtn" class="btn-warning" style="display: none;">+ Thêm điểm</button>
             </div>
+            <p id="polyTip" style="font-size: 12px; color: #666; display: none; margin: 5px 0 0 0;">*Nhấp đúp chuột vào điểm neo để Xóa.</p>
 
             <canvas id="canvasInput" style="margin-top: 15px;"></canvas>
         </div>
@@ -101,10 +111,31 @@
     </div>
 
     <div class="gallery-container">
-        <h3>Thư viện: Bấm vào vòng tròn bên dưới ảnh để CHỌN THỨ TỰ XUẤT (1, 2, 3...)</h3>
+        <h3 style="font-size: 15px; color: #495057;">3. Khay Ảnh: Bấm (+) để đánh số thứ tự xuất</h3>
         <div class="gallery" id="gallery"></div>
     </div>
+
+    <div class="controls controls-bottom">
+        <div style="width: 100%; display: flex; gap: 10px; flex-wrap: wrap;">
+            <select id="paperSizeSelect" disabled style="flex-grow: 1;">
+                <option value="a4" selected>Khổ A4</option>
+                <option value="a5">Khổ A5</option>
+            </select>
+            <select id="layoutSelect" disabled style="flex-grow: 1;">
+                <option value="1">1 ảnh/trang (Tràn viền)</option>
+                <option value="2" selected>2 ảnh/trang (CCCD)</option>
+                <option value="3">3 ảnh/trang</option>
+            </select>
+            <select id="formatSelect" disabled style="flex-grow: 1;">
+                <option value="pdf" selected>📄 Xuất 1 file PDF (Gộp chung)</option>
+                <option value="jpg">🖼️ Xuất Ảnh JPG (Rời rạc)</option>
+            </select>
+        </div>
+        <button id="exportBtn" class="btn-success" disabled>XUẤT HỒ SƠ</button>
+    </div>
 </div>
+
+<div class="footer">Tác giả: Trần Minh Hải - 0938150987</div>
 
 <script>
     let cvReady = false;
@@ -135,7 +166,7 @@
     cropModeSelect.addEventListener('change', (e) => {
         if(activeIndex === -1) return; let doc = documents[activeIndex];
         if (e.target.value === 'polygon') {
-            addPointBtn.style.display = 'inline-block'; polyTip.style.display = 'inline-block';
+            addPointBtn.style.display = 'inline-block'; polyTip.style.display = 'block';
         } else {
             addPointBtn.style.display = 'none'; polyTip.style.display = 'none';
             if (doc.points.length > 4) doc.points = doc.points.slice(0, 4);
@@ -161,7 +192,7 @@
     }
 
     function onOpenCvReady() {
-        cvReady = true; statusMsg.style.color = "green"; statusMsg.innerText = "Sẵn sàng hoạt động!";
+        cvReady = true; statusMsg.style.color = "green"; statusMsg.innerText = "Hệ thống sẵn sàng hoạt động!";
         fileInput.disabled = false; cameraInput.disabled = false; cameraBtn.disabled = false;
     }
 
@@ -194,24 +225,41 @@
     fileInput.addEventListener('change', (e) => { handleFiles(Array.from(e.target.files)); fileInput.value = ""; });
     cameraInput.addEventListener('change', (e) => { handleFiles(Array.from(e.target.files)); cameraInput.value = ""; });
 
+    // Cải tiến thuật toán bắt mép
     function autoDetectCorners(imgElement) {
         let processWidth = 600; let scale = processWidth / imgElement.naturalWidth;
         let processHeight = imgElement.naturalHeight * scale;
         let src = cv.imread(imgElement); let resized = new cv.Mat();
         cv.resize(src, resized, new cv.Size(processWidth, processHeight));
+        
         let gray = new cv.Mat(); let blurred = new cv.Mat(); let edges = new cv.Mat();
         let contours = new cv.MatVector(); let hierarchy = new cv.Mat();
-        cv.cvtColor(resized, gray, cv.COLOR_RGBA2GRAY); cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0); cv.Canny(blurred, edges, 50, 150);
-        let M = cv.Mat.ones(5, 5, cv.CV_8U); cv.dilate(edges, edges, M, new cv.Point(-1, -1), 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
+        
+        cv.cvtColor(resized, gray, cv.COLOR_RGBA2GRAY); 
+        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0); 
+        // Thay đổi dải Canny để bắt viền nhạy hơn
+        cv.Canny(blurred, edges, 30, 150); 
+        
+        // Dùng MORPH_CLOSE để nối các viền đứt đoạn
+        let M = cv.Mat.ones(5, 5, cv.CV_8U); 
+        cv.morphologyEx(edges, edges, cv.MORPH_CLOSE, M);
+        
         cv.findContours(edges, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-        let maxArea = 0; let bestContour = null;
+        let maxArea = 0; let bestContour = null; let bestRect = null;
         for (let i = 0; i < contours.size(); ++i) {
             let cnt = contours.get(i); let area = cv.contourArea(cnt);
-            if (area > 5000) {
-                let peri = cv.arcLength(cnt, true); let approx = new cv.Mat(); cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-                if (approx.rows === 4 && area > maxArea) { maxArea = area; if (bestContour) bestContour.delete(); bestContour = approx; } 
-                else { approx.delete(); }
+            if (area > (processWidth * processHeight * 0.1)) { // Ít nhất 10% ảnh
+                let peri = cv.arcLength(cnt, true); let approx = new cv.Mat(); 
+                cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
+                
+                if (approx.rows === 4 && area > maxArea) { 
+                    maxArea = area; if (bestContour) bestContour.delete(); bestContour = approx; 
+                } else { 
+                    approx.delete();
+                    // Fallback: Tìm khung hình chữ nhật bao quanh vật thể lớn nhất
+                    if (area > maxArea) { maxArea = area; bestRect = cv.boundingRect(cnt); }
+                }
             }
             cnt.delete();
         }
@@ -220,10 +268,19 @@
         if (bestContour) {
             pts = [{x: bestContour.data32S[0]/scale, y: bestContour.data32S[1]/scale}, {x: bestContour.data32S[2]/scale, y: bestContour.data32S[3]/scale}, {x: bestContour.data32S[4]/scale, y: bestContour.data32S[5]/scale}, {x: bestContour.data32S[6]/scale, y: bestContour.data32S[7]/scale}];
             pts.sort((a, b) => a.y - b.y); let top = pts.slice(0, 2).sort((a, b) => a.x - b.x); let bottom = pts.slice(2, 4).sort((a, b) => a.x - b.x); pts = [top[0], top[1], bottom[1], bottom[0]]; bestContour.delete();
+        } else if (bestRect) {
+            // Sử dụng Fallback BoundingRect
+            pts = [
+                {x: bestRect.x / scale, y: bestRect.y / scale},
+                {x: (bestRect.x + bestRect.width) / scale, y: bestRect.y / scale},
+                {x: (bestRect.x + bestRect.width) / scale, y: (bestRect.y + bestRect.height) / scale},
+                {x: bestRect.x / scale, y: (bestRect.y + bestRect.height) / scale}
+            ];
         } else {
             let w = imgElement.naturalWidth; let h = imgElement.naturalHeight;
             pts = [{x: w*0.05, y: h*0.05}, {x: w*0.95, y: h*0.05}, {x: w*0.95, y: h*0.95}, {x: w*0.05, y: h*0.95}];
         }
+        
         src.delete(); resized.delete(); gray.delete(); blurred.delete(); edges.delete(); M.delete(); contours.delete(); hierarchy.delete();
         return pts;
     }
@@ -239,7 +296,11 @@
         gallery.innerHTML = ''; let hasCropped = false;
         documents.forEach((doc, index) => {
             let wrapper = document.createElement('div'); wrapper.className = 'thumb-wrapper';
-            let img = document.createElement('img'); img.src = doc.imgElement.src; img.className = 'thumb';
+            let img = document.createElement('img'); 
+            // Cập nhật Thumbnail thành ảnh ĐÃ CẮT (nếu có)
+            img.src = doc.croppedDataUrl ? doc.croppedDataUrl : doc.imgElement.src; 
+            img.className = 'thumb';
+            
             if (index === activeIndex) img.classList.add('active');
             if (doc.croppedDataUrl) { img.classList.add('cropped'); hasCropped = true; }
             img.onclick = () => selectDocument(index);
@@ -326,6 +387,7 @@
     canvasInput.addEventListener('mousedown', handleDown); canvasInput.addEventListener('mousemove', handleMove); window.addEventListener('mouseup', handleUp);
     canvasInput.addEventListener('touchstart', handleDown, {passive: false}); canvasInput.addEventListener('touchmove', handleMove, {passive: false}); window.addEventListener('touchend', handleUp);
 
+    // Cắt và cập nhật đè ảnh
     warpBtn.addEventListener('click', () => {
         if(activeIndex === -1) return; let doc = documents[activeIndex]; statusMsg.innerText = "Đang cắt ảnh...";
         doc.mode = cropModeSelect.value; 
@@ -354,17 +416,17 @@
                 doc.croppedDataUrl = canvasOutput.toDataURL('image/jpeg', 0.95);
             }
             if(!exportOrder.includes(doc.id)) exportOrder.push(doc.id);
-            statusMsg.innerText = "Cắt thành công!"; renderGallery();
+            statusMsg.innerText = "Cắt thành công!"; 
+            selectDocument(activeIndex); // Gọi lại để load ảnh mới lên Canvas 2 và Gallery
         }, 50);
     });
 
-    // --- TÍCH HỢP XUẤT PDF & JPG ---
     exportBtn.addEventListener('click', async () => {
         if(exportOrder.length === 0) { alert("Vui lòng chọn ít nhất 1 ảnh để xuất!"); return; }
         
         let mode = parseInt(document.getElementById('layoutSelect').value);
-        let paperType = document.getElementById('paperSizeSelect').value; // 'a4' hoặc 'a5'
-        let exportFormat = formatSelect.value; // 'pdf' hoặc 'jpg'
+        let paperType = document.getElementById('paperSizeSelect').value; 
+        let exportFormat = formatSelect.value; 
         
         let BASE_W = paperType === 'a4' ? 2480 : 1748; 
         let BASE_H = paperType === 'a4' ? 3508 : 2480; 
@@ -376,7 +438,6 @@
         let totalPages = Math.ceil(loadedImages.length / mode);
         statusMsg.innerText = `Đang tạo ${totalPages} trang...`;
 
-        // Khởi tạo biến lưu trữ cho PDF
         let { jsPDF } = window.jspdf;
         let pdf = null;
 
@@ -407,38 +468,24 @@
                 });
             }
 
-            // Lấy dữ liệu ảnh cực nét từ Canvas
             let imgData = canvas.toDataURL('image/jpeg', 0.95);
 
             if (exportFormat === 'pdf') {
-                // Xử lý tạo trang PDF
                 let orientation = isLandscape ? 'l' : 'p';
-                if (!pdf) {
-                    pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: paperType });
-                } else {
-                    pdf.addPage(paperType, orientation);
-                }
+                if (!pdf) { pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: paperType }); } 
+                else { pdf.addPage(paperType, orientation); }
                 
-                // Ép ảnh vừa khít kích thước giấy trong PDF
-                let pdfW = pdf.internal.pageSize.getWidth();
-                let pdfH = pdf.internal.pageSize.getHeight();
+                let pdfW = pdf.internal.pageSize.getWidth(); let pdfH = pdf.internal.pageSize.getHeight();
                 pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
-                
             } else {
-                // Xử lý tải xuống từng ảnh JPG rời rạc như cũ
                 let link = document.createElement('a'); 
-                link.download = `Scanned_Page_${page + 1}_${Date.now()}.jpg`; 
-                link.href = imgData; 
-                link.click(); 
+                link.download = `Hoso_Trang_${page + 1}_${Date.now()}.jpg`; 
+                link.href = imgData; link.click(); 
                 await new Promise(r => setTimeout(r, 400)); 
             }
         }
 
-        // Tải xuống file PDF nếu người dùng chọn
-        if (exportFormat === 'pdf') {
-            pdf.save(`Scanned_Document_${Date.now()}.pdf`);
-        }
-
+        if (exportFormat === 'pdf') { pdf.save(`HoSo_Scan_${Date.now()}.pdf`); }
         statusMsg.innerText = `Hoàn tất! Đã xuất ${exportFormat === 'pdf' ? '1 file PDF' : totalPages + ' file JPG'}.`;
     });
 </script>
