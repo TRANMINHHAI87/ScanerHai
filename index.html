@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Scanner - Camera & Cắt Kéo Chuyên Nghiệp</title>
+    <title>Web Scanner - Hỗ trợ PDF</title>
     <style>
         body { font-family: sans-serif; padding: 20px; background: #f0f2f5; margin: 0; }
         .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -40,35 +40,38 @@
         #status { font-weight: bold; color: #dc3545; margin-bottom: 15px; }
         .export-group { display: flex; gap: 10px; margin-left: auto; align-items: center; background: #d1e7dd; padding: 10px; border-radius: 5px; border: 1px solid #badbcc; flex-wrap: wrap;}
         .tools-group { display: flex; gap: 10px; margin-top: 10px; background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffe69c; align-items: center;}
-        
-        /* Ẩn input file mặc định của camera để dùng nút giả */
         #cameraInput { display: none; }
     </style>
+    
     <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady();" type="text/javascript"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
 <div class="container">
-    <h2>Scanner Pro: Tích Hợp Camera</h2>
-    <div id="status">Đang tải thư viện OpenCV.js...</div>
+    <h2>Scanner Pro: Xuất File PDF</h2>
+    <div id="status">Đang tải thư viện (Tùy tốc độ mạng có thể mất vài giây)...</div>
     
     <div class="controls">
         <input type="file" id="fileInput" accept="image/*" multiple disabled title="Chọn ảnh có sẵn">
-        
         <input type="file" id="cameraInput" accept="image/*" capture="environment" disabled>
         <button id="cameraBtn" class="btn-camera" disabled>📸 Chụp Ảnh Trực Tiếp</button>
         
         <div class="export-group">
             <select id="paperSizeSelect" disabled>
-                <option value="A4" selected>Khổ A4 (210x297 mm)</option>
-                <option value="A5">Khổ A5 (148x210 mm)</option>
+                <option value="a4" selected>Khổ A4</option>
+                <option value="a5">Khổ A5</option>
             </select>
             <select id="layoutSelect" disabled>
                 <option value="1">1 ảnh/trang (Tràn viền)</option>
                 <option value="2" selected>2 ảnh/trang (CCCD)</option>
                 <option value="3">3 ảnh/trang</option>
             </select>
-            <button id="exportBtn" class="btn-success" disabled>Xuất Bản Quét A4</button>
+            <select id="formatSelect" disabled>
+                <option value="pdf" selected>📄 Xuất PDF (Gộp 1 file)</option>
+                <option value="jpg">🖼️ Xuất Ảnh JPG (Rời rạc)</option>
+            </select>
+            <button id="exportBtn" class="btn-success" disabled>Xuất Bản Quét</button>
         </div>
     </div>
 
@@ -122,33 +125,25 @@
     let polyTip = document.getElementById('polyTip');
     let statusMsg = document.getElementById('status');
     let gallery = document.getElementById('gallery');
+    let formatSelect = document.getElementById('formatSelect');
 
     let draggingPoint = null;
     let scaleRatio = 1;
 
-    // Gắn sự kiện cho nút Camera giả
-    cameraBtn.addEventListener('click', () => {
-        cameraInput.click();
-    });
+    cameraBtn.addEventListener('click', () => { cameraInput.click(); });
 
-    // Thay đổi chế độ cắt
     cropModeSelect.addEventListener('change', (e) => {
-        if(activeIndex === -1) return;
-        let doc = documents[activeIndex];
-        
+        if(activeIndex === -1) return; let doc = documents[activeIndex];
         if (e.target.value === 'polygon') {
-            addPointBtn.style.display = 'inline-block';
-            polyTip.style.display = 'inline-block';
+            addPointBtn.style.display = 'inline-block'; polyTip.style.display = 'inline-block';
         } else {
-            addPointBtn.style.display = 'none';
-            polyTip.style.display = 'none';
+            addPointBtn.style.display = 'none'; polyTip.style.display = 'none';
             if (doc.points.length > 4) doc.points = doc.points.slice(0, 4);
             if (doc.points.length < 4) resetToFourPoints(doc);
         }
         drawEditor();
     });
 
-    // Thêm điểm neo (Tự động chia đôi)
     addPointBtn.addEventListener('click', () => {
         if(activeIndex === -1) return; let doc = documents[activeIndex];
         let maxDist = 0; let insertIdx = 0; let newP = null;
@@ -167,12 +162,9 @@
 
     function onOpenCvReady() {
         cvReady = true; statusMsg.style.color = "green"; statusMsg.innerText = "Sẵn sàng hoạt động!";
-        fileInput.disabled = false;
-        cameraInput.disabled = false;
-        cameraBtn.disabled = false;
+        fileInput.disabled = false; cameraInput.disabled = false; cameraBtn.disabled = false;
     }
 
-    // --- HÀM XỬ LÝ ẢNH CHUNG CHO CẢ CHỌN FILE LẪN CHỤP CAMERA ---
     function handleFiles(filesArray) {
         if (filesArray.length === 0) return;
         statusMsg.style.color = "orange"; statusMsg.innerText = `Đang nạp ảnh...`;
@@ -191,9 +183,7 @@
                     documents.push(docItem); filesProcessed++;
                     if(filesProcessed === filesArray.length) {
                         statusMsg.style.color = "green"; statusMsg.innerText = "Đã nạp xong!";
-                        renderGallery(); 
-                        // Tự động mở ảnh vừa mới thêm vào (ảnh cuối cùng trong mảng)
-                        selectDocument(documents.length - 1);
+                        renderGallery(); selectDocument(documents.length - 1);
                     }
                 }
                 img.src = event.target.result;
@@ -201,7 +191,6 @@
         });
     }
 
-    // Bắt sự kiện cho cả 2 luồng: Tải file có sẵn & Chụp hình mới
     fileInput.addEventListener('change', (e) => { handleFiles(Array.from(e.target.files)); fileInput.value = ""; });
     cameraInput.addEventListener('change', (e) => { handleFiles(Array.from(e.target.files)); cameraInput.value = ""; });
 
@@ -210,7 +199,6 @@
         let processHeight = imgElement.naturalHeight * scale;
         let src = cv.imread(imgElement); let resized = new cv.Mat();
         cv.resize(src, resized, new cv.Size(processWidth, processHeight));
-
         let gray = new cv.Mat(); let blurred = new cv.Mat(); let edges = new cv.Mat();
         let contours = new cv.MatVector(); let hierarchy = new cv.Mat();
         cv.cvtColor(resized, gray, cv.COLOR_RGBA2GRAY); cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0); cv.Canny(blurred, edges, 50, 150);
@@ -269,6 +257,7 @@
         exportBtn.disabled = exportOrder.length === 0; 
         document.getElementById('layoutSelect').disabled = !hasCropped;
         document.getElementById('paperSizeSelect').disabled = !hasCropped;
+        formatSelect.disabled = !hasCropped;
     }
 
     function selectDocument(index) {
@@ -276,9 +265,7 @@
         scaleRatio = Math.min(600 / doc.originalWidth, 1);
         canvasInput.width = doc.originalWidth * scaleRatio; canvasInput.height = doc.originalHeight * scaleRatio;
         warpBtn.disabled = false;
-        
-        cropModeSelect.value = doc.mode || 'warp';
-        cropModeSelect.dispatchEvent(new Event('change'));
+        cropModeSelect.value = doc.mode || 'warp'; cropModeSelect.dispatchEvent(new Event('change'));
 
         if (doc.croppedDataUrl) {
             let tempImg = new Image();
@@ -293,8 +280,7 @@
 
     function drawEditor() {
         if(activeIndex === -1) return; let doc = documents[activeIndex];
-        ctxInput.clearRect(0, 0, canvasInput.width, canvasInput.height);
-        ctxInput.drawImage(doc.imgElement, 0, 0, canvasInput.width, canvasInput.height);
+        ctxInput.clearRect(0, 0, canvasInput.width, canvasInput.height); ctxInput.drawImage(doc.imgElement, 0, 0, canvasInput.width, canvasInput.height);
         let dPts = doc.points.map(p => ({ x: p.x * scaleRatio, y: p.y * scaleRatio }));
         
         ctxInput.beginPath(); ctxInput.moveTo(dPts[0].x, dPts[0].y); 
@@ -372,11 +358,17 @@
         }, 50);
     });
 
+    // --- TÍCH HỢP XUẤT PDF & JPG ---
     exportBtn.addEventListener('click', async () => {
         if(exportOrder.length === 0) { alert("Vui lòng chọn ít nhất 1 ảnh để xuất!"); return; }
+        
         let mode = parseInt(document.getElementById('layoutSelect').value);
-        let paperType = document.getElementById('paperSizeSelect').value;
-        let BASE_W = paperType === 'A4' ? 2480 : 1748; let BASE_H = paperType === 'A4' ? 3508 : 2480; 
+        let paperType = document.getElementById('paperSizeSelect').value; // 'a4' hoặc 'a5'
+        let exportFormat = formatSelect.value; // 'pdf' hoặc 'jpg'
+        
+        let BASE_W = paperType === 'a4' ? 2480 : 1748; 
+        let BASE_H = paperType === 'a4' ? 3508 : 2480; 
+
         const GAP = 120; const MARGIN = 0; const CARD_MARGIN = 150; 
         let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && d.croppedDataUrl);
         let loadedImages = await Promise.all(docsToExport.map(doc => new Promise(res => { let img = new Image(); img.onload = () => res(img); img.src = doc.croppedDataUrl; })));
@@ -384,20 +376,29 @@
         let totalPages = Math.ceil(loadedImages.length / mode);
         statusMsg.innerText = `Đang tạo ${totalPages} trang...`;
 
+        // Khởi tạo biến lưu trữ cho PDF
+        let { jsPDF } = window.jspdf;
+        let pdf = null;
+
         for (let page = 0; page < totalPages; page++) {
             let imgs = loadedImages.slice(page * mode, (page + 1) * mode);
             let isLandscape = (mode === 1 && imgs[0].width > imgs[0].height);
+            
             let PAPER_W = isLandscape ? Math.max(BASE_W, BASE_H) : Math.min(BASE_W, BASE_H);
             let PAPER_H = isLandscape ? Math.min(BASE_W, BASE_H) : Math.max(BASE_W, BASE_H);
+
             let canvas = document.createElement('canvas'); canvas.width = PAPER_W; canvas.height = PAPER_H;
             let ctx = canvas.getContext('2d'); ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, PAPER_W, PAPER_H);
 
-            if (mode === 1) { ctx.drawImage(imgs[0], 0, 0, PAPER_W, PAPER_H); } 
-            else {
+            if (mode === 1) { 
+                ctx.drawImage(imgs[0], 0, 0, PAPER_W, PAPER_H); 
+            } else {
                 let usableW = PAPER_W - CARD_MARGIN * 2; let usableH = PAPER_H - CARD_MARGIN * 2;
                 let standardWidth = usableW * 0.65; 
                 let totalBlockHeight = imgs.reduce((sum, img) => sum + standardWidth * (img.height / img.width), 0) + GAP * (imgs.length - 1);
+                
                 if (totalBlockHeight > usableH) { let shrinkRatio = usableH / totalBlockHeight; standardWidth *= shrinkRatio; totalBlockHeight = usableH; }
+                
                 let startY = CARD_MARGIN + (usableH - totalBlockHeight) / 2;
                 imgs.forEach(img => {
                     let drawW = standardWidth; let drawH = standardWidth * (img.height / img.width);
@@ -405,10 +406,40 @@
                     ctx.drawImage(img, x, startY, drawW, drawH); startY += drawH + GAP; 
                 });
             }
-            let link = document.createElement('a'); link.download = `Scanned_Page_${page + 1}_${Date.now()}.jpg`; link.href = canvas.toDataURL('image/jpeg', 1.0); link.click(); 
-            await new Promise(r => setTimeout(r, 400)); 
+
+            // Lấy dữ liệu ảnh cực nét từ Canvas
+            let imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+            if (exportFormat === 'pdf') {
+                // Xử lý tạo trang PDF
+                let orientation = isLandscape ? 'l' : 'p';
+                if (!pdf) {
+                    pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: paperType });
+                } else {
+                    pdf.addPage(paperType, orientation);
+                }
+                
+                // Ép ảnh vừa khít kích thước giấy trong PDF
+                let pdfW = pdf.internal.pageSize.getWidth();
+                let pdfH = pdf.internal.pageSize.getHeight();
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
+                
+            } else {
+                // Xử lý tải xuống từng ảnh JPG rời rạc như cũ
+                let link = document.createElement('a'); 
+                link.download = `Scanned_Page_${page + 1}_${Date.now()}.jpg`; 
+                link.href = imgData; 
+                link.click(); 
+                await new Promise(r => setTimeout(r, 400)); 
+            }
         }
-        statusMsg.innerText = `Hoàn tất! Đã xuất ${totalPages} file.`;
+
+        // Tải xuống file PDF nếu người dùng chọn
+        if (exportFormat === 'pdf') {
+            pdf.save(`Scanned_Document_${Date.now()}.pdf`);
+        }
+
+        statusMsg.innerText = `Hoàn tất! Đã xuất ${exportFormat === 'pdf' ? '1 file PDF' : totalPages + ' file JPG'}.`;
     });
 </script>
 </body>
