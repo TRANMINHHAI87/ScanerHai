@@ -6,611 +6,574 @@
     <title>Scanner Pro - Agribank Bắc Giang II</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 15px; background: #f4f6f9; margin: 0; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         
         .brand-header { text-align: center; margin-bottom: 25px; }
-        .brand-wrapper { display: inline-flex; flex-direction: column; align-items: stretch; }
-        .brand-logo { height: 45px; object-fit: contain; margin: 0 auto; }
-        .branch-name {
-            color: #8a0c25; font-size: 15px; font-weight: bold; margin-top: 5px;
-            text-align: justify; text-align-last: justify; 
-            border-top: 2px solid #8a0c25; padding-top: 4px; letter-spacing: 0.5px;
+        .brand-wrapper { display: inline-flex; flex-direction: column; align-items: center; width: 250px; }
+        .brand-logo { height: 50px; width: 100%; object-fit: contain; margin: 0 auto; display: block; }
+        .branch-name { 
+            color: #8a0c25; font-size: 15px; font-weight: 900; 
+            -webkit-text-stroke: 0.5px #8a0c25; margin-top: 5px; 
+            width: 100%; text-align: justify; text-align-last: justify; 
+            border-top: 2px solid #8a0c25; padding-top: 4px; 
         }
-
-        .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        .controls-bottom { margin-top: 20px; background: #d1e7dd; border: 1px solid #badbcc; }
         
-        button, select, input[type="file"] { padding: 10px 12px; cursor: pointer; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-size: 14px; }
-        .btn-success { background: #198754; color: white; border: none; font-weight: bold; width: 100%; padding: 12px;}
-        .btn-success:hover { background: #157347; }
-        .btn-warning { background: #ffc107; color: #000; border: none; font-weight: bold; }
-        .btn-primary { background: #0d6efd; color: white; border: none; font-weight: bold; }
-        .btn-camera { background: #dc3545; color: white; border: none; font-weight: bold; display: flex; align-items: center; gap: 5px; flex-grow: 1; justify-content: center;}
-        button:disabled { background: #ccc !important; cursor: not-allowed !important; color: #666 !important; box-shadow: none !important;}
-        #cameraInput { display: none; }
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+        button, select, input[type="file"] { padding: 10px 15px; cursor: pointer; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-size: 14px; font-weight: bold;}
+        .btn-primary { background: #0d6efd; color: white; border: none; }
+        .btn-success { background: #198754; color: white; border: none; width: 100%; padding: 15px; font-size: 16px;}
+        .btn-warning { background: #ffc107; color: #000; border: none; }
+        .btn-danger { background: #dc3545; color: white; border: none; flex-grow: 1; display: flex; align-items: center; justify-content: center; gap: 5px;}
+        button:disabled { background: #ccc !important; cursor: not-allowed !important; color: #666 !important; }
         
-        .workspace { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; align-items: center;}
-        .panel { width: 100%; box-sizing: border-box; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; background: #fff; }
-        .panel h3 { margin-top: 0; font-size: 16px; color: #495057; border-bottom: 1px solid #eee; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
-        canvas { max-width: 100%; display: block; margin: auto; border-radius: 4px; touch-action: none;}
-        #canvasInput { cursor: crosshair; background: #f8f9fa; }
-        #canvasOutput { background: #f8f9fa; border: 1px dashed #ccc; min-height: 100px;}
+        .panel { border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+        canvas { max-width: 100%; display: block; margin: auto; border-radius: 4px; touch-action: none; }
         
-        .action-middle { width: 100%; display: flex; justify-content: center; padding: 5px 0; }
-        .btn-crop-huge {
-            background: #00e5ff; color: #005c66; border: 3px solid #e9ecef; 
-            font-size: 16px; font-weight: bold; padding: 15px 40px; 
-            border-radius: 50px; box-shadow: 0 4px 15px rgba(0, 229, 255, 0.4);
-            cursor: pointer; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px;
-        }
-        .btn-crop-huge:hover { background: #00c4db; transform: scale(1.05); border-color: #fff;}
-
-        .filter-group { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6; width: 100%; box-sizing: border-box;}
+        .filter-group { display: flex; flex-direction: column; gap: 10px; background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6; width: 100%; box-sizing: border-box;}
         .slider-container { display: flex; flex-direction: column; gap: 12px; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef;}
         .slider-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;}
-        .slider-row label { font-size: 14px; font-weight: bold; color: #495057; width: 130px;}
+        .slider-row label { font-size: 14px; font-weight: bold; color: #495057; width: 100px;}
         .slider-row input[type="range"] { flex-grow: 1; accent-color: #0d6efd;}
 
-        .gallery-container { border-top: 2px solid #eee; padding-top: 15px; }
-        .gallery { display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px; align-items: flex-end; }
-        .thumb-wrapper { position: relative; width: 100px; flex-shrink: 0; text-align: center; display: flex; flex-direction: column; gap: 5px; }
-        .thumb { width: 100%; height: 100px; object-fit: contain; border: 3px solid transparent; border-radius: 8px; cursor: pointer; transition: 0.2s; background: #f8f9fa;}
+        .gallery-container { border-top: 2px solid #eee; padding-top: 15px; overflow-x: auto; white-space: nowrap; margin-bottom: 15px; padding-bottom: 10px;}
+        .thumb-wrapper { display: inline-block; position: relative; width: 80px; margin-right: 15px; text-align: center; }
+        .thumb { width: 100%; height: 80px; object-fit: contain; cursor: pointer; border: 3px solid transparent; border-radius: 8px; background: #f8f9fa; transition: 0.2s;}
         .thumb.active { border-color: #0d6efd; box-shadow: 0 0 10px rgba(13,110,253,0.4); }
         .thumb.cropped { border-color: #198754; background: #fff;}
-        .order-badge { display: inline-block; width: 26px; height: 26px; border-radius: 50%; background: #e9ecef; color: #6c757d; line-height: 26px; cursor: pointer; font-weight: bold; user-select: none; margin: 0 auto; border: 1px solid #ced4da;}
+        
+        .order-badge { display: inline-block; width: 26px; height: 26px; border-radius: 50%; background: #e9ecef; color: #6c757d; line-height: 26px; cursor: pointer; font-weight: bold; user-select: none; margin: 5px auto 0; border: 1px solid #ced4da;}
         .order-badge.selected { background: #0d6efd; color: white; border-color: #0d6efd; }
+
+        .controls-bottom { background: #d1e7dd; border: 1px solid #badbcc; padding: 15px; border-radius: 8px; margin-bottom: 15px;}
         
-        #status { font-weight: bold; color: #dc3545; margin-bottom: 15px; text-align: center; }
-        .tools-group { display: flex; gap: 10px; margin-bottom: 15px; background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffe69c; align-items: center; flex-wrap: wrap;}
-        .footer { text-align: center; padding: 20px; color: #6c757d; font-size: 14px; font-weight: bold; margin-top: 10px; }
+        /* GIAO DIỆN BẢNG KÉO THẢ */
+        #layoutWorkspace { display: none; background: #525659; padding: 20px 0; overflow-x: auto; text-align: center; border-radius: 8px;}
+        #boardContainer { position: relative; width: 794px; background: white; margin: 0 auto; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .draggable-item { position: absolute; border: 2px solid transparent; box-sizing: border-box; }
+        .draggable-item:hover { border: 2px dashed #0d6efd; }
+        .draggable-item img { width: 100%; height: 100%; display: block; object-fit: fill; pointer-events: none;}
+        .resizer { position: absolute; right: -8px; bottom: -8px; width: 20px; height: 20px; background: #0d6efd; border-radius: 50%; cursor: se-resize; z-index: 10; border: 2px solid white; box-shadow: 0 0 3px #000;}
         
-        @media (max-width: 600px) { .controls { flex-direction: column; align-items: stretch; } .btn-camera { width: 100%; } }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; }
+        .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 700px; }
+        #webcamVideo { width: 100%; background: #000; border-radius: 8px; margin: 10px 0; max-height: 60vh;}
+        
+        .status { font-weight: bold; color: #198754; text-align: center; margin-bottom: 10px; }
+        .footer-credit { text-align: center; padding: 20px; color: #555; font-size: 14px; font-weight: bold; margin-top: 20px; border-top: 1px solid #eee; }
+        
+        @media (max-width: 600px) { .controls { flex-direction: column; align-items: stretch; } .btn-danger, .btn-warning { width: 100%; } }
     </style>
-    
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="onOpenCvReady();"></script>
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="cvReady=true; document.getElementById('status').innerText='Hệ thống sẵn sàng!'; document.getElementById('cameraBtn').disabled=false; document.getElementById('fileInput').disabled=false;"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
-<div class="container">
+<div class="container" id="mainUI">
     <div class="brand-header">
         <div class="brand-wrapper">
-            <img src="logo.jpg" alt="Agribank Logo" class="brand-logo" onerror="this.style.display='none';">
+            <img src="logo.jpg" alt="Logo" class="brand-logo" onerror="this.style.display='none';">
             <div class="branch-name">CHI NHÁNH BẮC GIANG II</div>
         </div>
     </div>
 
-    <div id="status">Đang tải hệ thống nắn chỉnh (Vui lòng đợi vài giây)...</div>
+    <div id="status" class="status">Đang tải trí tuệ nhân tạo AI (vui lòng chờ)...</div>
     
     <div class="controls">
-        <input type="file" id="fileInput" accept="image/*" multiple disabled title="Chọn file có sẵn" style="flex-grow: 1;">
-        <input type="file" id="cameraInput" accept="image/*" capture="environment" disabled>
-        <button id="cameraBtn" class="btn-camera" disabled>📸 Chụp Ảnh Trực Tiếp</button>
+        <input type="file" id="fileInput" accept="image/*" multiple disabled title="Tải ảnh có sẵn" style="flex-grow: 1;">
+        <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
+        <button id="cameraBtn" class="btn-danger" onclick="handleCameraBtn()" disabled>📸 Chụp Ảnh Trực Tiếp</button>
     </div>
 
-    <div class="workspace">
-        <div class="panel">
-            <h3>1. Căn chỉnh mép giấy</h3>
-            <div class="tools-group">
-                <label><b>Chế độ:</b></label>
-                <select id="cropModeSelect" style="flex-grow: 1;">
-                    <option value="warp" selected>Nắn phẳng (CCCD/Tài liệu)</option>
-                    <option value="polygon">Bóc tách tự do</option>
-                </select>
-                <button id="addPointBtn" class="btn-warning" style="display: none;">+ Thêm điểm</button>
-                <button id="resetCCCDBtn" class="btn-primary">🎯 Khung CCCD Mẫu</button>
-            </div>
-            <canvas id="canvasInput"></canvas>
-        </div>
-
-        <div class="action-middle">
-            <button id="warpBtn" class="btn-crop-huge" disabled>✂️ CẮT ẢNH</button>
-        </div>
-
-        <div class="panel">
-            <h3>2. Bản quét hoàn thiện</h3>
-            <canvas id="canvasOutput"></canvas>
-            
-            <div class="filter-group">
-                <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                    <label style="white-space: nowrap;"><b>Chỉnh màu:</b></label>
-                    <select id="colorFilterSelect" style="flex-grow: 1;" disabled>
-                        <option value="magic" selected>✨ Tự động tinh chỉnh chuyên nghiệp</option>
-                        <option value="manual_all">🎚️ Chỉnh kéo tay nâng cao</option>
-                        <option value="original">🖼️ Ảnh gốc (Không chỉnh)</option>
-                    </select>
-                </div>
-                
-                <div id="sliderContainer" class="slider-container" style="display: none;">
-                    <div class="slider-row">
-                        <label>Khử bóng / Bù vùng tối:</label>
-                        <input type="range" id="claheSlider" min="0" max="10" step="0.5" value="0">
-                    </div>
-                    <div class="slider-row">
-                        <label>Sáng tổng thể:</label>
-                        <input type="range" id="brightSlider" min="-100" max="100" value="0">
-                    </div>
-                    <div class="slider-row">
-                        <label>Độ đậm tương phản:</label>
-                        <input type="range" id="contrastSlider" min="1" max="3" step="0.1" value="1.0">
-                    </div>
-                    <div class="slider-row" id="bwRow">
-                        <label>Chế độ Đen Trắng:</label>
-                        <input type="checkbox" id="bwCheckbox" style="transform: scale(1.3); cursor:pointer;"> <span style="font-size:13px; color:#666;">Tách chữ đen nền trắng tinh</span>
-                    </div>
-                </div>
-                
-                <div style="display: flex; gap: 10px; margin-top: 5px; border-top: 1px dashed #ccc; padding-top: 15px; width: 100%;">
-                    <button id="rotateLeftBtn" class="btn-warning" style="flex: 1;" disabled>↺ Xoay Trái</button>
-                    <button id="rotateRightBtn" class="btn-warning" style="flex: 1;" disabled>Xoay Phải ↻</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="gallery-container">
-        <h3 style="font-size: 15px; color: #495057;">3. Khay Ảnh: Bấm (+) để đánh số thứ tự xuất</h3>
-        <div class="gallery" id="gallery"></div>
-    </div>
-
-    <div class="controls controls-bottom">
-        <div style="width: 100%; display: flex; gap: 10px; flex-wrap: wrap;">
-            <select id="paperSizeSelect" disabled style="flex-grow: 1;">
-                <option value="a4" selected>Khổ A4</option>
-                <option value="a5">Khổ A5</option>
+    <div class="panel">
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <select id="cropModeSelect" style="flex-grow: 1;">
+                <option value="warp">Nắn phẳng viền</option>
+                <option value="polygon">Cắt tự do</option>
             </select>
-            <select id="layoutSelect" disabled style="flex-grow: 1;">
-                <option value="1">1 ảnh/trang (Tràn viền)</option>
+            <button class="btn-primary" onclick="resetPoints('cccd')">🎯 Khung CCCD</button>
+            <button class="btn-primary" onclick="resetPoints('a4')" style="background:#0dcaf0; color:black;">📄 Khung A4</button>
+        </div>
+        <canvas id="canvasInput" style="background:#f8f9fa; cursor:crosshair;"></canvas>
+        <button class="btn-success" id="warpBtn" onclick="doCrop()" disabled style="margin-top:15px; border-radius: 50px;">✂️ CẮT ẢNH</button>
+    </div>
+
+    <div class="panel">
+        <canvas id="canvasOutput" style="background:#f8f9fa; border:1px dashed #ccc; margin-bottom:10px; min-height:100px;"></canvas>
+        
+        <div class="filter-group">
+            <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+                <label style="white-space: nowrap;"><b>Chỉnh màu:</b></label>
+                <select id="colorFilterSelect" style="flex-grow: 1;" onchange="handleFilterChange()" disabled>
+                    <option value="magic_stamp" selected>✨ Lọc Dấu Đỏ & Chữ Đen (Chuẩn)</option>
+                    <option value="magic">🌟 Tự động tăng sáng (Giữ màu)</option>
+                    <option value="manual_all">🎚️ Chỉnh tay (Sáng/Tối/Khử Bóng)</option>
+                    <option value="original">🖼️ Ảnh gốc</option>
+                </select>
+            </div>
+            
+            <div id="sliderContainer" class="slider-container" style="display: none;">
+                <div class="slider-row"><label>Khử bóng:</label><input type="range" id="claheSlider" min="0" max="10" step="0.5" value="0" oninput="applyFilter()"></div>
+                <div class="slider-row"><label>Sáng/Tối:</label><input type="range" id="brightSlider" min="-100" max="100" value="0" oninput="applyFilter()"></div>
+                <div class="slider-row"><label>Tương phản:</label><input type="range" id="contrastSlider" min="1" max="3" step="0.1" value="1.0" oninput="applyFilter()"></div>
+                <div class="slider-row"><label>Đen Trắng:</label><input type="checkbox" id="bwCheckbox" style="transform: scale(1.3); cursor:pointer;" onchange="applyFilter()"></div>
+            </div>
+            
+            <div style="display:flex; gap:10px; margin-top: 10px;">
+                <button id="rotLBtn" class="btn-warning" style="flex:1;" onclick="rotateImg(-90)" disabled>↺ Xoay Trái</button>
+                <button id="rotRBtn" class="btn-warning" style="flex:1;" onclick="rotateImg(90)" disabled>Xoay Phải ↻</button>
+            </div>
+        </div>
+    </div>
+
+    <h4 style="color:#495057; margin-bottom: 5px;">Khay Ảnh (Bấm [+] để chọn số thứ tự ghép)</h4>
+    <div class="gallery-container" id="gallery"></div>
+    
+    <div class="controls-bottom">
+        <h4 style="margin-top:0; color:#8a0c25; text-align:center;">BỐ CỤC & XUẤT HỒ SƠ</h4>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
+            <select id="paperSizeSelect" style="flex-grow: 1;"><option value="a4" selected>Khổ A4</option></select>
+            <select id="layoutSelect" style="flex-grow: 1;">
+                <option value="1">1 ảnh/trang</option>
                 <option value="2" selected>2 ảnh/trang (CCCD)</option>
                 <option value="3">3 ảnh/trang</option>
             </select>
-            <select id="formatSelect" disabled style="flex-grow: 1;">
-                <option value="pdf" selected>📄 Xuất PDF (Gộp chung)</option>
-                <option value="jpg">🖼️ Xuất Ảnh JPG (Rời rạc)</option>
+            <select id="formatSelect" style="flex-grow: 1;">
+                <option value="pdf" selected>📄 Xuất 1 file PDF</option>
+                <option value="jpg">🖼️ Xuất Ảnh JPG rời</option>
             </select>
         </div>
-        <button id="exportBtn" class="btn-success" disabled>XUẤT HỒ SƠ</button>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="exportAutoBtn" class="btn-success" style="flex:1; border-radius: 8px;" onclick="exportStandardPDF()" disabled>🖨️ XUẤT TỰ ĐỘNG</button>
+            <button id="exportLayoutBtn" class="btn-primary" style="flex:1; border-radius: 8px; background: #005c66;" onclick="openLayoutMode()" disabled>📐 TỰ XẾP BỐ CỤC</button>
+        </div>
+    </div>
+    
+    <div class="footer-credit">Tác giả: Trần Minh Hải - 0938150987</div>
+</div>
+
+<div class="container" id="layoutUI" style="display: none; max-width: 1000px;">
+    <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+        <button class="btn-warning" onclick="closeLayoutMode()">🔙 Quay lại</button>
+        <button class="btn-primary" onclick="addBoardPage()">➕ Thêm trang A4</button>
+        <button class="btn-success" style="flex-grow: 1;" onclick="exportCustomPDF()">🖨️ LƯU BỐ CỤC NÀY RA PDF</button>
+    </div>
+    <p id="statusLayout" style="text-align:center; color:#dc3545; font-weight:bold;">Ảnh đã được xếp sẵn dựa theo cấu hình. Hãy kéo thả, co giãn tự do để căn chỉnh lại!</p>
+    <div id="layoutWorkspace">
+        <div id="boardContainer"></div>
     </div>
 </div>
 
-<div class="footer">Tác giả: Trần Minh Hải - 0938150987</div>
+<div class="modal" id="webcamModal">
+    <div class="modal-content">
+        <h3>Camera PC</h3>
+        <select id="webcamSelect" style="width:100%; padding: 10px; margin-bottom: 10px;"></select>
+        <select id="resSelect" style="width:100%; padding: 10px;">
+            <option value="1920x1080">Độ phân giải cao: Full HD / 4K</option>
+            <option value="1280x720">Tiêu chuẩn: HD (720p)</option>
+        </select>
+        <button class="btn-primary" style="width:100%; margin-top:10px; padding: 10px;" onclick="startStream()">Mở Luồng Camera</button>
+        <video id="webcamVideo" autoplay playsinline></video>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-warning" style="flex:1; padding: 10px;" onclick="closeWebcamModal()">Hủy</button>
+            <button class="btn-danger" style="flex:2; padding: 10px; font-size: 18px;" onclick="captureWebcam()">📸 CHỤP</button>
+        </div>
+    </div>
+</div>
 
 <script>
-    let cvReady = false; let documents = []; let activeIndex = -1; let exportOrder = []; 
-    
-    let canvasInput = document.getElementById('canvasInput'); let ctxInput = canvasInput.getContext('2d');
+    let cvReady = false, documents = [], activeIndex = -1, exportOrder = [];
+    let canvasInput = document.getElementById('canvasInput'), ctxInput = canvasInput.getContext('2d');
     let canvasOutput = document.getElementById('canvasOutput');
-    let fileInput = document.getElementById('fileInput'); let cameraInput = document.getElementById('cameraInput');
-    let cameraBtn = document.getElementById('cameraBtn'); let warpBtn = document.getElementById('warpBtn');
-    let exportBtn = document.getElementById('exportBtn'); let cropModeSelect = document.getElementById('cropModeSelect');
-    let addPointBtn = document.getElementById('addPointBtn'); let resetCCCDBtn = document.getElementById('resetCCCDBtn');
-    let statusMsg = document.getElementById('status'); let gallery = document.getElementById('gallery');
-    
-    let formatSelect = document.getElementById('formatSelect'); 
-    let colorFilterSelect = document.getElementById('colorFilterSelect');
-    let sliderContainer = document.getElementById('sliderContainer');
-    let claheSlider = document.getElementById('claheSlider');
-    let brightSlider = document.getElementById('brightSlider');
-    let contrastSlider = document.getElementById('contrastSlider');
-    let bwCheckbox = document.getElementById('bwCheckbox');
-    
-    let rotateLeftBtn = document.getElementById('rotateLeftBtn'); let rotateRightBtn = document.getElementById('rotateRightBtn');
+    let scaleRatio = 1, draggingPoint = null;
 
-    let draggingPoint = null; let scaleRatio = 1;
-
-    cameraBtn.addEventListener('click', () => { cameraInput.click(); });
-
-    cropModeSelect.addEventListener('change', (e) => {
-        if(activeIndex === -1) return; let doc = documents[activeIndex];
-        if (e.target.value === 'polygon') { addPointBtn.style.display = 'inline-block'; } 
-        else {
-            addPointBtn.style.display = 'none';
-            if (doc.points.length > 4) doc.points = doc.points.slice(0, 4);
-            if (doc.points.length < 4) resetToFourPoints(doc);
-        }
-        drawEditor();
-    });
-
-    addPointBtn.addEventListener('click', () => {
-        if(activeIndex === -1) return; let doc = documents[activeIndex];
-        let maxDist = 0; let insertIdx = 0; let newP = null;
-        for(let i=0; i < doc.points.length; i++){
-            let p1 = doc.points[i]; let p2 = doc.points[(i+1) % doc.points.length];
-            let dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-            if(dist > maxDist){ maxDist = dist; insertIdx = i + 1; newP = {x: (p1.x + p2.x)/2, y: (p1.y + p2.y)/2}; }
-        }
-        doc.points.splice(insertIdx, 0, newP); drawEditor();
-    });
-
-    resetCCCDBtn.addEventListener('click', () => {
-        if(activeIndex === -1) return;
-        let doc = documents[activeIndex];
-        let w = doc.originalWidth; let h = doc.originalHeight;
-        let cardW = w * 0.7; let cardH = cardW / 1.58;
-        if (cardH > h * 0.8) { cardH = h * 0.6; cardW = cardH * 1.58; }
-        let x = (w - cardW) / 2; let y = (h - cardH) / 2;
-        
-        doc.points = [
-            {x: x, y: y}, {x: x + cardW, y: y}, {x: x + cardW, y: y + cardH}, {x: x, y: y + cardH}
-        ];
-        cropModeSelect.value = 'warp'; addPointBtn.style.display = 'none'; drawEditor();
-    });
-
-    function resetToFourPoints(doc) {
-        let w = doc.originalWidth; let h = doc.originalHeight;
-        doc.points = [{x: w*0.1, y: h*0.1}, {x: w*0.9, y: h*0.1}, {x: w*0.9, y: h*0.9}, {x: w*0.1, y: h*0.9}];
+    function handleCameraBtn() {
+        if(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) { document.getElementById('cameraInput').click(); } 
+        else { openWebcamModal(); }
     }
 
-    function onOpenCvReady() {
-        cvReady = true; statusMsg.style.color = "green"; statusMsg.innerText = "Hệ thống đã sẵn sàng!";
-        fileInput.disabled = false; cameraInput.disabled = false; cameraBtn.disabled = false;
-    }
+    document.getElementById('fileInput').addEventListener('change', e => loadFiles(e.target.files));
+    document.getElementById('cameraInput').addEventListener('change', e => loadFiles(e.target.files));
 
-    function handleFiles(filesArray) {
-        if (filesArray.length === 0) return;
-        statusMsg.style.color = "orange"; statusMsg.innerText = `Đang phân tích ảnh...`;
-        let filesProcessed = 0;
-
-        filesArray.forEach((file) => {
+    function loadFiles(files) {
+        if(!cvReady) return alert("Hệ thống chưa tải xong AI!");
+        Array.from(files).forEach(file => {
             let reader = new FileReader();
-            reader.onload = function(event) {
+            reader.onload = e => {
                 let img = new Image();
-                img.onload = function() {
-                    let docItem = {
-                        id: Date.now() + Math.random(), imgElement: img,
-                        originalWidth: img.naturalWidth, originalHeight: img.naturalHeight,
-                        points: autoDetectCorners(img), croppedDataUrl: null, rawCroppedDataUrl: null, mode: 'warp',
-                        filter: 'magic', bright: 0, contrast: 1.0, thresh: 125, claheLimit: 2.0, rotation: 0
-                    };
-                    documents.push(docItem); filesProcessed++;
-                    if(filesProcessed === filesArray.length) {
-                        statusMsg.style.color = "green"; statusMsg.innerText = "Sẵn sàng cắt!";
-                        renderGallery(); selectDocument(documents.length - 1);
-                        document.querySelector('.workspace').scrollIntoView({behavior: 'smooth'});
-                    }
-                }
-                img.src = event.target.result;
+                img.onload = () => {
+                    let pts = autoDetect(img);
+                    documents.push({ 
+                        id: Date.now() + Math.random(), img: img, w: img.naturalWidth, h: img.naturalHeight, pts: pts, 
+                        croppedUrl: null, rawCropped: null, filter: 'magic_stamp', rot: 0, 
+                        claheLimit: 0, bright: 0, contrast: 1.0, isBw: false 
+                    });
+                    renderGallery(); selectDoc(documents.length - 1);
+                }; img.src = e.target.result;
             }; reader.readAsDataURL(file);
         });
     }
 
-    fileInput.addEventListener('change', (e) => { handleFiles(Array.from(e.target.files)); fileInput.value = ""; });
-    cameraInput.addEventListener('change', (e) => { handleFiles(Array.from(e.target.files)); cameraInput.value = ""; });
-
-    // --- THUẬT TOÁN ĐỈNH CAO: BẮT ĐA GIÁC & HÌNH CHỮ NHẬT NGHIÊNG (MIN AREA RECT) ---
-    function autoDetectCorners(imgElement) {
-        let processWidth = 600; let scale = processWidth / imgElement.naturalWidth;
-        let processHeight = imgElement.naturalHeight * scale;
-        let src = cv.imread(imgElement); let resized = new cv.Mat();
-        cv.resize(src, resized, new cv.Size(processWidth, processHeight));
-        
-        let gray = new cv.Mat(); let blurred = new cv.Mat(); let edges = new cv.Mat();
-        cv.cvtColor(resized, gray, cv.COLOR_RGBA2GRAY);
-        
-        // Tăng cường tương phản cục bộ để tách bạch thẻ với nền
-        cv.equalizeHist(gray, gray);
-
-        // Khử nhiễu nền nhưng giữ mép
-        cv.bilateralFilter(gray, blurred, 9, 75, 75);
-        
-        // Auto Canny với biên độ động
-        let meanObj = new cv.Mat(); cv.meanStdDev(blurred, meanObj, new cv.Mat());
-        let meanVal = meanObj.data64F[0];
-        let lower = Math.max(0, 0.6 * meanVal); let upper = Math.min(255, 1.4 * meanVal);
-        cv.Canny(blurred, edges, lower, upper);
-        meanObj.delete();
-        
-        // Dãn nở viền để nối các nét đứt
-        let M = cv.Mat.ones(5, 5, cv.CV_8U); 
-        cv.dilate(edges, edges, M, new cv.Point(-1, -1), 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
-        cv.erode(edges, edges, M, new cv.Point(-1, -1), 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
-        
-        let contours = new cv.MatVector(); let hierarchy = new cv.Mat();
-        cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-        let bestApprox = null; let maxArea = 0;
-        let largestContour = null; let maxContourArea = 0;
-        let imgArea = processWidth * processHeight;
-        
-        for (let i = 0; i < contours.size(); ++i) {
-            let cnt = contours.get(i); let area = cv.contourArea(cnt);
-            
-            // Loại bỏ nhiễu nhỏ (<5%) và viền bao ngoài cùng của toàn bộ ảnh (>95%)
-            if (area > imgArea * 0.05 && area < imgArea * 0.95) { 
-                let peri = cv.arcLength(cnt, true); let approx = new cv.Mat(); 
-                cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-                
-                // Ưu tiên 1: Tóm được chính xác đa giác 4 góc (Bắt góc xéo, méo hình thang)
-                if (approx.rows === 4 && cv.isContourConvex(approx) && area > maxArea) {
-                    maxArea = area; if(bestApprox) bestApprox.delete(); bestApprox = approx.clone();
-                }
-                
-                // Lưu lại khối vật thể to nhất để làm dự phòng 
-                if (area > maxContourArea) {
-                    maxContourArea = area; if(largestContour) largestContour.delete(); largestContour = cnt.clone();
-                }
-                approx.delete();
-            }
-        }
-
-        let pts = [];
-        if (bestApprox) {
-            pts = [{x: bestApprox.data32S[0]/scale, y: bestApprox.data32S[1]/scale}, {x: bestApprox.data32S[2]/scale, y: bestApprox.data32S[3]/scale}, {x: bestApprox.data32S[4]/scale, y: bestApprox.data32S[5]/scale}, {x: bestApprox.data32S[6]/scale, y: bestApprox.data32S[7]/scale}];
-            bestApprox.delete();
-        } else if (largestContour) {
-            // DỰ PHÒNG THÔNG MINH: Căng một Khung chữ nhật NGHIÊNG quanh vật thể to nhất
-            let rotatedRect = cv.minAreaRect(largestContour);
-            let vertices = cv.RotatedRect.points(rotatedRect);
-            pts = [
-                {x: vertices[0].x / scale, y: vertices[0].y / scale},
-                {x: vertices[1].x / scale, y: vertices[1].y / scale},
-                {x: vertices[2].x / scale, y: vertices[2].y / scale},
-                {x: vertices[3].x / scale, y: vertices[3].y / scale}
-            ];
-            largestContour.delete();
-        } else {
-            // Cứu cánh cuối cùng
-            let w = imgElement.naturalWidth; let h = imgElement.naturalHeight;
-            let cardW = w * 0.7; let cardH = cardW / 1.58; let startY = (h - cardH) / 2;
-            pts = [{x: (w-cardW)/2, y: startY}, {x: (w+cardW)/2, y: startY}, {x: (w+cardW)/2, y: startY + cardH}, {x: (w-cardW)/2, y: startY + cardH}];
-        }
-        
-        // Sắp xếp lại thứ tự điểm: Trái-Trên, Phải-Trên, Phải-Dưới, Trái-Dưới
-        pts.sort((a, b) => a.y - b.y); let top = pts.slice(0, 2).sort((a, b) => a.x - b.x); let bottom = pts.slice(2, 4).sort((a, b) => a.x - b.x); pts = [top[0], top[1], bottom[1], bottom[0]];
-        
-        src.delete(); resized.delete(); gray.delete(); blurred.delete(); edges.delete(); M.delete(); contours.delete(); hierarchy.delete();
-        return pts;
-    }
-
-    function toggleExportOrder(docId) {
-        let doc = documents.find(d => d.id === docId); if (!doc.croppedDataUrl) return;
-        let index = exportOrder.indexOf(docId);
-        if (index > -1) exportOrder.splice(index, 1); else exportOrder.push(docId);
-        renderGallery();
-    }
-
     function renderGallery() {
-        gallery.innerHTML = ''; let hasCropped = false;
-        documents.forEach((doc, index) => {
-            let wrapper = document.createElement('div'); wrapper.className = 'thumb-wrapper';
+        let gal = document.getElementById('gallery'); gal.innerHTML = ''; let hasCropped = false;
+        documents.forEach((doc, i) => {
+            let div = document.createElement('div'); div.className = 'thumb-wrapper';
+            
             let img = document.createElement('img'); 
-            img.src = doc.croppedDataUrl ? doc.croppedDataUrl : doc.imgElement.src; 
-            img.className = 'thumb';
-            if (index === activeIndex) img.classList.add('active');
-            if (doc.croppedDataUrl) { img.classList.add('cropped'); hasCropped = true; }
-            img.onclick = () => selectDocument(index);
+            img.className = 'thumb ' + (i === activeIndex ? 'active ' : '') + (doc.croppedUrl ? 'cropped' : '');
+            img.src = doc.croppedUrl || doc.img.src; 
+            img.onclick = () => selectDoc(i);
+            div.appendChild(img);
             
             let badge = document.createElement('div'); badge.className = 'order-badge';
-            if (!doc.croppedDataUrl) { badge.classList.add('disabled'); badge.innerText = '-'; } 
+            if (!doc.croppedUrl) { badge.classList.add('disabled'); badge.innerText = '-'; } 
             else {
-                let orderIndex = exportOrder.indexOf(doc.id);
-                if (orderIndex > -1) { badge.classList.add('selected'); badge.innerText = orderIndex + 1; } 
-                else { badge.innerText = '+'; }
-                badge.onclick = () => toggleExportOrder(doc.id);
+                let oIdx = exportOrder.indexOf(doc.id);
+                if (oIdx > -1) { badge.classList.add('selected'); badge.innerText = oIdx + 1; } else { badge.innerText = '+'; }
+                badge.onclick = () => {
+                    let idx = exportOrder.indexOf(doc.id);
+                    if (idx > -1) exportOrder.splice(idx, 1); else exportOrder.push(doc.id);
+                    renderGallery();
+                };
             }
-            wrapper.appendChild(img); wrapper.appendChild(badge); gallery.appendChild(wrapper);
+            div.appendChild(badge);
+            gal.appendChild(div);
+            if(doc.croppedUrl) hasCropped = true;
         });
-        exportBtn.disabled = exportOrder.length === 0; 
-        document.getElementById('layoutSelect').disabled = !hasCropped;
-        document.getElementById('paperSizeSelect').disabled = !hasCropped;
-        formatSelect.disabled = !hasCropped;
+        
+        let state = !hasCropped || exportOrder.length === 0;
+        document.getElementById('exportAutoBtn').disabled = state; 
+        document.getElementById('exportLayoutBtn').disabled = state;
     }
 
-    function selectDocument(index) {
-        activeIndex = index; let doc = documents[index];
-        scaleRatio = Math.min(800 / doc.originalWidth, 1);
-        canvasInput.width = doc.originalWidth * scaleRatio; canvasInput.height = doc.originalHeight * scaleRatio;
-        warpBtn.disabled = false;
-        cropModeSelect.value = doc.mode || 'warp';
+    function selectDoc(idx) {
+        activeIndex = idx; let doc = documents[idx];
+        scaleRatio = Math.min(800 / doc.w, 1);
+        canvasInput.width = doc.w * scaleRatio; canvasInput.height = doc.h * scaleRatio;
         
-        colorFilterSelect.value = doc.filter || 'magic';
-        claheSlider.value = doc.claheLimit; brightSlider.value = doc.bright; contrastSlider.value = doc.contrast; bwCheckbox.checked = (doc.filter === 'bw_manual');
-        
-        updateSliderUI(doc.filter);
+        document.getElementById('cropModeSelect').value = doc.mode || 'warp';
+        document.getElementById('colorFilterSelect').value = doc.filter;
+        document.getElementById('claheSlider').value = doc.claheLimit;
+        document.getElementById('brightSlider').value = doc.bright;
+        document.getElementById('contrastSlider').value = doc.contrast;
+        document.getElementById('bwCheckbox').checked = doc.isBw;
+        document.getElementById('sliderContainer').style.display = (doc.filter === 'manual_all') ? 'flex' : 'none';
 
-        if (doc.croppedDataUrl) {
-            colorFilterSelect.disabled = false; rotateLeftBtn.disabled = false; rotateRightBtn.disabled = false;
-            redrawFilteredOutput();
-        } else {
-            colorFilterSelect.disabled = true; rotateLeftBtn.disabled = true; rotateRightBtn.disabled = true;
-            canvasOutput.width = 0; canvasOutput.height = 0;
+        document.getElementById('warpBtn').disabled = false; drawEditor();
+        
+        if(doc.croppedUrl) { 
+            document.getElementById('colorFilterSelect').disabled = false; document.getElementById('rotLBtn').disabled = false; document.getElementById('rotRBtn').disabled = false; applyFilter(); 
+        } else { 
+            document.getElementById('colorFilterSelect').disabled = true; document.getElementById('rotLBtn').disabled = true; document.getElementById('rotRBtn').disabled = true; canvasOutput.width=0; canvasOutput.height=0; 
+        } renderGallery();
+    }
+
+    function autoDetect(img) {
+        let sc = 600 / img.naturalWidth; let src = cv.imread(img); let small = new cv.Mat(); cv.resize(src, small, new cv.Size(600, img.naturalHeight * sc));
+        let gray = new cv.Mat(), edges = new cv.Mat(); cv.cvtColor(small, gray, cv.COLOR_RGBA2GRAY); cv.equalizeHist(gray, gray); cv.bilateralFilter(gray, edges, 9, 75, 75);
+        let meanObj = new cv.Mat(); cv.meanStdDev(gray, meanObj, new cv.Mat());
+        cv.Canny(edges, edges, Math.max(0, 0.66*meanObj.data64F[0]), Math.min(255, 1.33*meanObj.data64F[0])); meanObj.delete();
+        let M = cv.Mat.ones(5, 5, cv.CV_8U); cv.morphologyEx(edges, edges, cv.MORPH_CLOSE, M);
+        let contours = new cv.MatVector(), hierarchy = new cv.Mat(); cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+        let best = null, maxA = 0, largestCnt = null, largestA = 0;
+        for (let i = 0; i < contours.size(); ++i) {
+            let cnt = contours.get(i); let area = cv.contourArea(cnt);
+            if (area > 600 * (img.naturalHeight * sc) * 0.05 && area < 600 * (img.naturalHeight * sc) * 0.98) {
+                if(area > largestA) { largestA = area; if(largestCnt) largestCnt.delete(); largestCnt = cnt.clone(); }
+                let approx = new cv.Mat(); cv.approxPolyDP(cnt, approx, 0.03 * cv.arcLength(cnt, true), true);
+                if (approx.rows === 4 && cv.isContourConvex(approx) && area > maxA) { maxA = area; if(best) best.delete(); best = approx.clone(); } approx.delete();
+            } cnt.delete();
         }
-        drawEditor(); renderGallery();
+        let pts = [];
+        if (best) { pts = [{x: best.data32S[0]/sc, y: best.data32S[1]/sc}, {x: best.data32S[2]/sc, y: best.data32S[3]/sc}, {x: best.data32S[4]/sc, y: best.data32S[5]/sc}, {x: best.data32S[6]/sc, y: best.data32S[7]/sc}]; best.delete(); } 
+        else if (largestCnt) { let r = cv.minAreaRect(largestCnt); let v = cv.RotatedRect.points(r); pts = [{x: v[0].x/sc, y: v[0].y/sc}, {x: v[1].x/sc, y: v[1].y/sc}, {x: v[2].x/sc, y: v[2].y/sc}, {x: v[3].x/sc, y: v[3].y/sc}]; largestCnt.delete(); }
+        else { let w = img.naturalWidth, h = img.naturalHeight; pts = [{x: w*0.1, y: h*0.1}, {x: w*0.9, y: h*0.1}, {x: w*0.9, y: h*0.9}, {x: w*0.1, y: h*0.9}]; }
+        pts.sort((a,b)=>a.y-b.y); let top = pts.slice(0,2).sort((a,b)=>a.x-b.x), bot = pts.slice(2,4).sort((a,b)=>a.x-b.x);
+        src.delete(); small.delete(); gray.delete(); edges.delete(); M.delete(); contours.delete(); hierarchy.delete();
+        return [top[0], top[1], bot[1], bot[0]];
+    }
+
+    function resetPoints(type) {
+        if(activeIndex === -1) return; let doc = documents[activeIndex]; let w = doc.w, h = doc.h;
+        if(type === 'cccd') {
+            let cW = w * 0.7, cH = cW / 1.58; if(cH > h*0.8){ cH=h*0.6; cW=cH*1.58; }
+            doc.pts = [{x:(w-cW)/2,y:(h-cH)/2}, {x:(w+cW)/2,y:(h-cH)/2}, {x:(w+cW)/2,y:(h+cH)/2}, {x:(w-cW)/2,y:(h+cH)/2}];
+        } else {
+            let mX = w*0.05, mY = h*0.05; doc.pts = [{x:mX,y:mY}, {x:w-mX,y:mY}, {x:w-mX,y:h-mY}, {x:mX,y:h-mY}];
+        } document.getElementById('cropModeSelect').value = 'warp'; drawEditor();
     }
 
     function drawEditor() {
         if(activeIndex === -1) return; let doc = documents[activeIndex];
-        ctxInput.clearRect(0, 0, canvasInput.width, canvasInput.height); 
-        ctxInput.drawImage(doc.imgElement, 0, 0, canvasInput.width, canvasInput.height);
-        let dPts = doc.points.map(p => ({ x: p.x * scaleRatio, y: p.y * scaleRatio }));
-        
-        ctxInput.beginPath(); ctxInput.moveTo(dPts[0].x, dPts[0].y); 
-        for(let i=1; i<dPts.length; i++) { ctxInput.lineTo(dPts[i].x, dPts[i].y); }
-        ctxInput.closePath(); ctxInput.fillStyle = 'rgba(0, 229, 255, 0.12)'; ctxInput.fill();
-        ctxInput.lineWidth = 2.5; ctxInput.strokeStyle = '#00e5ff'; ctxInput.stroke();
-        
-        ctxInput.fillStyle = '#ffffff'; 
-        if (cropModeSelect.value === 'warp' && dPts.length === 4) {
-            for(let i=0; i<4; i++) {
-                let p1 = dPts[i]; let p2 = dPts[(i+1)%4];
-                ctxInput.beginPath(); ctxInput.arc((p1.x + p2.x)/2, (p1.y + p2.y)/2, 6, 0, 2*Math.PI); ctxInput.fill(); ctxInput.stroke();
-            }
-        }
-        dPts.forEach(p => { ctxInput.beginPath(); ctxInput.arc(p.x, p.y, 14, 0, 2 * Math.PI); ctxInput.fill(); ctxInput.stroke(); });
-    }
-
-    function getMousePos(canvas, evt) {
-        let rect = canvas.getBoundingClientRect(); let clientX = evt.clientX || (evt.touches && evt.touches[0].clientX); let clientY = evt.clientY || (evt.touches && evt.touches[0].clientY);
-        return { x: (clientX - rect.left) * (canvas.width / rect.width), y: (clientY - rect.top) * (canvas.height / rect.height) };
+        ctxInput.clearRect(0,0, canvasInput.width, canvasInput.height); ctxInput.drawImage(doc.img, 0,0, canvasInput.width, canvasInput.height);
+        let dP = doc.pts.map(p => ({ x: p.x * scaleRatio, y: p.y * scaleRatio }));
+        ctxInput.beginPath(); ctxInput.moveTo(dP[0].x, dP[0].y); for(let i=1; i<4; i++) ctxInput.lineTo(dP[i].x, dP[i].y);
+        ctxInput.closePath(); ctxInput.fillStyle='rgba(0,229,255,0.12)'; ctxInput.fill(); ctxInput.lineWidth=2.5; ctxInput.strokeStyle='#00e5ff'; ctxInput.stroke();
+        ctxInput.fillStyle='#ffffff'; 
+        if (document.getElementById('cropModeSelect').value === 'warp') { for(let i=0; i<4; i++) { ctxInput.beginPath(); ctxInput.arc((dP[i].x + dP[(i+1)%4].x)/2, (dP[i].y + dP[(i+1)%4].y)/2, 6, 0, 2*Math.PI); ctxInput.fill(); ctxInput.stroke(); } }
+        dP.forEach(p=>{ ctxInput.beginPath(); ctxInput.arc(p.x, p.y, 14, 0, 2*Math.PI); ctxInput.fill(); ctxInput.stroke(); });
     }
     
-    function handleDown(e) {
-        if(activeIndex === -1) return; let pos = getMousePos(canvasInput, e); let dPts = documents[activeIndex].points.map(p => ({ x: p.x * scaleRatio, y: p.y * scaleRatio }));
-        for (let i = 0; i < dPts.length; i++) { if (Math.hypot(dPts[i].x - pos.x, dPts[i].y - pos.y) < 35) { draggingPoint = { index: i }; break; } } 
-    }
-    function handleMove(e) {
-        if (!draggingPoint || activeIndex === -1) return; e.preventDefault(); let pos = getMousePos(canvasInput, e); let doc = documents[activeIndex];
-        doc.points[draggingPoint.index].x = Math.max(0, Math.min(pos.x, canvasInput.width)) / scaleRatio; doc.points[draggingPoint.index].y = Math.max(0, Math.min(pos.y, canvasInput.height)) / scaleRatio; drawEditor();
-    }
-    function handleUp() { draggingPoint = null; }
+    function getPos(e) { let r = canvasInput.getBoundingClientRect(); let cX = e.clientX||(e.touches && e.touches[0].clientX); let cY = e.clientY||(e.touches && e.touches[0].clientY); return {x:(cX-r.left)*(canvasInput.width/r.width), y:(cY-r.top)*(canvasInput.height/r.height)}; }
+    canvasInput.addEventListener('mousedown', e=>{ let pos = getPos(e); let dP = documents[activeIndex].pts.map(p=>({x:p.x*scaleRatio,y:p.y*scaleRatio})); for(let i=0;i<4;i++) if(Math.hypot(dP[i].x-pos.x, dP[i].y-pos.y)<35) {draggingPoint=i; break;} });
+    canvasInput.addEventListener('touchstart', e=>{ let pos = getPos(e); let dP = documents[activeIndex].pts.map(p=>({x:p.x*scaleRatio,y:p.y*scaleRatio})); for(let i=0;i<4;i++) if(Math.hypot(dP[i].x-pos.x, dP[i].y-pos.y)<35) {draggingPoint=i; break;} }, {passive:false});
+    window.addEventListener('mousemove', e=>{ if(draggingPoint===null||activeIndex===-1) return; e.preventDefault(); let pos=getPos(e); documents[activeIndex].pts[draggingPoint] = {x: Math.max(0,Math.min(pos.x, canvasInput.width))/scaleRatio, y: Math.max(0,Math.min(pos.y, canvasInput.height))/scaleRatio}; drawEditor(); });
+    window.addEventListener('touchmove', e=>{ if(draggingPoint===null||activeIndex===-1) return; e.preventDefault(); let pos=getPos(e); documents[activeIndex].pts[draggingPoint] = {x: Math.max(0,Math.min(pos.x, canvasInput.width))/scaleRatio, y: Math.max(0,Math.min(pos.y, canvasInput.height))/scaleRatio}; drawEditor(); }, {passive:false});
+    window.addEventListener('mouseup', ()=>draggingPoint=null); window.addEventListener('touchend', ()=>draggingPoint=null);
 
-    canvasInput.addEventListener('mousedown', handleDown); canvasInput.addEventListener('mousemove', handleMove); window.addEventListener('mouseup', handleUp);
-    canvasInput.addEventListener('touchstart', handleDown, {passive: false}); canvasInput.addEventListener('touchmove', handleMove, {passive: false}); window.addEventListener('touchend', handleUp);
-
-    warpBtn.addEventListener('click', () => {
-        if(activeIndex === -1) return; let doc = documents[activeIndex]; statusMsg.innerText = "Đang cắt ảnh...";
-        doc.mode = cropModeSelect.value; doc.rotation = 0;
-
+    function doCrop() {
+        if(activeIndex === -1) return; let doc = documents[activeIndex]; document.getElementById('status').innerText = "Đang cắt...";
         setTimeout(() => {
-            let srcMat = cv.imread(doc.imgElement); let croppedMat = new cv.Mat();
-
-            if (doc.mode === 'warp') {
-                let w1 = Math.hypot(doc.points[1].x - doc.points[0].x, doc.points[1].y - doc.points[0].y); let w2 = Math.hypot(doc.points[2].x - doc.points[3].x, doc.points[2].y - doc.points[3].y); let maxWidth = Math.round(Math.max(w1, w2));
-                let h1 = Math.hypot(doc.points[3].x - doc.points[0].x, doc.points[3].y - doc.points[0].y); let h2 = Math.hypot(doc.points[2].x - doc.points[1].x, doc.points[2].y - doc.points[1].y); let maxHeight = Math.round(Math.max(h1, h2));
-                let srcCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [doc.points[0].x, doc.points[0].y, doc.points[1].x, doc.points[1].y, doc.points[2].x, doc.points[2].y, doc.points[3].x, doc.points[3].y]);
-                let dstCoords = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, maxWidth, 0, maxWidth, maxHeight, 0, maxHeight]);
-                cv.warpPerspective(srcMat, croppedMat, cv.getPerspectiveTransform(srcCoords, dstCoords), new cv.Size(maxWidth, maxHeight), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-                srcCoords.delete(); dstCoords.delete();
+            let srcMat = cv.imread(doc.img); let dstMat = new cv.Mat();
+            if(document.getElementById('cropModeSelect').value === 'warp') {
+                let w1 = Math.hypot(doc.pts[1].x-doc.pts[0].x, doc.pts[1].y-doc.pts[0].y), w2 = Math.hypot(doc.pts[2].x-doc.pts[3].x, doc.pts[2].y-doc.pts[3].y), mW = Math.max(w1, w2);
+                let h1 = Math.hypot(doc.pts[3].x-doc.pts[0].x, doc.pts[3].y-doc.pts[0].y), h2 = Math.hypot(doc.pts[2].x-doc.pts[1].x, doc.pts[2].y-doc.pts[1].y), mH = Math.max(h1, h2);
+                let srcP = cv.matFromArray(4,1,cv.CV_32FC2, [doc.pts[0].x,doc.pts[0].y, doc.pts[1].x,doc.pts[1].y, doc.pts[2].x,doc.pts[2].y, doc.pts[3].x,doc.pts[3].y]);
+                let dstP = cv.matFromArray(4,1,cv.CV_32FC2, [0,0, mW,0, mW,mH, 0,mH]);
+                cv.warpPerspective(srcMat, dstMat, cv.getPerspectiveTransform(srcP, dstP), new cv.Size(mW, mH)); srcP.delete(); dstP.delete();
             } else {
-                let minX = Math.min(...doc.points.map(p => p.x)); let maxX = Math.max(...doc.points.map(p => p.x));
-                let minY = Math.min(...doc.points.map(p => p.y)); let maxY = Math.max(...doc.points.map(p => p.y));
-                let outW = maxX - minX; let outH = maxY - minY;
-                let rect = new cv.Rect(minX, minY, outW, outH); croppedMat = srcMat.roi(rect);
+                let mX=Math.min(...doc.pts.map(p=>p.x)), mY=Math.min(...doc.pts.map(p=>p.y)), maxX=Math.max(...doc.pts.map(p=>p.x)), maxY=Math.max(...doc.pts.map(p=>p.y));
+                dstMat = srcMat.roi(new cv.Rect(mX, mY, maxX-mX, maxY-mY));
             }
-
-            let tempCanvas = document.createElement('canvas');
-            tempCanvas.width = croppedMat.cols; tempCanvas.height = croppedMat.rows;
-            cv.imshow(tempCanvas, croppedMat);
-            doc.rawCroppedDataUrl = tempCanvas.toDataURL('image/jpeg', 1.0);
-
-            srcMat.delete(); croppedMat.delete();
-
-            if(!exportOrder.includes(doc.id)) exportOrder.push(doc.id);
-            colorFilterSelect.disabled = false; rotateLeftBtn.disabled = false; rotateRightBtn.disabled = false;
+            let tCanvas = document.createElement('canvas'); tCanvas.width = dstMat.cols; tCanvas.height = dstMat.rows;
+            cv.imshow(tCanvas, dstMat); doc.rawCropped = tCanvas.toDataURL('image/jpeg', 1.0); doc.rot = 0;
+            srcMat.delete(); dstMat.delete(); 
+            document.getElementById('colorFilterSelect').disabled = false; document.getElementById('rotLBtn').disabled = false; document.getElementById('rotRBtn').disabled = false;
             
-            redrawFilteredOutput();
-            statusMsg.innerText = "Đã cắt xong!";
-            setTimeout(() => { document.getElementById('canvasOutput').scrollIntoView({behavior: 'smooth', block: 'center'}); }, 200);
+            if(!exportOrder.includes(doc.id)) exportOrder.push(doc.id);
+            applyFilter(); document.getElementById('status').innerText = "Cắt thành công!"; setTimeout(()=>document.getElementById('canvasOutput').scrollIntoView({behavior:'smooth', block:'center'}), 200);
         }, 50);
-    });
+    }
 
-    rotateLeftBtn.addEventListener('click', () => { if (activeIndex === -1) return; documents[activeIndex].rotation = (documents[activeIndex].rotation - 90 + 360) % 360; redrawFilteredOutput(); });
-    rotateRightBtn.addEventListener('click', () => { if (activeIndex === -1) return; documents[activeIndex].rotation = (documents[activeIndex].rotation + 90) % 360; redrawFilteredOutput(); });
+    function rotateImg(deg) { if(activeIndex!==-1 && documents[activeIndex].rawCropped){ documents[activeIndex].rot = (documents[activeIndex].rot + deg + 360)%360; applyFilter(); } }
 
-    function updateSliderUI(mode) { sliderContainer.style.display = (mode === 'manual_all') ? 'flex' : 'none'; }
+    function handleFilterChange() {
+        if (activeIndex === -1) return;
+        let mode = document.getElementById('colorFilterSelect').value;
+        documents[activeIndex].filter = mode;
+        document.getElementById('sliderContainer').style.display = (mode === 'manual_all') ? 'flex' : 'none';
+        applyFilter();
+    }
 
-    colorFilterSelect.addEventListener('change', (e) => {
-        if (activeIndex === -1 || !documents[activeIndex].rawCroppedDataUrl) return;
-        let mode = e.target.value; documents[activeIndex].filter = mode;
-        updateSliderUI(mode); redrawFilteredOutput();
-    });
+    function applyFilter() {
+        if(activeIndex === -1 || !documents[activeIndex].rawCropped) return;
+        let doc = documents[activeIndex];
+        
+        if(doc.filter === 'manual_all') {
+            doc.claheLimit = parseFloat(document.getElementById('claheSlider').value);
+            doc.bright = parseInt(document.getElementById('brightSlider').value);
+            doc.contrast = parseFloat(document.getElementById('contrastSlider').value);
+            doc.isBw = document.getElementById('bwCheckbox').checked;
+        }
 
-    claheSlider.addEventListener('input', () => { documents[activeIndex].claheLimit = parseFloat(claheSlider.value); redrawFilteredOutput(); });
-    brightSlider.addEventListener('input', () => { documents[activeIndex].bright = parseInt(brightSlider.value); redrawFilteredOutput(); });
-    contrastSlider.addEventListener('input', () => { documents[activeIndex].contrast = parseFloat(contrastSlider.value); redrawFilteredOutput(); });
-    bwCheckbox.addEventListener('change', () => { redrawFilteredOutput(); });
+        let img = new Image();
+        img.onload = () => {
+            let src = cv.imread(img); let dst = new cv.Mat();
 
-    function redrawFilteredOutput() {
-        let doc = documents[activeIndex]; if (!doc.rawCroppedDataUrl) return;
-        let imgTemp = new Image();
-        imgTemp.onload = function() {
-            let src = cv.imread(imgTemp); let dst = new cv.Mat();
-
-            if (doc.filter === 'magic') {
-                let lab = new cv.Mat(); cv.cvtColor(src, lab, cv.COLOR_RGBA2RGB); cv.cvtColor(lab, lab, cv.COLOR_RGB2Lab);
-                let channels = new cv.MatVector(); cv.split(lab, channels);
-                let l = channels.get(0); let claheObj = new cv.CLAHE(2.5, new cv.Size(8, 8)); 
-                claheObj.apply(l, l); channels.set(0, l); cv.merge(channels, lab);
-                cv.cvtColor(lab, dst, cv.COLOR_Lab2RGB); cv.cvtColor(dst, dst, cv.COLOR_RGB2RGBA);
-                cv.convertScaleAbs(dst, dst, 1.2, 10); 
-                lab.delete(); channels.delete(); l.delete(); claheObj.delete();
+            if (doc.filter === 'magic_stamp') {
+                let gray = new cv.Mat(); cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                let bg = new cv.Mat(); let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(25, 25)); cv.morphologyEx(gray, bg, cv.MORPH_DILATE, kernel); cv.GaussianBlur(bg, bg, new cv.Size(15, 15), 0); 
+                let gray32 = new cv.Mat(), bg32 = new cv.Mat(), diff32 = new cv.Mat(), diff = new cv.Mat(); gray.convertTo(gray32, cv.CV_32F); bg.convertTo(bg32, cv.CV_32F);
+                cv.divide(gray32, bg32, diff32, 255); diff32.convertTo(diff, cv.CV_8U);
+                
+                cv.GaussianBlur(diff, diff, new cv.Size(3, 3), 0); 
+                cv.threshold(diff, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); 
+                cv.cvtColor(dst, dst, cv.COLOR_GRAY2RGBA);
+                
+                let hsv = new cv.Mat(); cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB); cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+                let maskR1 = new cv.Mat(), maskR2 = new cv.Mat(), maskB = new cv.Mat(), colorMask = new cv.Mat();
+                cv.inRange(hsv, new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[0,50,50,0]), new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[10,255,255,0]), maskR1);
+                cv.inRange(hsv, new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[160,50,50,0]), new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[180,255,255,0]), maskR2);
+                cv.inRange(hsv, new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[90,50,50,0]), new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[130,255,255,0]), maskB);
+                cv.bitwise_or(maskR1, maskR2, colorMask); cv.bitwise_or(colorMask, maskB, colorMask);
+                
+                let M_dilate = cv.Mat.ones(3, 3, cv.CV_8U); cv.dilate(colorMask, colorMask, M_dilate, new cv.Point(-1,-1), 1);
+                src.copyTo(dst, colorMask); 
+                
+                gray.delete(); bg.delete(); kernel.delete(); gray32.delete(); bg32.delete(); diff32.delete(); diff.delete();
+                hsv.delete(); maskR1.delete(); maskR2.delete(); maskB.delete(); colorMask.delete(); M_dilate.delete();
             } 
+            else if (doc.filter === 'magic') { cv.convertScaleAbs(src, dst, 1.25, 20); } 
             else if (doc.filter === 'manual_all') {
                 src.copyTo(dst);
                 if (doc.claheLimit > 0) {
-                    let lab = new cv.Mat(); cv.cvtColor(dst, lab, cv.COLOR_RGBA2RGB); cv.cvtColor(lab, lab, cv.COLOR_RGB2Lab);
-                    let channels = new cv.MatVector(); cv.split(lab, channels);
-                    let l = channels.get(0); let claheObj = new cv.CLAHE(doc.claheLimit, new cv.Size(8, 8));
-                    claheObj.apply(l, l); channels.set(0, l); cv.merge(channels, lab);
-                    cv.cvtColor(lab, dst, cv.COLOR_Lab2RGB); cv.cvtColor(dst, dst, cv.COLOR_RGB2RGBA);
-                    lab.delete(); channels.delete(); l.delete(); claheObj.delete();
+                    let lab = new cv.Mat(); cv.cvtColor(dst, lab, cv.COLOR_RGBA2RGB); cv.cvtColor(lab, lab, cv.COLOR_RGB2Lab); let channels = new cv.MatVector(); cv.split(lab, channels);
+                    let l = channels.get(0); let claheObj = new cv.CLAHE(doc.claheLimit, new cv.Size(8, 8)); claheObj.apply(l, l); channels.set(0, l); cv.merge(channels, lab);
+                    cv.cvtColor(lab, dst, cv.COLOR_Lab2RGB); cv.cvtColor(dst, dst, cv.COLOR_RGB2RGBA); lab.delete(); channels.delete(); l.delete(); claheObj.delete();
                 }
                 cv.convertScaleAbs(dst, dst, doc.contrast, doc.bright);
-                if (bwCheckbox.checked) {
-                    let gray = new cv.Mat(); cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY);
-                    cv.adaptiveThreshold(gray, dst, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 21, 12);
-                    gray.delete();
+                if (doc.isBw) { 
+                    let gray = new cv.Mat(); cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY); 
+                    cv.threshold(gray, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); 
+                    cv.cvtColor(dst, dst, cv.COLOR_GRAY2RGBA); gray.delete(); 
                 }
             } 
-            else { src.copyTo(dst); } 
+            else { src.copyTo(dst); }
 
-            let rotatedMat = new cv.Mat();
-            if (doc.rotation === 90) { cv.rotate(dst, rotatedMat, cv.ROTATE_90_CLOCKWISE); } 
-            else if (doc.rotation === 180) { cv.rotate(dst, rotatedMat, cv.ROTATE_180); } 
-            else if (doc.rotation === 270) { cv.rotate(dst, rotatedMat, cv.ROTATE_90_COUNTERCLOCKWISE); } 
-            else { dst.copyTo(rotatedMat); }
+            let rotMat = new cv.Mat();
+            if(doc.rot === 90) cv.rotate(dst, rotMat, cv.ROTATE_90_CLOCKWISE);
+            else if(doc.rot === 180) cv.rotate(dst, rotMat, cv.ROTATE_180);
+            else if(doc.rot === 270) cv.rotate(dst, rotMat, cv.ROTATE_90_COUNTERCLOCKWISE);
+            else dst.copyTo(rotMat);
 
-            canvasOutput.width = rotatedMat.cols; canvasOutput.height = rotatedMat.rows;
-            cv.imshow('canvasOutput', rotatedMat);
-            doc.croppedDataUrl = canvasOutput.toDataURL('image/jpeg', 0.95);
-            src.delete(); dst.delete(); rotatedMat.delete(); renderGallery(); 
-        };
-        imgTemp.src = doc.rawCroppedDataUrl;
+            canvasOutput.width = rotMat.cols; canvasOutput.height = rotMat.rows;
+            cv.imshow('canvasOutput', rotMat); doc.croppedUrl = canvasOutput.toDataURL('image/jpeg', 0.95);
+            src.delete(); dst.delete(); rotMat.delete(); renderGallery();
+        }; img.src = doc.rawCropped;
     }
 
-    exportBtn.addEventListener('click', async () => {
-        if(exportOrder.length === 0) { alert("Vui lòng chọn ít nhất 1 ảnh để xuất!"); return; }
+    let stream = null;
+    function openWebcamModal() {
+        document.getElementById('webcamModal').style.display='block';
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+            let s = document.getElementById('webcamSelect'); s.innerHTML='';
+            devices.forEach(d => { if(d.kind==='videoinput'){ let o = document.createElement('option'); o.value=d.deviceId; o.text=d.label||'Camera'; s.appendChild(o); } });
+            if(s.options.length > 0) startStream();
+        });
+    }
+    function closeWebcamModal() { document.getElementById('webcamModal').style.display='none'; if(stream) stream.getTracks().forEach(t=>t.stop()); }
+    function startStream() {
+        if(stream) stream.getTracks().forEach(t=>t.stop());
+        let id = document.getElementById('webcamSelect').value; let res = document.getElementById('resSelect').value.split('x');
+        navigator.mediaDevices.getUserMedia({ video: { deviceId: id ? {exact:id} : undefined, width:{ideal:parseInt(res[0])}, height:{ideal:parseInt(res[1])} } }).then(s => { stream = s; document.getElementById('webcamVideo').srcObject = s; });
+    }
+    function captureWebcam() {
+        let v = document.getElementById('webcamVideo'); let c = document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
+        c.getContext('2d').drawImage(v,0,0); c.toBlob(b => { let file = new File([b], "webcam_"+Date.now()+".jpg", {type:"image/jpeg"}); loadFiles([file]); closeWebcamModal(); }, 'image/jpeg', 1.0);
+    }
+
+    function exportStandardPDF() {
+        if(exportOrder.length === 0) return alert("Vui lòng chọn ít nhất 1 ảnh để xuất!");
+        let mode = parseInt(document.getElementById('layoutSelect').value); let paperType = document.getElementById('paperSizeSelect').value; let exportFormat = document.getElementById('formatSelect').value; 
+        let BASE_W = paperType === 'a4' ? 2480 : 1748; let BASE_H = paperType === 'a4' ? 3508 : 2480; const GAP = 120; const CARD_MARGIN = 150; 
+        
+        let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && d.croppedUrl);
+        Promise.all(docsToExport.map(doc => new Promise(res => { let img = new Image(); img.onload = () => res(img); img.src = doc.croppedUrl; }))).then(async loadedImages => {
+            let totalPages = Math.ceil(loadedImages.length / mode);
+            let { jsPDF } = window.jspdf; let pdf = null;
+            document.getElementById('status').innerText = `Đang xuất ${totalPages} trang...`;
+
+            for (let page = 0; page < totalPages; page++) {
+                let imgs = loadedImages.slice(page * mode, (page + 1) * mode); let isLandscape = (mode === 1 && imgs[0].width > imgs[0].height);
+                let PAPER_W = isLandscape ? Math.max(BASE_W, BASE_H) : Math.min(BASE_W, BASE_H); let PAPER_H = isLandscape ? Math.min(BASE_W, BASE_H) : Math.max(BASE_W, BASE_H);
+                let canvas = document.createElement('canvas'); canvas.width = PAPER_W; canvas.height = PAPER_H; let ctx = canvas.getContext('2d'); ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, PAPER_W, PAPER_H);
+
+                if (mode === 1) { ctx.drawImage(imgs[0], 0, 0, PAPER_W, PAPER_H); } 
+                else {
+                    let usableW = PAPER_W - CARD_MARGIN * 2; let usableH = PAPER_H - CARD_MARGIN * 2; let standardWidth = usableW * 0.65; 
+                    let totalBlockHeight = imgs.reduce((sum, img) => sum + standardWidth * (img.height / img.width), 0) + GAP * (imgs.length - 1);
+                    if (totalBlockHeight > usableH) { let shrinkRatio = usableH / totalBlockHeight; standardWidth *= shrinkRatio; totalBlockHeight = usableH; }
+                    let startY = CARD_MARGIN + (usableH - totalBlockHeight) / 2;
+                    imgs.forEach(img => { let drawW = standardWidth; let drawH = standardWidth * (img.height / img.width); let x = CARD_MARGIN + (usableW - drawW) / 2; ctx.drawImage(img, x, startY, drawW, drawH); startY += drawH + GAP; });
+                }
+
+                let imgData = canvas.toDataURL('image/jpeg', 0.95);
+                if (exportFormat === 'pdf') {
+                    let orientation = isLandscape ? 'l' : 'p'; if (!pdf) { pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: paperType }); } else { pdf.addPage(paperType, orientation); }
+                    let pdfW = pdf.internal.pageSize.getWidth(); let pdfH = pdf.internal.pageSize.getHeight(); pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
+                } else {
+                    let link = document.createElement('a'); link.download = `Hoso_Trang_${page + 1}_${Date.now()}.jpg`; link.href = imgData; link.click(); await new Promise(r => setTimeout(r, 400));
+                }
+            }
+            if (exportFormat === 'pdf') { pdf.save(`HoSo_Scan_${Date.now()}.pdf`); }
+            document.getElementById('status').innerText = "Xuất hồ sơ thành công!";
+        });
+    }
+
+    let boardPages = 0;
+    function openLayoutMode() {
+        let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && d.croppedUrl);
+        if(docsToExport.length === 0) return alert("Vui lòng chọn (+) ít nhất 1 ảnh dưới khay để xếp bố cục!");
+
+        document.getElementById('mainUI').style.display = 'none'; document.getElementById('layoutUI').style.display = 'block';
+        let container = document.getElementById('boardContainer'); container.innerHTML = ''; 
+        
         let mode = parseInt(document.getElementById('layoutSelect').value);
-        let paperType = document.getElementById('paperSizeSelect').value; 
-        let exportFormat = formatSelect.value; 
+        let totalPages = Math.ceil(docsToExport.length / mode);
+        boardPages = totalPages;
         
-        let BASE_W = paperType === 'a4' ? 2480 : 1748; let BASE_H = paperType === 'a4' ? 3508 : 2480; 
-        const GAP = 120; const CARD_MARGIN = 150; 
-        let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && d.croppedDataUrl);
-        let loadedImages = await Promise.all(docsToExport.map(doc => new Promise(res => { let img = new Image(); img.onload = () => res(img); img.src = doc.croppedDataUrl; })));
+        let PAPER_W = 794; let PAPER_H = 1123; let GAP = 40; let CARD_MARGIN = 50;
+        container.style.height = (boardPages * PAPER_H) + 'px';
         
-        let totalPages = Math.ceil(loadedImages.length / mode);
-        statusMsg.innerText = `Đang xuất ${totalPages} trang...`;
-        let { jsPDF } = window.jspdf; let pdf = null;
-
-        for (let page = 0; page < totalPages; page++) {
-            let imgs = loadedImages.slice(page * mode, (page + 1) * mode);
-            let isLandscape = (mode === 1 && imgs[0].width > imgs[0].height);
-            let PAPER_W = isLandscape ? Math.max(BASE_W, BASE_H) : Math.min(BASE_W, BASE_H);
-            let PAPER_H = isLandscape ? Math.min(BASE_W, BASE_H) : Math.max(BASE_W, BASE_H);
-
-            let canvas = document.createElement('canvas'); canvas.width = PAPER_W; canvas.height = PAPER_H;
-            let ctx = canvas.getContext('2d'); ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, PAPER_W, PAPER_H);
-
-            if (mode === 1) { ctx.drawImage(imgs[0], 0, 0, PAPER_W, PAPER_H); } 
-            else {
-                let usableW = PAPER_W - CARD_MARGIN * 2; let usableH = PAPER_H - CARD_MARGIN * 2;
-                let standardWidth = usableW * 0.65; 
-                let totalBlockHeight = imgs.reduce((sum, img) => sum + standardWidth * (img.height / img.width), 0) + GAP * (imgs.length - 1);
-                if (totalBlockHeight > usableH) { let shrinkRatio = usableH / totalBlockHeight; standardWidth *= shrinkRatio; totalBlockHeight = usableH; }
-                let startY = CARD_MARGIN + (usableH - totalBlockHeight) / 2;
-                imgs.forEach(img => {
-                    let drawW = standardWidth; let drawH = standardWidth * (img.height / img.width);
-                    let x = CARD_MARGIN + (usableW - drawW) / 2;
-                    ctx.drawImage(img, x, startY, drawW, drawH); startY += drawH + GAP; 
-                });
-            }
-
-            let imgData = canvas.toDataURL('image/jpeg', 0.95);
-            if (exportFormat === 'pdf') {
-                let orientation = isLandscape ? 'l' : 'p';
-                if (!pdf) { pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: paperType }); } 
-                else { pdf.addPage(paperType, orientation); }
-                let pdfW = pdf.internal.pageSize.getWidth(); let pdfH = pdf.internal.pageSize.getHeight();
-                pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
-            } else {
-                let link = document.createElement('a'); link.download = `Hoso_Trang_${page + 1}_${Date.now()}.jpg`; 
-                link.href = imgData; link.click(); await new Promise(r => setTimeout(r, 400)); 
-            }
+        for(let i=1; i<=boardPages; i++) {
+            let pageLine = document.createElement('div');
+            pageLine.style.position = 'absolute'; pageLine.style.top = (i * PAPER_H) + 'px'; pageLine.style.left = '0'; pageLine.style.width = '100%'; pageLine.style.borderTop = '2px dashed red';
+            pageLine.innerHTML = `<span style="background:red; color:white; padding:2px 5px; position:absolute; top:-20px;">Hết trang ${i}</span>`;
+            container.appendChild(pageLine);
         }
-        if (exportFormat === 'pdf') { pdf.save(`HoSo_Scan_${Date.now()}.pdf`); }
-        statusMsg.innerText = `Hoàn tất! Đã xuất ${exportFormat === 'pdf' ? '1 file PDF' : totalPages + ' file JPG'}.`;
-    });
+
+        Promise.all(docsToExport.map(doc => new Promise(res => {
+            let img = new Image(); img.onload = () => res(img); img.src = doc.croppedUrl;
+        }))).then(imgs => {
+            for (let page = 0; page < totalPages; page++) {
+                let pageImgs = imgs.slice(page * mode, (page + 1) * mode);
+                let pageStartY = page * PAPER_H;
+
+                if (mode === 1) {
+                    pageImgs.forEach(img => {
+                        let scale = Math.min(PAPER_W / img.width, PAPER_H / img.height);
+                        let drawW = img.width * scale; let drawH = img.height * scale;
+                        let startX = (PAPER_W - drawW) / 2; let startY = pageStartY + (PAPER_H - drawH) / 2;
+                        createDraggable(img, container, startX, startY, drawW, drawH);
+                    });
+                } else {
+                    let usableW = PAPER_W - CARD_MARGIN * 2; let usableH = PAPER_H - CARD_MARGIN * 2; let standardWidth = usableW * 0.75; 
+                    let totalBlockHeight = pageImgs.reduce((sum, img) => sum + standardWidth * (img.height / img.width), 0) + GAP * (pageImgs.length - 1);
+                    if (totalBlockHeight > usableH) { let shrinkRatio = usableH / totalBlockHeight; standardWidth *= shrinkRatio; totalBlockHeight = usableH; }
+                    let startY = pageStartY + CARD_MARGIN + (usableH - totalBlockHeight) / 2;
+                    pageImgs.forEach(img => {
+                        let drawW = standardWidth; let drawH = standardWidth * (img.height / img.width); let x = CARD_MARGIN + (usableW - drawW) / 2;
+                        createDraggable(img, container, x, startY, drawW, drawH); startY += drawH + GAP;
+                    });
+                }
+            }
+        });
+    }
+
+    function createDraggable(img, container, x, y, w, h) {
+        let div = document.createElement('div'); div.className = 'draggable-item';
+        div.style.left = x + 'px'; div.style.top = y + 'px'; div.style.width = w + 'px'; div.style.height = h + 'px';
+        let cloneImg = new Image(); cloneImg.src = img.src; div.appendChild(cloneImg);
+        let resizer = document.createElement('div'); resizer.className = 'resizer'; div.appendChild(resizer); container.appendChild(div);
+        
+        let isDrag=false, isRes=false, sX, sY, sW, sH, sL, sT; let getP = e => e.touches ? e.touches[0] : e;
+        resizer.onmousedown = resizer.ontouchstart = e => { e.stopPropagation(); isRes=true; let p = getP(e); sX=p.clientX; sW=div.offsetWidth; sH=div.offsetHeight; };
+        div.onmousedown = div.ontouchstart = e => { if(e.target===resizer) return; isDrag=true; let p = getP(e); sX=p.clientX; sY=p.clientY; sL=div.offsetLeft; sT=div.offsetTop; };
+        
+        let dragMove = e => {
+            if(!isDrag && !isRes) return; let p = getP(e);
+            if(isDrag) { e.preventDefault(); div.style.left = (sL + p.clientX - sX) + 'px'; div.style.top = (sT + p.clientY - sY) + 'px'; }
+            if(isRes) { e.preventDefault(); let nW = sW + (p.clientX - sX); div.style.width = nW + 'px'; div.style.height = (sH/sW)*nW + 'px'; }
+        };
+        let stopDrag = () => { isDrag = false; isRes = false; };
+        window.addEventListener('mousemove', dragMove); window.addEventListener('touchmove', dragMove, {passive:false});
+        window.addEventListener('mouseup', stopDrag); window.addEventListener('touchend', stopDrag);
+    }
+    
+    function closeLayoutMode() { document.getElementById('mainUI').style.display = 'block'; document.getElementById('layoutUI').style.display = 'none'; }
+    
+    function addBoardPage() {
+        boardPages++; let container = document.getElementById('boardContainer');
+        container.style.height = (boardPages * 1123) + 'px'; 
+        let pageLine = document.createElement('div');
+        pageLine.style.position = 'absolute'; pageLine.style.top = (boardPages * 1123) + 'px'; pageLine.style.left = '0'; pageLine.style.width = '100%'; pageLine.style.borderTop = '2px dashed red';
+        pageLine.innerHTML = `<span style="background:red; color:white; padding:2px 5px; position:absolute; top:-20px;">Hết trang ${boardPages}</span>`;
+        container.appendChild(pageLine);
+    }
+
+    async function exportCustomPDF() {
+        let { jsPDF } = window.jspdf; let pdf = new jsPDF('p', 'px', [794, 1123]); let items = document.querySelectorAll('.draggable-item');
+        document.getElementById('statusLayout').innerText = `Đang xuất PDF...`;
+        for(let page = 0; page < boardPages; page++) {
+            if(page > 0) pdf.addPage();
+            let pageStartY = page * 1123; let pageEndY = (page + 1) * 1123;
+            items.forEach(item => {
+                let y = item.offsetTop; let x = item.offsetLeft; let w = item.offsetWidth; let h = item.offsetHeight;
+                let centerY = y + h/2;
+                if(centerY >= pageStartY && centerY < pageEndY) { let img = item.querySelector('img'); pdf.addImage(img.src, 'JPEG', x, y - pageStartY, w, h); }
+            });
+        }
+        pdf.save(`HoSo_BanGhep_${Date.now()}.pdf`); document.getElementById('statusLayout').innerText = `Hoàn tất lưu PDF!`;
+    }
 </script>
 </body>
 </html>
