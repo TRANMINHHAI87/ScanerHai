@@ -6,62 +6,54 @@
     <title>Scanner Pro - Agribank Bắc Giang II</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 15px; background: #f4f6f9; margin: 0; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .container { max-width: 900px; margin: auto; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .brand-wrapper { display: flex; flex-direction: column; align-items: center; width: 250px; margin: 0 auto 25px; }
+        .brand-logo { height: 50px; width: 100%; object-fit: contain; display: block; }
+        .branch-name { color: #8a0c25; font-size: 15px; font-weight: 900; -webkit-text-stroke: 0.5px #8a0c25; margin-top: 5px; width: 100%; text-align: justify; text-align-last: justify; border-top: 2px solid #8a0c25; padding-top: 4px; }
         
-        .brand-header { text-align: center; margin-bottom: 25px; }
-        .brand-wrapper { display: inline-flex; flex-direction: column; align-items: center; width: 250px; }
-        .brand-logo { height: 50px; width: 100%; object-fit: contain; margin: 0 auto; display: block; }
-        .branch-name { 
-            color: #8a0c25; font-size: 15px; font-weight: 900; 
-            -webkit-text-stroke: 0.5px #8a0c25; margin-top: 5px; 
-            width: 100%; text-align: justify; text-align-last: justify; 
-            border-top: 2px solid #8a0c25; padding-top: 4px; 
-        }
-        
-        .controls { display: flex; gap: 10px; flex-wrap: wrap; background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        button, select, input[type="file"] { padding: 10px 15px; cursor: pointer; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-size: 14px; font-weight: bold;}
-        .btn-primary { background: #0d6efd; color: white; border: none; }
-        .btn-success { background: #198754; color: white; border: none; width: 100%; padding: 15px; font-size: 16px;}
-        .btn-warning { background: #ffc107; color: #000; border: none; }
-        .btn-danger { background: #dc3545; color: white; border: none; flex-grow: 1; display: flex; align-items: center; justify-content: center; gap: 5px;}
-        button:disabled { background: #ccc !important; cursor: not-allowed !important; color: #666 !important; }
+        .controls, .filter-group, .controls-bottom { background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .controls-bottom { background: #d1e7dd; border: 1px solid #badbcc; }
+        button, select, input[type="file"] { padding: 10px 15px; cursor: pointer; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-weight: bold; font-size: 14px;}
+        .btn-primary { background: #0d6efd; color: #fff; border: none; }
+        .btn-success { background: #198754; color: #fff; border: none; flex: 1; padding: 12px; font-size: 15px;}
+        .btn-warning { background: #ffc107; color: #000; border: none; flex: 1; }
+        .btn-danger { background: #dc3545; color: #fff; border: none; flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        button:disabled { background: #ccc !important; color: #666 !important; cursor: not-allowed !important; }
         
         .panel { border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-        canvas { max-width: 100%; display: block; margin: auto; border-radius: 4px; touch-action: none; }
+        canvas { max-width: 100%; display: block; margin: auto; border-radius: 4px; touch-action: none;}
+        #canvasInput { background: #f8f9fa; cursor: crosshair; }
+        #canvasOutput { background: #f8f9fa; border: 1px dashed #ccc; min-height: 100px; margin-bottom: 10px;}
         
-        .filter-group { display: flex; flex-direction: column; gap: 10px; background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6; width: 100%; box-sizing: border-box;}
-        .slider-container { display: flex; flex-direction: column; gap: 12px; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef;}
-        .slider-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;}
-        .slider-row label { font-size: 14px; font-weight: bold; color: #495057; width: 100px;}
-        .slider-row input[type="range"] { flex-grow: 1; accent-color: #0d6efd;}
-
-        .gallery-container { border-top: 2px solid #eee; padding-top: 15px; overflow-x: auto; white-space: nowrap; margin-bottom: 15px; padding-bottom: 10px;}
-        .thumb-wrapper { display: inline-block; position: relative; width: 80px; margin-right: 15px; text-align: center; }
-        .thumb { width: 100%; height: 80px; object-fit: contain; cursor: pointer; border: 3px solid transparent; border-radius: 8px; background: #f8f9fa; transition: 0.2s;}
+        .slider-container { display: none; flex-direction: column; gap: 12px; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef; width: 100%;}
+        .slider-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .slider-row label { font-size: 14px; font-weight: bold; color: #495057; width: 100px; }
+        .slider-row input[type="range"] { flex: 1; accent-color: #0d6efd; }
+        
+        .gallery-container { border-top: 2px solid #eee; padding-top: 25px; overflow-x: auto; white-space: nowrap; margin-bottom: 15px; padding-bottom: 15px;}
+        .thumb-wrapper { display: inline-block; position: relative; width: 90px; margin-right: 20px; text-align: center; }
+        .thumb { width: 100%; height: 90px; object-fit: contain; cursor: pointer; border: 3px solid transparent; border-radius: 8px; background: #f8f9fa; transition: 0.2s;}
         .thumb.active { border-color: #0d6efd; box-shadow: 0 0 10px rgba(13,110,253,0.4); }
         .thumb.cropped { border-color: #198754; background: #fff;}
         
-        .order-badge { display: inline-block; width: 26px; height: 26px; border-radius: 50%; background: #e9ecef; color: #6c757d; line-height: 26px; cursor: pointer; font-weight: bold; user-select: none; margin: 5px auto 0; border: 1px solid #ced4da;}
+        /* CHẤM TRÒN CHỌN THỨ TỰ: Nằm góc trên cùng bên trái */
+        .order-badge { position: absolute; top: -12px; left: -12px; width: 28px; height: 28px; border-radius: 50%; background: #e9ecef; color: #6c757d; line-height: 28px; cursor: pointer; font-weight: bold; user-select: none; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; }
         .order-badge.selected { background: #0d6efd; color: white; border-color: #0d6efd; }
 
-        .controls-bottom { background: #d1e7dd; border: 1px solid #badbcc; padding: 15px; border-radius: 8px; margin-bottom: 15px;}
-        
-        /* GIAO DIỆN BẢNG KÉO THẢ */
-        #layoutWorkspace { display: none; background: #525659; padding: 20px 0; overflow-x: auto; text-align: center; border-radius: 8px;}
-        #boardContainer { position: relative; width: 794px; background: white; margin: 0 auto; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        /* BỐ CỤC KÉO THẢ */
+        #layoutWorkspace { background: #525659; padding: 20px; overflow-x: auto; border-radius: 8px; display: flex; justify-content: center;}
+        #boardContainer { position: relative; width: 794px; background: white; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
         .draggable-item { position: absolute; border: 2px solid transparent; box-sizing: border-box; }
         .draggable-item:hover { border: 2px dashed #0d6efd; }
-        .draggable-item img { width: 100%; height: 100%; display: block; object-fit: fill; pointer-events: none;}
+        .draggable-item img { width: 100%; height: 100%; display: block; pointer-events: none;}
         .resizer { position: absolute; right: -8px; bottom: -8px; width: 20px; height: 20px; background: #0d6efd; border-radius: 50%; cursor: se-resize; z-index: 10; border: 2px solid white; box-shadow: 0 0 3px #000;}
         
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; }
         .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 700px; }
         #webcamVideo { width: 100%; background: #000; border-radius: 8px; margin: 10px 0; max-height: 60vh;}
-        
         .status { font-weight: bold; color: #198754; text-align: center; margin-bottom: 10px; }
-        .footer-credit { text-align: center; padding: 20px; color: #555; font-size: 14px; font-weight: bold; margin-top: 20px; border-top: 1px solid #eee; }
-        
-        @media (max-width: 600px) { .controls { flex-direction: column; align-items: stretch; } .btn-danger, .btn-warning { width: 100%; } }
+        .footer-credit { text-align: center; padding: 20px; color: #555; font-size: 14px; font-weight: bold; border-top: 1px solid #eee; }
+        @media (max-width: 600px) { .controls, .filter-group, .controls-bottom { flex-direction: column; align-items: stretch;} }
     </style>
     <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="cvReady=true; document.getElementById('status').innerText='Hệ thống sẵn sàng!'; document.getElementById('cameraBtn').disabled=false; document.getElementById('fileInput').disabled=false;"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -69,113 +61,87 @@
 <body>
 
 <div class="container" id="mainUI">
-    <div class="brand-header">
-        <div class="brand-wrapper">
-            <img src="logo.jpg" alt="Logo" class="brand-logo" onerror="this.style.display='none';">
-            <div class="branch-name">CHI NHÁNH BẮC GIANG II</div>
-        </div>
-    </div>
-
-    <div id="status" class="status">Đang tải trí tuệ nhân tạo AI (vui lòng chờ)...</div>
+    <div class="brand-wrapper"><img src="logo.jpg" alt="Logo" class="brand-logo" onerror="this.style.display='none';"><div class="branch-name">CHI NHÁNH BẮC GIANG II</div></div>
+    <div id="status" class="status">Đang tải trí tuệ nhân tạo (vui lòng chờ)...</div>
     
     <div class="controls">
-        <input type="file" id="fileInput" accept="image/*" multiple disabled title="Tải ảnh có sẵn" style="flex-grow: 1;">
+        <input type="file" id="fileInput" accept="image/*" multiple disabled title="Tải ảnh có sẵn" style="flex: 1;">
         <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
-        <button id="cameraBtn" class="btn-danger" onclick="handleCameraBtn()" disabled>📸 Chụp Ảnh Trực Tiếp</button>
+        <button id="cameraBtn" class="btn-danger" onclick="handleCameraBtn()" disabled>📸 Chụp Ảnh Mới</button>
     </div>
 
     <div class="panel">
         <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-            <select id="cropModeSelect" style="flex-grow: 1;">
-                <option value="warp">Nắn phẳng viền</option>
-                <option value="polygon">Cắt tự do</option>
-            </select>
-            <button class="btn-primary" onclick="resetPoints('cccd')">🎯 Khung CCCD</button>
-            <button class="btn-primary" onclick="resetPoints('a4')" style="background:#0dcaf0; color:black;">📄 Khung A4</button>
+            <select id="cropModeSelect" style="flex: 1;"><option value="warp">Nắn phẳng</option><option value="polygon">Cắt tự do</option></select>
+            <button class="btn-primary" onclick="resetPoints('cccd')">🎯 CCCD</button>
+            <button class="btn-primary" onclick="resetPoints('a4')" style="background:#0dcaf0; color:black;">📄 Giấy A4</button>
         </div>
-        <canvas id="canvasInput" style="background:#f8f9fa; cursor:crosshair;"></canvas>
-        <button class="btn-success" id="warpBtn" onclick="doCrop()" disabled style="margin-top:15px; border-radius: 50px;">✂️ CẮT ẢNH</button>
+        <canvas id="canvasInput"></canvas>
+        <button class="btn-success" id="warpBtn" onclick="doCrop()" disabled style="margin-top:15px; border-radius:50px;">✂️ CẮT ẢNH NÀY</button>
     </div>
 
     <div class="panel">
-        <canvas id="canvasOutput" style="background:#f8f9fa; border:1px dashed #ccc; margin-bottom:10px; min-height:100px;"></canvas>
-        
+        <canvas id="canvasOutput"></canvas>
         <div class="filter-group">
             <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                <label style="white-space: nowrap;"><b>Chỉnh màu:</b></label>
-                <select id="colorFilterSelect" style="flex-grow: 1;" onchange="handleFilterChange()" disabled>
-                    <option value="magic_stamp" selected>✨ Lọc Dấu Đỏ & Chữ Đen (Chuẩn)</option>
-                    <option value="magic">🌟 Tự động tăng sáng (Giữ màu)</option>
-                    <option value="manual_all">🎚️ Chỉnh tay (Sáng/Tối/Khử Bóng)</option>
+                <label style="white-space: nowrap; font-weight:bold;">Chỉnh màu:</label>
+                <select id="colorFilterSelect" style="flex: 1;" disabled>
+                    <option value="magic_stamp" selected>✨ Lọc Dấu Đỏ & Chữ Đen</option>
+                    <option value="magic">🌟 Bù Sáng (Giữ màu)</option>
+                    <option value="manual_all">🎚️ Chỉnh Tay (Sáng/Tối)</option>
                     <option value="original">🖼️ Ảnh gốc</option>
                 </select>
             </div>
-            
-            <div id="sliderContainer" class="slider-container" style="display: none;">
-                <div class="slider-row"><label>Khử bóng:</label><input type="range" id="claheSlider" min="0" max="10" step="0.5" value="0" oninput="applyFilter()"></div>
-                <div class="slider-row"><label>Sáng/Tối:</label><input type="range" id="brightSlider" min="-100" max="100" value="0" oninput="applyFilter()"></div>
-                <div class="slider-row"><label>Tương phản:</label><input type="range" id="contrastSlider" min="1" max="3" step="0.1" value="1.0" oninput="applyFilter()"></div>
-                <div class="slider-row"><label>Đen Trắng:</label><input type="checkbox" id="bwCheckbox" style="transform: scale(1.3); cursor:pointer;" onchange="applyFilter()"></div>
+            <div id="sliderContainer" class="slider-container">
+                <div class="slider-row"><label>Khử bóng:</label><input type="range" id="claheSlider" min="0" max="10" step="0.5" value="0"></div>
+                <div class="slider-row"><label>Sáng/Tối:</label><input type="range" id="brightSlider" min="-100" max="100" value="0"></div>
+                <div class="slider-row"><label>Tương phản:</label><input type="range" id="contrastSlider" min="1" max="3" step="0.1" value="1.0"></div>
+                <div class="slider-row"><label>Đen Trắng:</label><input type="checkbox" id="bwCheckbox" style="transform: scale(1.3); cursor:pointer;"></div>
             </div>
-            
-            <div style="display:flex; gap:10px; margin-top: 10px;">
-                <button id="rotLBtn" class="btn-warning" style="flex:1;" onclick="rotateImg(-90)" disabled>↺ Xoay Trái</button>
-                <button id="rotRBtn" class="btn-warning" style="flex:1;" onclick="rotateImg(90)" disabled>Xoay Phải ↻</button>
+            <div style="display:flex; gap:10px; width:100%;">
+                <button id="rotLBtn" class="btn-warning" onclick="rotateImg(-90)" disabled>↺ Xoay Trái</button>
+                <button id="rotRBtn" class="btn-warning" onclick="rotateImg(90)" disabled>Xoay Phải ↻</button>
             </div>
         </div>
     </div>
 
-    <h4 style="color:#495057; margin-bottom: 5px;">Khay Ảnh (Bấm [+] để chọn số thứ tự ghép)</h4>
+    <h4 style="color:#495057; margin-bottom: 0;">Khay Ảnh (Bấm [+] góc trái ảnh để chọn ghép)</h4>
     <div class="gallery-container" id="gallery"></div>
     
     <div class="controls-bottom">
-        <h4 style="margin-top:0; color:#8a0c25; text-align:center;">BỐ CỤC & XUẤT HỒ SƠ</h4>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
-            <select id="paperSizeSelect" style="flex-grow: 1;"><option value="a4" selected>Khổ A4</option></select>
-            <select id="layoutSelect" style="flex-grow: 1;">
-                <option value="1">1 ảnh/trang</option>
-                <option value="2" selected>2 ảnh/trang (CCCD)</option>
-                <option value="3">3 ảnh/trang</option>
-            </select>
-            <select id="formatSelect" style="flex-grow: 1;">
-                <option value="pdf" selected>📄 Xuất 1 file PDF</option>
-                <option value="jpg">🖼️ Xuất Ảnh JPG rời</option>
-            </select>
+        <div style="display: flex; gap: 10px; width: 100%; margin-bottom: 10px;">
+            <select id="paperSizeSelect" style="flex: 1;"><option value="a4" selected>Khổ A4</option></select>
+            <select id="layoutSelect" style="flex: 1;"><option value="1">1 ảnh/trang</option><option value="2" selected>2 ảnh/trang</option><option value="3">3 ảnh/trang</option></select>
+            <select id="formatSelect" style="flex: 1;"><option value="pdf" selected>PDF chung</option><option value="jpg">JPG rời</option></select>
         </div>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button id="exportAutoBtn" class="btn-success" style="flex:1; border-radius: 8px;" onclick="exportStandardPDF()" disabled>🖨️ XUẤT TỰ ĐỘNG</button>
-            <button id="exportLayoutBtn" class="btn-primary" style="flex:1; border-radius: 8px; background: #005c66;" onclick="openLayoutMode()" disabled>📐 TỰ XẾP BỐ CỤC</button>
+        <div style="display: flex; gap: 10px; width: 100%;">
+            <button id="exportAutoBtn" class="btn-success" style="border-radius: 8px;" onclick="exportStandardPDF()" disabled>🖨️ XUẤT NHANH</button>
+            <button id="exportLayoutBtn" class="btn-primary" style="flex: 1; border-radius: 8px; background: #005c66;" onclick="openLayoutMode()" disabled>📐 TỰ XẾP BỐ CỤC</button>
         </div>
     </div>
-    
     <div class="footer-credit">Tác giả: Trần Minh Hải - 0938150987</div>
 </div>
 
-<div class="container" id="layoutUI" style="display: none; max-width: 1000px;">
+<div class="container" id="layoutUI" style="display: none;">
     <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-        <button class="btn-warning" onclick="closeLayoutMode()">🔙 Quay lại</button>
-        <button class="btn-primary" onclick="addBoardPage()">➕ Thêm trang A4</button>
-        <button class="btn-success" style="flex-grow: 1;" onclick="exportCustomPDF()">🖨️ LƯU BỐ CỤC NÀY RA PDF</button>
+        <button class="btn-warning" style="flex: 1;" onclick="closeLayoutMode()">🔙 Quay Lại</button>
+        <button class="btn-primary" style="flex: 1;" onclick="addBoardPage()">➕ Thêm Trang A4</button>
+        <button class="btn-success" style="flex: 2;" onclick="exportCustomPDF()">🖨️ LƯU THÀNH PDF</button>
     </div>
-    <p id="statusLayout" style="text-align:center; color:#dc3545; font-weight:bold;">Ảnh đã được xếp sẵn dựa theo cấu hình. Hãy kéo thả, co giãn tự do để căn chỉnh lại!</p>
-    <div id="layoutWorkspace">
-        <div id="boardContainer"></div>
-    </div>
+    <p id="statusLayout" style="text-align:center; color:#dc3545; font-weight:bold; margin-bottom: 15px;">Dùng chuột lôi kéo, thu phóng ảnh cho vừa vặn tờ A4 trắng bên dưới.</p>
+    <div id="layoutWorkspace"><div id="boardContainer"></div></div>
 </div>
 
 <div class="modal" id="webcamModal">
     <div class="modal-content">
         <h3>Camera PC</h3>
-        <select id="webcamSelect" style="width:100%; padding: 10px; margin-bottom: 10px;"></select>
-        <select id="resSelect" style="width:100%; padding: 10px;">
-            <option value="1920x1080">Độ phân giải cao: Full HD / 4K</option>
-            <option value="1280x720">Tiêu chuẩn: HD (720p)</option>
-        </select>
-        <button class="btn-primary" style="width:100%; margin-top:10px; padding: 10px;" onclick="startStream()">Mở Luồng Camera</button>
+        <select id="webcamSelect" style="width:100%; padding:10px; margin-bottom:10px;"></select>
+        <select id="resSelect" style="width:100%; padding:10px; margin-bottom:10px;"><option value="1920x1080">Full HD / 4K</option><option value="1280x720">HD (720p)</option></select>
+        <button class="btn-primary" style="width:100%; padding:10px; margin-bottom:10px;" onclick="startStream()">Mở Camera</button>
         <video id="webcamVideo" autoplay playsinline></video>
         <div style="display:flex; gap:10px;">
-            <button class="btn-warning" style="flex:1; padding: 10px;" onclick="closeWebcamModal()">Hủy</button>
-            <button class="btn-danger" style="flex:2; padding: 10px; font-size: 18px;" onclick="captureWebcam()">📸 CHỤP</button>
+            <button class="btn-warning" onclick="closeWebcamModal()">Hủy</button>
+            <button class="btn-danger" style="flex:2; font-size:16px;" onclick="captureWebcam()">📸 CHỤP MÀN HÌNH NÀY</button>
         </div>
     </div>
 </div>
@@ -235,8 +201,7 @@
                     renderGallery();
                 };
             }
-            div.appendChild(badge);
-            gal.appendChild(div);
+            div.appendChild(badge); gal.appendChild(div);
             if(doc.croppedUrl) hasCropped = true;
         });
         
@@ -346,25 +311,19 @@
 
     function rotateImg(deg) { if(activeIndex!==-1 && documents[activeIndex].rawCropped){ documents[activeIndex].rot = (documents[activeIndex].rot + deg + 360)%360; applyFilter(); } }
 
-    function handleFilterChange() {
-        if (activeIndex === -1) return;
-        let mode = document.getElementById('colorFilterSelect').value;
-        documents[activeIndex].filter = mode;
-        document.getElementById('sliderContainer').style.display = (mode === 'manual_all') ? 'flex' : 'none';
-        applyFilter();
-    }
+    document.getElementById('colorFilterSelect').addEventListener('change', e => { 
+        if(activeIndex > -1) { documents[activeIndex].filter = e.target.value; applyFilter(); } 
+    });
+    document.getElementById('claheSlider').addEventListener('input', e => { if(activeIndex > -1) { documents[activeIndex].claheLimit = parseFloat(e.target.value); applyFilter(); } });
+    document.getElementById('brightSlider').addEventListener('input', e => { if(activeIndex > -1) { documents[activeIndex].bright = parseInt(e.target.value); applyFilter(); } });
+    document.getElementById('contrastSlider').addEventListener('input', e => { if(activeIndex > -1) { documents[activeIndex].contrast = parseFloat(e.target.value); applyFilter(); } });
+    document.getElementById('bwCheckbox').addEventListener('change', e => { if(activeIndex > -1) { documents[activeIndex].isBw = e.target.checked; applyFilter(); } });
 
     function applyFilter() {
         if(activeIndex === -1 || !documents[activeIndex].rawCropped) return;
-        let doc = documents[activeIndex];
+        let doc = documents[activeIndex]; 
+        document.getElementById('sliderContainer').style.display = (doc.filter === 'manual_all') ? 'flex' : 'none';
         
-        if(doc.filter === 'manual_all') {
-            doc.claheLimit = parseFloat(document.getElementById('claheSlider').value);
-            doc.bright = parseInt(document.getElementById('brightSlider').value);
-            doc.contrast = parseFloat(document.getElementById('contrastSlider').value);
-            doc.isBw = document.getElementById('bwCheckbox').checked;
-        }
-
         let img = new Image();
         img.onload = () => {
             let src = cv.imread(img); let dst = new cv.Mat();
@@ -383,7 +342,7 @@
                 let maskR1 = new cv.Mat(), maskR2 = new cv.Mat(), maskB = new cv.Mat(), colorMask = new cv.Mat();
                 cv.inRange(hsv, new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[0,50,50,0]), new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[10,255,255,0]), maskR1);
                 cv.inRange(hsv, new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[160,50,50,0]), new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[180,255,255,0]), maskR2);
-                cv.inRange(hsv, new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[90,50,50,0]), new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[130,255,255,0]), maskB);
+                cv.inRange(hsv, new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[90,40,40,0]), new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[130,255,255,0]), maskB);
                 cv.bitwise_or(maskR1, maskR2, colorMask); cv.bitwise_or(colorMask, maskB, colorMask);
                 
                 let M_dilate = cv.Mat.ones(3, 3, cv.CV_8U); cv.dilate(colorMask, colorMask, M_dilate, new cv.Point(-1,-1), 1);
@@ -484,7 +443,8 @@
         let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && d.croppedUrl);
         if(docsToExport.length === 0) return alert("Vui lòng chọn (+) ít nhất 1 ảnh dưới khay để xếp bố cục!");
 
-        document.getElementById('mainUI').style.display = 'none'; document.getElementById('layoutUI').style.display = 'block';
+        document.getElementById('mainUI').style.display = 'none'; 
+        document.getElementById('layoutUI').style.display = 'block';
         let container = document.getElementById('boardContainer'); container.innerHTML = ''; 
         
         let mode = parseInt(document.getElementById('layoutSelect').value);
