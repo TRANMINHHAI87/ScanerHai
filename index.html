@@ -5,18 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scanner Pro - Agribank Bắc Giang II</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 10px; background: #f4f6f9; margin: 0; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 10px; background: #f4f6f9; margin: 0; box-sizing: border-box;}
+        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
         
         .brand-header { text-align: center; margin-bottom: 25px; }
         .brand-wrapper { display: inline-flex; flex-direction: column; align-items: center; width: 250px; margin: 0 auto; }
         .brand-logo { height: 50px; width: 100%; object-fit: contain; display: block; }
-        .branch-name { 
-            color: #8a0c25; font-size: 15px; font-weight: 900; 
-            -webkit-text-stroke: 0.5px #8a0c25; margin-top: 5px; 
-            width: 100%; text-align: justify; text-align-last: justify; 
-            border-top: 2px solid #8a0c25; padding-top: 4px; 
-        }
+        .branch-name { color: #8a0c25; font-size: 15px; font-weight: 900; -webkit-text-stroke: 0.5px #8a0c25; margin-top: 5px; width: 100%; text-align: justify; text-align-last: justify; border-top: 2px solid #8a0c25; padding-top: 4px; }
         
         .controls { display: flex; gap: 10px; flex-wrap: wrap; background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
         button, select, input[type="file"] { padding: 10px 15px; cursor: pointer; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-size: 14px; font-weight: bold;}
@@ -40,16 +35,15 @@
         .thumb { width: 100%; height: 85px; object-fit: contain; cursor: pointer; border: 3px solid transparent; border-radius: 8px; background: #f8f9fa; transition: 0.2s;}
         .thumb.active { border-color: #0d6efd; box-shadow: 0 0 10px rgba(13,110,253,0.4); }
         .thumb.cropped { border-color: #198754; background: #fff;}
-        
-        /* Chấm tròn đặt ở góc trên cùng bên trái */
         .order-badge { position: absolute; top: -12px; left: -12px; width: 28px; height: 28px; border-radius: 50%; background: #e9ecef; color: #6c757d; line-height: 28px; cursor: pointer; font-weight: bold; user-select: none; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10;}
         .order-badge.selected { background: #0d6efd; color: white; border-color: #0d6efd; }
 
         .controls-bottom { background: #d1e7dd; border: 1px solid #badbcc; padding: 15px; border-radius: 8px; margin-bottom: 15px;}
         
-        /* GIAO DIỆN KÉO THẢ TỰ DO ĐÃ FIX LỖI TÀNG HÌNH */
-        .layout-workspace { background: #525659; padding: 20px 0; border-radius: 8px; overflow-x: auto; overflow-y: hidden; display: flex; justify-content: center;}
-        .board-container { position: relative; width: 794px; background: white; transform-origin: top center; box-shadow: 0 0 15px rgba(0,0,0,0.5);}
+        /* FIX KHU VỰC BỐ CỤC */
+        #layoutWorkspace { background: #525659; padding: 20px 0; border-radius: 8px; overflow-x: auto; display: flex; justify-content: center;}
+        #boardOuter { position: relative; } /* Vùng bao bọc khít với khổ A4 sau khi thu nhỏ */
+        #boardContainer { position: absolute; top: 0; left: 0; width: 794px; background: white; transform-origin: top left; box-shadow: 0 0 15px rgba(0,0,0,0.5);}
         .page-divider { position: absolute; left: 0; width: 100%; border-top: 2px dashed red; z-index: 0; }
         .page-divider span { background: red; color: white; padding: 2px 5px; position: absolute; top: -20px; font-weight: bold; font-size: 12px;}
         .draggable-item { position: absolute; border: 2px solid transparent; box-sizing: border-box; }
@@ -66,7 +60,21 @@
         
         @media (max-width: 600px) { .controls { flex-direction: column; align-items: stretch; } .btn-danger, .btn-warning, .btn-success, .btn-primary { width: 100%; } }
     </style>
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="cvReady=true; document.getElementById('status').innerText='Hệ thống sẵn sàng!'; document.getElementById('cameraBtn').disabled=false; document.getElementById('fileInput').disabled=false;"></script>
+    
+    <script>
+        function cvLoaded() {
+            cvReady = true; 
+            document.getElementById('status').innerText = 'Hệ thống đã sẵn sàng!'; 
+            document.getElementById('status').style.color = 'green';
+            document.getElementById('cameraBtn').disabled = false; 
+            document.getElementById('fileInput').disabled = false;
+        }
+        function cvFailed() {
+            document.getElementById('status').innerText = 'LỖI TẢI AI: Mạng cơ quan đang chặn file hoặc kết nối kém. Vui lòng bật 4G hoặc dùng mạng ngoài!';
+            document.getElementById('status').style.color = 'red';
+        }
+    </script>
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="cvLoaded()" onerror="cvFailed()"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
@@ -79,7 +87,7 @@
         </div>
     </div>
 
-    <div id="status" class="status">Đang tải trí tuệ nhân tạo AI (vui lòng chờ)...</div>
+    <div id="status" class="status" style="color:#d9534f;">Đang tải lõi AI (khoảng 8MB) - Vui lòng chờ...</div>
     
     <div class="controls">
         <input type="file" id="fileInput" accept="image/*" multiple disabled title="Tải ảnh có sẵn" style="flex-grow: 1;">
@@ -128,7 +136,7 @@
         </div>
     </div>
 
-    <h4 style="color:#495057; margin-bottom: 5px; margin-top: 20px;">Khay Ảnh (Bấm dấu [+] ở góc để đánh số)</h4>
+    <h4 style="color:#495057; margin-bottom: 5px; margin-top: 20px;">Khay Ảnh (Bấm dấu [+] ở góc để đánh số thứ tự)</h4>
     <div class="gallery-container" id="gallery"></div>
     
     <div class="controls-bottom">
@@ -147,14 +155,13 @@
         </div>
         <div style="display: flex; gap: 10px; flex-wrap: wrap;">
             <button id="exportAutoBtn" class="btn-success" style="flex:1; border-radius: 8px;" onclick="exportStandardPDF()" disabled>🖨️ XUẤT TỰ ĐỘNG</button>
-            <button id="exportLayoutBtn" class="btn-primary" style="flex:1; border-radius: 8px; background: #005c66;" onclick="openLayoutMode()" disabled>📐 TỰ XẾP BỐ CỤC</button>
+            <button id="exportLayoutBtn" class="btn-primary" style="flex:1; border-radius: 8px; background: #005c66;" onclick="openLayoutMode()" disabled>📐 CHỈNH TAY THỦ CÔNG</button>
         </div>
     </div>
-    
     <div class="footer-credit">Tác giả: Trần Minh Hải - 0938150987</div>
 </div>
 
-<div class="container" id="layoutUI" style="display: none; max-width: 1000px;">
+<div class="container" id="layoutUI" style="display: none;">
     <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
         <button class="btn-warning" style="flex: 1;" onclick="closeLayoutMode()">🔙 Trở lại</button>
         <button class="btn-primary" style="flex: 1;" onclick="addBoardPage()">➕ Thêm A4</button>
@@ -162,8 +169,10 @@
     </div>
     <p id="statusLayout" style="text-align:center; color:#dc3545; font-weight:bold; margin-bottom: 15px;">Ảnh đã tự xếp sẵn. Lôi kéo tự do cho vừa ý!</p>
     
-    <div id="layoutWorkspace" class="layout-workspace">
-        <div id="boardContainer" class="board-container"></div>
+    <div id="layoutWorkspace">
+        <div id="boardOuter">
+            <div id="boardContainer"></div>
+        </div>
     </div>
 </div>
 
@@ -221,7 +230,6 @@
         let gal = document.getElementById('gallery'); gal.innerHTML = ''; let hasCropped = false;
         documents.forEach((doc, i) => {
             let div = document.createElement('div'); div.className = 'thumb-wrapper';
-            
             let img = document.createElement('img'); 
             img.className = 'thumb ' + (i === activeIndex ? 'active ' : '') + (doc.croppedUrl ? 'cropped' : '');
             img.src = doc.croppedUrl || doc.img.src; 
@@ -239,8 +247,7 @@
                     renderGallery();
                 };
             }
-            div.appendChild(badge);
-            gal.appendChild(div);
+            div.appendChild(badge); gal.appendChild(div);
             if(doc.croppedUrl) hasCropped = true;
         });
         
@@ -271,7 +278,7 @@
         } renderGallery();
     }
 
-    // THUẬT TOÁN BẮT ĐIỂM HÌNH HỌC ĐƠN GIẢN
+    // THUẬT TOÁN BẮT ĐIỂM HÌNH HỌC ĐƠN GIẢN (TRÂU BÒ)
     function autoDetect(img) {
         let sc = 600 / img.naturalWidth; let src = cv.imread(img); let small = new cv.Mat(); cv.resize(src, small, new cv.Size(600, img.naturalHeight * sc));
         let gray = new cv.Mat(), edges = new cv.Mat(); cv.cvtColor(small, gray, cv.COLOR_RGBA2GRAY);
@@ -457,7 +464,7 @@
         c.getContext('2d').drawImage(v,0,0); c.toBlob(b => { let file = new File([b], "webcam_"+Date.now()+".jpg", {type:"image/jpeg"}); loadFiles([file]); closeWebcamModal(); }, 'image/jpeg', 1.0);
     }
 
-    // XUẤT TỰ ĐỘNG
+    // XUẤT BỐ CỤC TỰ ĐỘNG
     function exportStandardPDF() {
         if(exportOrder.length === 0) return alert("Vui lòng chọn ít nhất 1 ảnh để xuất!");
         let mode = parseInt(document.getElementById('layoutSelect').value); let paperType = document.getElementById('paperSizeSelect').value; let exportFormat = document.getElementById('formatSelect').value; 
@@ -496,26 +503,24 @@
         });
     }
 
-    // BỐ CỤC KÉO THẢ
+    // BỐ CỤC KÉO THẢ TỰ DO BẰNG TAY (ĐÃ FIX LỖI TỌA ĐỘ VÀ TÀNG HÌNH)
     let boardPages = 0;
     function openLayoutMode() {
         let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && d.croppedUrl);
-        if(docsToExport.length === 0) return alert("Vui lòng bấm dấu [+] trên khay ảnh để chọn hình trước khi xếp!");
+        if(docsToExport.length === 0) return alert("Vui lòng bấm dấu [+] góc trên bên trái của ảnh dưới khay để chọn hình trước khi xếp!");
 
         document.getElementById('mainUI').style.display = 'none'; 
         document.getElementById('layoutUI').style.display = 'block';
         
-        let container = document.getElementById('boardContainer'); container.innerHTML = ''; 
+        let container = document.getElementById('boardContainer'); 
+        let outer = document.getElementById('boardOuter');
+        container.innerHTML = ''; 
         
-        // Scale A4 Board
         let screenW = window.innerWidth;
-        if(screenW < 830) {
-            layoutScale = (screenW - 40) / 794; 
-            container.style.transform = `scale(${layoutScale})`;
-        } else {
-            layoutScale = 1;
-            container.style.transform = `scale(1)`;
-        }
+        if(screenW < 830) { layoutScale = (screenW - 40) / 794; } 
+        else { layoutScale = 1; }
+        
+        container.style.transform = `scale(${layoutScale})`;
         
         let mode = parseInt(document.getElementById('layoutSelect').value);
         let totalPages = Math.ceil(docsToExport.length / mode);
@@ -523,9 +528,9 @@
         
         let PAPER_W = 794; let PAPER_H = 1123; let GAP = 40; let CARD_MARGIN = 50;
         
-        // Khóa chiều cao khung ngoài để không bị mất khoảng trắng
         container.style.height = (boardPages * PAPER_H) + 'px';
-        document.getElementById('layoutWorkspace').style.height = (boardPages * PAPER_H * layoutScale + 40) + 'px';
+        outer.style.width = (PAPER_W * layoutScale) + 'px';
+        outer.style.height = (boardPages * PAPER_H * layoutScale) + 'px';
         
         for(let i=1; i<=boardPages; i++) {
             let pageLine = document.createElement('div');
@@ -568,14 +573,22 @@
         let cloneImg = new Image(); cloneImg.src = img.src; div.appendChild(cloneImg);
         let resizer = document.createElement('div'); resizer.className = 'resizer'; div.appendChild(resizer); container.appendChild(div);
         
-        let isDrag=false, isRes=false, sX, sY, sW, sH, sL, sT; let getP = e => e.touches ? e.touches[0] : e;
-        resizer.onmousedown = resizer.ontouchstart = e => { e.stopPropagation(); isRes=true; let p = getP(e); sX=p.clientX; sW=div.offsetWidth; sH=div.offsetHeight; };
-        div.onmousedown = div.ontouchstart = e => { if(e.target===resizer) return; isDrag=true; let p = getP(e); sX=p.clientX; sY=p.clientY; sL=div.offsetLeft; sT=div.offsetTop; };
+        let isDrag=false, isRes=false, sX, sY, sW, sH, sL, sT; 
+        
+        function getP(e) {
+            let rect = container.getBoundingClientRect();
+            let cX = e.clientX || (e.touches && e.touches[0].clientX);
+            let cY = e.clientY || (e.touches && e.touches[0].clientY);
+            return { x: (cX - rect.left) / layoutScale, y: (cY - rect.top) / layoutScale };
+        }
+
+        resizer.onmousedown = resizer.ontouchstart = e => { e.stopPropagation(); isRes=true; let p = getP(e); sX=p.x; sY=p.y; sW=div.offsetWidth; sH=div.offsetHeight; };
+        div.onmousedown = div.ontouchstart = e => { if(e.target===resizer) return; isDrag=true; let p = getP(e); sX=p.x; sY=p.y; sL=div.offsetLeft; sT=div.offsetTop; };
         
         let dragMove = e => {
             if(!isDrag && !isRes) return; let p = getP(e);
-            if(isDrag) { e.preventDefault(); div.style.left = (sL + (p.clientX - sX)/layoutScale) + 'px'; div.style.top = (sT + (p.clientY - sY)/layoutScale) + 'px'; }
-            if(isRes) { e.preventDefault(); let nW = sW + (p.clientX - sX)/layoutScale; div.style.width = nW + 'px'; div.style.height = (sH/sW)*nW + 'px'; }
+            if(isDrag) { e.preventDefault(); div.style.left = (sL + p.x - sX) + 'px'; div.style.top = (sT + p.y - sY) + 'px'; }
+            if(isRes) { e.preventDefault(); let nW = sW + (p.x - sX); div.style.width = nW + 'px'; div.style.height = (sH/sW)*nW + 'px'; }
         };
         let stopDrag = () => { isDrag = false; isRes = false; };
         window.addEventListener('mousemove', dragMove, {passive:false}); window.addEventListener('touchmove', dragMove, {passive:false});
@@ -585,9 +598,9 @@
     function closeLayoutMode() { document.getElementById('mainUI').style.display = 'block'; document.getElementById('layoutUI').style.display = 'none'; }
     
     function addBoardPage() {
-        boardPages++; let container = document.getElementById('boardContainer');
+        boardPages++; let container = document.getElementById('boardContainer'); let outer = document.getElementById('boardOuter');
         container.style.height = (boardPages * 1123) + 'px'; 
-        document.getElementById('layoutWorkspace').style.height = (boardPages * 1123 * layoutScale + 40) + 'px';
+        outer.style.height = (boardPages * 1123 * layoutScale) + 'px';
         let pageLine = document.createElement('div');
         pageLine.className = 'page-divider'; pageLine.style.top = (boardPages * 1123) + 'px';
         pageLine.innerHTML = `<span>Hết trang ${boardPages}</span>`;
