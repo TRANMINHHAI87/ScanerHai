@@ -66,33 +66,23 @@
         function checkSystemInit() {
             let statusEl = document.getElementById('status');
             
-            // 1. Kiểm tra OpenCV
-            if (typeof cv !== 'undefined' && typeof cv.imread !== 'undefined') {
-                cvReady = true;
-            }
-            // 2. Kiểm tra jsQR
-            if (typeof jsQR !== 'undefined') {
-                qrReady = true;
-            }
-            // 3. Kiểm tra jsPDF
-            if (typeof window.jspdf !== 'undefined' || typeof jsPDF !== 'undefined') {
-                pdfReady = true;
-            }
+            if (typeof cv !== 'undefined' && typeof cv.imread !== 'undefined') cvReady = true;
+            if (typeof jsQR !== 'undefined') qrReady = true;
+            if (typeof window.jspdf !== 'undefined' || typeof jsPDF !== 'undefined') pdfReady = true;
 
             if (cvReady && qrReady && pdfReady) {
-                statusEl.innerText = "✅ Hệ thống Độc lập (AI + QR + PDF) đã kích hoạt thành công!";
+                statusEl.innerText = "✅ Hệ thống Độc lập (AI + QR + PDF) đã kích hoạt!";
                 statusEl.style.color = "#198754";
                 document.getElementById('cameraBtn').disabled = false;
                 document.getElementById('fileInput').disabled = false;
             } else {
-                // Nếu chưa đủ, tiếp tục kiểm tra lại sau 200ms
                 setTimeout(checkSystemInit, 200);
             }
         }
 
         function forceOnlineLoad() {
             let statusEl = document.getElementById('status');
-            statusEl.innerText = "⚠️ Đang đồng bộ thư viện bổ trợ từ máy chủ dự phòng...";
+            statusEl.innerText = "⚠️ Đang đồng bộ thư viện bổ trợ từ máy chủ Internet...";
             statusEl.style.color = "orange";
 
             if (typeof cv === 'undefined') {
@@ -108,7 +98,6 @@
         }
 
         window.onload = function() {
-            // Chờ 2 giây để các file offline trong máy nạp trước
             setTimeout(() => {
                 if (typeof cv === 'undefined' || typeof jsQR === 'undefined' || (typeof window.jspdf === 'undefined' && typeof jsPDF === 'undefined')) {
                     forceOnlineLoad();
@@ -255,9 +244,12 @@
     document.getElementById('fileInput').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
     document.getElementById('cameraInput').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
 
-    // HÀM TIỀN XỬ LÝ NÉN ĐỘ PHÂN GIẢI CHO ĐIỆN THOẠI CHẠY MƯỢT
     function loadFiles(files) {
         if(!cvReady) return alert("Hệ thống chưa tải xong AI!");
+        let statusEl = document.getElementById('status');
+        statusEl.innerText = "Đang tối ưu ảnh (Chống giật lag)...";
+        statusEl.style.color = "orange";
+        
         Array.from(files).forEach(file => {
             let reader = new FileReader();
             reader.onload = e => {
@@ -280,9 +272,14 @@
                             claheLimit: 0, bright: 0, contrast: 1.0, isBw: false, qrText: null 
                         });
                         renderGallery(); selectDoc(documents.length - 1);
-                    }; newImg.src = c.toDataURL('image/jpeg', 0.95);
-                }; img.src = e.target.result;
-            }; reader.readAsDataURL(file);
+                        statusEl.innerText = "✅ Tải ảnh thành công!";
+                        statusEl.style.color = "green";
+                    };
+                    newImg.src = c.toDataURL('image/jpeg', 0.95);
+                }; 
+                img.src = e.target.result;
+            }; 
+            reader.readAsDataURL(file);
         });
     }
 
@@ -358,7 +355,12 @@
     function parseQRData(data) {
         if (data.includes('|') && data.split('|').length >= 6) {
             let p = data.split('|');
-            return `Họ và tên: ${p[2]}\nSố CCCD hiện tại: ${p[0]}\nSố CMT cũ: ${p[1] ? p[1] : 'Không có'}\nNgày sinh: ${p[3]}\nGiới tính: ${p[4]}\nĐịa chỉ: ${p[5]}`;
+            // Format ngày sinh chèn dấu gạch chéo
+            let dob = p[3];
+            if(dob && dob.length === 8) {
+                dob = dob.substring(0,2) + '/' + dob.substring(2,4) + '/' + dob.substring(4,8);
+            }
+            return `Họ và tên: ${p[2]}\nSố CCCD hiện tại: ${p[0]}\nSố CMT cũ: ${p[1] ? p[1] : 'Không có'}\nNgày sinh: ${dob}\nGiới tính: ${p[4]}\nĐịa chỉ: ${p[5]}`;
         }
         let text = data;
         if(text.includes('|')) text = text.split('|').join('\n');
@@ -368,7 +370,13 @@
     }
 
     function autoDetect(img) {
-        let sc = 600 / img.naturalWidth; let src = cv.imread(img); let small = new cv.Mat(); cv.resize(src, small, new cv.Size(600, img.naturalHeight * sc));
+        let sc = 600 / img.naturalWidth; 
+        let src = cv.imread(img); 
+        let small = new cv.Mat(); 
+        
+        // Toán học bảo mật: Làm tròn chiều cao, loại bỏ pixel thập phân
+        cv.resize(src, small, new cv.Size(600, Math.round(img.naturalHeight * sc)));
+        
         let gray = new cv.Mat(); cv.cvtColor(small, gray, cv.COLOR_RGBA2GRAY);
 
         let edgesCard = new cv.Mat(); cv.GaussianBlur(gray, edgesCard, new cv.Size(3, 3), 0);
@@ -417,7 +425,8 @@
         } else if (bestA4) {
             pts = [{x: bestA4.data32S[0]/sc, y: bestA4.data32S[1]/sc}, {x: bestA4.data32S[2]/sc, y: bestA4.data32S[3]/sc}, {x: bestA4.data32S[4]/sc, y: bestA4.data32S[5]/sc}, {x: bestA4.data32S[6]/sc, y: bestA4.data32S[7]/sc}];
         } else if (bestCard) {
-            pts = [{x: bestCard.data32S[0]/sc, y: bestCard.data32S[1]/sc}, {x: bestCard.data32S[2]/sc, y: bestCard.data32S[3]/sc}, {x: bestCard.data32S[4]/sc, y: someDoc.pts[4]/sc}, {x: bestCard.data32S[6]/sc, y: bestCard.data32S[7]/sc}];
+            // Không còn biến someDoc lỗi
+            pts = [{x: bestCard.data32S[0]/sc, y: bestCard.data32S[1]/sc}, {x: bestCard.data32S[2]/sc, y: bestCard.data32S[3]/sc}, {x: bestCard.data32S[4]/sc, y: bestCard.data32S[5]/sc}, {x: bestCard.data32S[6]/sc, y: bestCard.data32S[7]/sc}];
         } else {
             let w = img.naturalWidth, h = img.naturalHeight; pts = [{x: w*0.05, y: h*0.05}, {x: w*0.95, y: h*0.05}, {x: w*0.95, y: h*0.95}, {x: w*0.05, y: h*0.95}];
         }
@@ -508,6 +517,7 @@
     
     window.addEventListener('mouseup', ()=>draggingPoint=null); window.addEventListener('touchend', ()=>draggingPoint=null);
 
+    // HÀM TẠO ẢNH SỐ HÓA: DÙNG ĐÚNG CỤC QR GỐC CẮT ĐƯỢC TỪ ẢNH
     function createQRDashboardImage(doc, qrImgData) {
         let resultCanvas = document.createElement('canvas'); resultCanvas.width = 1000; resultCanvas.height = 500;
         let rCtx = resultCanvas.getContext('2d'); rCtx.fillStyle = '#ffffff'; rCtx.fillRect(0, 0, 1000, 500);
@@ -515,11 +525,12 @@
         rCtx.fillStyle = '#198754'; rCtx.font = 'bold 30px Arial'; rCtx.fillText('TRÍCH XUẤT DỮ LIỆU QR', 50, 60);
         rCtx.beginPath(); rCtx.moveTo(50, 80); rCtx.lineTo(950, 80); rCtx.lineWidth = 3; rCtx.strokeStyle = '#198754'; rCtx.stroke();
         
+        // Vẽ lại cục QR GỐC (Bằng chứng vật lý)
         let tmpC = document.createElement('canvas'); tmpC.width = qrImgData.width; tmpC.height = qrImgData.height;
         tmpC.getContext('2d').putImageData(qrImgData, 0, 0);
-        
         let drawH = (qrImgData.height / qrImgData.width) * 250; rCtx.drawImage(tmpC, 50, 110, 250, drawH);
         
+        // Viết Text bên cạnh
         rCtx.fillStyle = '#000000'; rCtx.font = '24px Arial';
         let lines = doc.qrText.split('\n'); let textY = 130;
         lines.forEach(line => { rCtx.fillText(line, 350, textY); textY += 40; });
@@ -556,7 +567,6 @@
             let code = typeof jsQR !== 'undefined' ? jsQR(imgData.data, imgData.width, imgData.height) : null;
             let finalCtx = ctxTemp; let finalCanvas = tCanvas;
             
-            // CHỮA LỖI ĐƠ ĐIỆN THOẠI: NÉN ẢNH NHÁP XUỐNG DƯỚI 1000PX TRƯỚC KHI GIAO CHO LÕI QR
             if(!code && typeof jsQR !== 'undefined') {
                 let qrScanCanvas = document.createElement('canvas');
                 let maxQRSize = 1000; 
@@ -576,17 +586,23 @@
             if(code) { 
                 doc.qrText = parseQRData(code.data); 
                 let loc = code.location;
-                let minX = Math.min(loc.topLeftCorner.x, loc.bottomLeftCorner.x);
-                let maxX = Math.max(loc.topRightCorner.x, loc.bottomRightCorner.x);
-                let minY = Math.min(loc.topLeftCorner.y, loc.topRightCorner.y);
-                let maxY = Math.max(loc.bottomLeftCorner.y, loc.bottomRightCorner.y);
+                // BẢO VỆ TỌA ĐỘ QR CHỐNG SẬP MÁY BẰNG CÁCH ÉP VÀO TRONG KHUNG ẢNH
+                let minX = Math.max(0, Math.min(loc.topLeftCorner.x, loc.bottomLeftCorner.x));
+                let maxX = Math.min(finalCanvas.width, Math.max(loc.topRightCorner.x, loc.bottomRightCorner.x));
+                let minY = Math.max(0, Math.min(loc.topLeftCorner.y, loc.topRightCorner.y));
+                let maxY = Math.min(finalCanvas.height, Math.max(loc.bottomLeftCorner.y, loc.bottomRightCorner.y));
                 
-                let pad = 15; minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+                let pad = 15; 
+                minX = Math.max(0, minX - pad); 
+                minY = Math.max(0, minY - pad);
                 let wQR = Math.min(finalCanvas.width - minX, maxX - minX + pad*2);
                 let hQR = Math.min(finalCanvas.height - minY, maxY - minY + pad*2);
                 
-                let qrImgData = finalCtx.getImageData(minX, minY, wQR, hQR);
-                createQRDashboardImage(doc, qrImgData);
+                // Chỉ cắt khi kích thước tồn tại hợp lệ
+                if (wQR > 0 && hQR > 0) {
+                    let qrImgData = finalCtx.getImageData(minX, minY, wQR, hQR);
+                    createQRDashboardImage(doc, qrImgData);
+                }
             } else { doc.qrText = null; }
 
             srcMat.delete(); dstMat.delete(); 
@@ -678,7 +694,6 @@
         c.getContext('2d').drawImage(v,0,0); c.toBlob(b => { let file = new File([b], "webcam_"+Date.now()+".jpg", {type:"image/jpeg"}); loadFiles([file]); closeWebcamModal(); }, 'image/jpeg', 1.0);
     }
 
-    // KHẮC PHỤC CHẮC CHẮN BIẾN LỚP JSPDF CHO NÚT XUẤT TỰ ĐỘNG
     function exportStandardPDF() {
         if(exportOrder.length === 0) return alert("Vui lòng chọn ít nhất 1 ảnh để xuất!");
         
