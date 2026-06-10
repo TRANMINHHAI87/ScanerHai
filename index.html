@@ -61,28 +61,67 @@
     </style>
     
     <script>
-        function cvLoaded() {
-            cvReady = true; 
-            document.getElementById('status').innerText = 'Hệ thống đã sẵn sàng!'; 
-            document.getElementById('status').style.color = 'green';
-            document.getElementById('cameraBtn').disabled = false; 
-            document.getElementById('fileInput').disabled = false;
+        let cvReady = false, qrReady = false, pdfReady = false;
+
+        function checkSystemInit() {
+            let statusEl = document.getElementById('status');
+            
+            // 1. Kiểm tra OpenCV
+            if (typeof cv !== 'undefined' && typeof cv.imread !== 'undefined') {
+                cvReady = true;
+            }
+            // 2. Kiểm tra jsQR
+            if (typeof jsQR !== 'undefined') {
+                qrReady = true;
+            }
+            // 3. Kiểm tra jsPDF
+            if (typeof window.jspdf !== 'undefined' || typeof jsPDF !== 'undefined') {
+                pdfReady = true;
+            }
+
+            if (cvReady && qrReady && pdfReady) {
+                statusEl.innerText = "✅ Hệ thống Độc lập (AI + QR + PDF) đã kích hoạt thành công!";
+                statusEl.style.color = "#198754";
+                document.getElementById('cameraBtn').disabled = false;
+                document.getElementById('fileInput').disabled = false;
+            } else {
+                // Nếu chưa đủ, tiếp tục kiểm tra lại sau 200ms
+                setTimeout(checkSystemInit, 200);
+            }
         }
-        function loadLocalOpenCV() {
-            document.getElementById('status').innerText = 'Mạng chặn/lỗi! Đang chuyển sang file OpenCV nội bộ...';
-            document.getElementById('status').style.color = 'orange';
-            var script = document.createElement('script');
-            script.src = 'opencv.js';
-            script.onload = cvLoaded;
-            script.onerror = function() {
-                document.getElementById('status').innerText = 'LỖI: Mất mạng & Không tìm thấy opencv.js trên máy!';
-                document.getElementById('status').style.color = 'red';
-            };
-            document.head.appendChild(script);
+
+        function forceOnlineLoad() {
+            let statusEl = document.getElementById('status');
+            statusEl.innerText = "⚠️ Đang đồng bộ thư viện bổ trợ từ máy chủ dự phòng...";
+            statusEl.style.color = "orange";
+
+            if (typeof cv === 'undefined') {
+                let s1 = document.createElement('script'); s1.src = 'https://docs.opencv.org/4.8.0/opencv.js'; document.head.appendChild(s1);
+            }
+            if (typeof jsQR === 'undefined') {
+                let s2 = document.createElement('script'); s2.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'; document.head.appendChild(s2);
+            }
+            if (typeof window.jspdf === 'undefined' && typeof jsPDF === 'undefined') {
+                let s3 = document.createElement('script'); s3.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'; document.head.appendChild(s3);
+            }
+            setTimeout(checkSystemInit, 500);
         }
+
+        window.onload = function() {
+            // Chờ 2 giây để các file offline trong máy nạp trước
+            setTimeout(() => {
+                if (typeof cv === 'undefined' || typeof jsQR === 'undefined' || (typeof window.jspdf === 'undefined' && typeof jsPDF === 'undefined')) {
+                    forceOnlineLoad();
+                } else {
+                    checkSystemInit();
+                }
+            }, 1000);
+        };
     </script>
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="cvLoaded()" onerror="loadLocalOpenCV()"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="this.src='jspdf.umd.min.js'"></script>
+    
+    <script src="opencv.js"></script>
+    <script src="jsQR.min.js"></script>
+    <script src="jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -94,7 +133,7 @@
         </div>
     </div>
 
-    <div id="status" class="status" style="color:#d9534f;">Đang tải lõi AI (khoảng 8MB) - Vui lòng chờ...</div>
+    <div id="status" class="status" style="color:#d9534f;">Đang cấu hình hệ thống...</div>
     
     <div class="controls">
         <input type="file" id="fileInput" accept="image/*" multiple disabled title="Tải ảnh có sẵn" style="flex-grow: 1;">
@@ -119,6 +158,12 @@
     <div class="panel">
         <canvas id="canvasOutput" style="background:#f8f9fa; border:1px dashed #ccc; margin-bottom:10px; min-height:100px;"></canvas>
         
+        <div id="qrResultGroup" style="display: none; flex-direction: column; gap: 5px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #ccc;">
+            <label style="color: #198754; font-weight: bold;">Mã QR đã được trích xuất tự động thành ảnh riêng!</label>
+            <textarea id="qrTextBox" rows="6" style="width: 100%; border-radius: 6px; padding: 10px; font-size: 14px; border: 2px solid #198754; box-sizing: border-box; resize: vertical;" readonly></textarea>
+            <button class="btn-success" onclick="copyQR()" style="padding: 10px; border-radius: 6px; background: #198754; color: white; border: none; font-weight: bold; cursor: pointer;">📋 Sao chép Đoạn Text này</button>
+        </div>
+
         <div class="filter-group">
             <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
                 <label style="white-space: nowrap;"><b>Chỉnh màu:</b></label>
@@ -176,12 +221,7 @@
         <button class="btn-success" style="flex: 2;" onclick="exportCustomPDF()">🖨️ LƯU THÀNH PDF</button>
     </div>
     <p id="statusLayout" style="text-align:center; color:#dc3545; font-weight:bold; margin-bottom: 15px;">Ảnh đã tự xếp sẵn. Lôi kéo tự do cho vừa ý!</p>
-    
-    <div id="layoutWorkspace">
-        <div id="boardOuter">
-            <div id="boardContainer"></div>
-        </div>
-    </div>
+    <div id="layoutWorkspace"><div id="boardOuter"><div id="boardContainer"></div></div></div>
 </div>
 
 <div class="modal" id="webcamModal">
@@ -202,7 +242,7 @@
 </div>
 
 <script>
-    let cvReady = false, documents = [], activeIndex = -1, exportOrder = [];
+    let documents = [], activeIndex = -1, exportOrder = [];
     let canvasInput = document.getElementById('canvasInput'), ctxInput = canvasInput.getContext('2d');
     let canvasOutput = document.getElementById('canvasOutput');
     let scaleRatio = 1, draggingPoint = null, layoutScale = 1;
@@ -212,9 +252,10 @@
         else { openWebcamModal(); }
     }
 
-    document.getElementById('fileInput').addEventListener('change', e => loadFiles(e.target.files));
-    document.getElementById('cameraInput').addEventListener('change', e => loadFiles(e.target.files));
+    document.getElementById('fileInput').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
+    document.getElementById('cameraInput').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
 
+    // HÀM TIỀN XỬ LÝ NÉN ĐỘ PHÂN GIẢI CHO ĐIỆN THOẠI CHẠY MƯỢT
     function loadFiles(files) {
         if(!cvReady) return alert("Hệ thống chưa tải xong AI!");
         Array.from(files).forEach(file => {
@@ -222,13 +263,24 @@
             reader.onload = e => {
                 let img = new Image();
                 img.onload = () => {
-                    let pts = autoDetect(img);
-                    documents.push({ 
-                        id: Date.now() + Math.random(), img: img, w: img.naturalWidth, h: img.naturalHeight, pts: pts, 
-                        croppedUrl: null, rawCropped: null, filter: 'original', rot: 0, 
-                        claheLimit: 0, bright: 0, contrast: 1.0, isBw: false 
-                    });
-                    renderGallery(); selectDoc(documents.length - 1);
+                    let MAX_SIZE = 1600; 
+                    let w = img.naturalWidth, h = img.naturalHeight;
+                    if(w > MAX_SIZE || h > MAX_SIZE) {
+                        let r = Math.min(MAX_SIZE/w, MAX_SIZE/h);
+                        w = Math.round(w * r); h = Math.round(h * r);
+                    }
+                    let c = document.createElement('canvas'); c.width = w; c.height = h;
+                    c.getContext('2d').drawImage(img, 0, 0, w, h);
+                    let newImg = new Image();
+                    newImg.onload = () => {
+                        let pts = autoDetect(newImg);
+                        documents.push({ 
+                            id: Date.now() + Math.random(), img: newImg, w: w, h: h, pts: pts, 
+                            croppedUrl: null, rawCropped: null, filter: 'original', rot: 0, 
+                            claheLimit: 0, bright: 0, contrast: 1.0, isBw: false, qrText: null 
+                        });
+                        renderGallery(); selectDoc(documents.length - 1);
+                    }; newImg.src = c.toDataURL('image/jpeg', 0.95);
                 }; img.src = e.target.result;
             }; reader.readAsDataURL(file);
         });
@@ -283,14 +335,42 @@
             document.getElementById('colorFilterSelect').disabled = false; document.getElementById('rotLBtn').disabled = false; document.getElementById('rotRBtn').disabled = false; applyFilter(); 
         } else { 
             document.getElementById('colorFilterSelect').disabled = true; document.getElementById('rotLBtn').disabled = true; document.getElementById('rotRBtn').disabled = true; canvasOutput.width=0; canvasOutput.height=0; 
-        } renderGallery();
+        } 
+
+        if (doc.qrText) {
+            document.getElementById('qrResultGroup').style.display = 'flex';
+            document.getElementById('qrTextBox').value = doc.qrText;
+        } else {
+            document.getElementById('qrResultGroup').style.display = 'none';
+            document.getElementById('qrTextBox').value = '';
+        }
+        renderGallery();
+    }
+
+    function copyQR() {
+        let text = document.getElementById('qrTextBox');
+        text.select(); document.execCommand("copy");
+        let btn = document.querySelector('#qrResultGroup button');
+        btn.innerText = "✅ Đã sao chép thành công!";
+        setTimeout(() => btn.innerText = "📋 Sao chép Đoạn Text này", 2000);
+    }
+
+    function parseQRData(data) {
+        if (data.includes('|') && data.split('|').length >= 6) {
+            let p = data.split('|');
+            return `Họ và tên: ${p[2]}\nSố CCCD hiện tại: ${p[0]}\nSố CMT cũ: ${p[1] ? p[1] : 'Không có'}\nNgày sinh: ${p[3]}\nGiới tính: ${p[4]}\nĐịa chỉ: ${p[5]}`;
+        }
+        let text = data;
+        if(text.includes('|')) text = text.split('|').join('\n');
+        else if(text.includes(';')) text = text.split(';').join('\n');
+        else if(text.includes(', ')) text = text.split(', ').join('\n');
+        return text;
     }
 
     function autoDetect(img) {
         let sc = 600 / img.naturalWidth; let src = cv.imread(img); let small = new cv.Mat(); cv.resize(src, small, new cv.Size(600, img.naturalHeight * sc));
         let gray = new cv.Mat(); cv.cvtColor(small, gray, cv.COLOR_RGBA2GRAY);
 
-        // LÕI 1: TÌM CCCD (Sắc cạnh, diện tích 2% - 40%)
         let edgesCard = new cv.Mat(); cv.GaussianBlur(gray, edgesCard, new cv.Size(3, 3), 0);
         let meanObj = new cv.Mat(); cv.meanStdDev(edgesCard, meanObj, new cv.Mat());
         let meanVal = meanObj.data64F[0]; meanObj.delete();
@@ -311,7 +391,6 @@
         }
         edgesCard.delete(); contoursCard.delete(); hierarchyCard.delete(); M_card.delete();
 
-        // LÕI 2: TÌM A4 (Ép tương phản, xóa chữ, diện tích > 45%)
         let grayA4 = new cv.Mat(); cv.equalizeHist(gray, grayA4);
         cv.GaussianBlur(grayA4, grayA4, new cv.Size(9, 9), 0);
         let thresh = new cv.Mat(); cv.threshold(grayA4, thresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
@@ -338,7 +417,7 @@
         } else if (bestA4) {
             pts = [{x: bestA4.data32S[0]/sc, y: bestA4.data32S[1]/sc}, {x: bestA4.data32S[2]/sc, y: bestA4.data32S[3]/sc}, {x: bestA4.data32S[4]/sc, y: bestA4.data32S[5]/sc}, {x: bestA4.data32S[6]/sc, y: bestA4.data32S[7]/sc}];
         } else if (bestCard) {
-            pts = [{x: bestCard.data32S[0]/sc, y: bestCard.data32S[1]/sc}, {x: bestCard.data32S[2]/sc, y: bestCard.data32S[3]/sc}, {x: bestCard.data32S[4]/sc, y: bestCard.data32S[5]/sc}, {x: bestCard.data32S[6]/sc, y: bestCard.data32S[7]/sc}];
+            pts = [{x: bestCard.data32S[0]/sc, y: bestCard.data32S[1]/sc}, {x: bestCard.data32S[2]/sc, y: bestCard.data32S[3]/sc}, {x: bestCard.data32S[4]/sc, y: someDoc.pts[4]/sc}, {x: bestCard.data32S[6]/sc, y: bestCard.data32S[7]/sc}];
         } else {
             let w = img.naturalWidth, h = img.naturalHeight; pts = [{x: w*0.05, y: h*0.05}, {x: w*0.95, y: h*0.05}, {x: w*0.95, y: h*0.95}, {x: w*0.05, y: h*0.95}];
         }
@@ -374,9 +453,7 @@
                 ctxInput.beginPath(); ctxInput.arc((p1.x + p2.x)/2, (p1.y + p2.y)/2, 8, 0, 2*Math.PI); ctxInput.fill(); ctxInput.stroke(); 
             } 
         }
-        
-        ctxInput.fillStyle='#ffffff'; 
-        dP.forEach(p=>{ ctxInput.beginPath(); ctxInput.arc(p.x, p.y, 14, 0, 2*Math.PI); ctxInput.fill(); ctxInput.stroke(); });
+        ctxInput.fillStyle='#ffffff'; dP.forEach(p=>{ ctxInput.beginPath(); ctxInput.arc(p.x, p.y, 14, 0, 2*Math.PI); ctxInput.fill(); ctxInput.stroke(); });
     }
     
     function getPos(e) { let r = canvasInput.getBoundingClientRect(); let cX = e.clientX||(e.touches && e.touches[0].clientX); let cY = e.clientY||(e.touches && e.touches[0].clientY); return {x:(cX-r.left)*(canvasInput.width/r.width), y:(cY-r.top)*(canvasInput.height/r.height)}; }
@@ -401,21 +478,17 @@
     window.addEventListener('mousemove', e=>{ 
         if(!draggingPoint||activeIndex===-1) return; e.preventDefault(); 
         let pos=getPos(e); let doc = documents[activeIndex];
-        
         if (draggingPoint.type === 'corner') {
             doc.pts[draggingPoint.idx] = {x: Math.max(0,Math.min(pos.x, canvasInput.width))/scaleRatio, y: Math.max(0,Math.min(pos.y, canvasInput.height))/scaleRatio}; 
         } else if (draggingPoint.type === 'mid') {
             let curX = pos.x / scaleRatio, curY = pos.y / scaleRatio;
             let dx = curX - draggingPoint.lastX, dy = curY - draggingPoint.lastY;
             let p1 = draggingPoint.idx, p2 = (draggingPoint.idx + 1) % 4;
-            
             let maxW = canvasInput.width / scaleRatio, maxH = canvasInput.height / scaleRatio;
             doc.pts[p1].x = Math.max(0, Math.min(doc.pts[p1].x + dx, maxW)); doc.pts[p1].y = Math.max(0, Math.min(doc.pts[p1].y + dy, maxH));
             doc.pts[p2].x = Math.max(0, Math.min(doc.pts[p2].x + dx, maxW)); doc.pts[p2].y = Math.max(0, Math.min(doc.pts[p2].y + dy, maxH));
-            
             draggingPoint.lastX = curX; draggingPoint.lastY = curY;
-        }
-        drawEditor(); 
+        } drawEditor(); 
     });
     window.addEventListener('touchmove', e=>{ 
         if(!draggingPoint||activeIndex===-1) return; e.preventDefault(); 
@@ -426,20 +499,43 @@
             let curX = pos.x / scaleRatio, curY = pos.y / scaleRatio;
             let dx = curX - draggingPoint.lastX, dy = curY - draggingPoint.lastY;
             let p1 = draggingPoint.idx, p2 = (draggingPoint.idx + 1) % 4;
-            
             let maxW = canvasInput.width / scaleRatio, maxH = canvasInput.height / scaleRatio;
             doc.pts[p1].x = Math.max(0, Math.min(doc.pts[p1].x + dx, maxW)); doc.pts[p1].y = Math.max(0, Math.min(doc.pts[p1].y + dy, maxH));
             doc.pts[p2].x = Math.max(0, Math.min(doc.pts[p2].x + dx, maxW)); doc.pts[p2].y = Math.max(0, Math.min(doc.pts[p2].y + dy, maxH));
-            
             draggingPoint.lastX = curX; draggingPoint.lastY = curY;
-        }
-        drawEditor(); 
+        } drawEditor(); 
     }, {passive:false});
     
     window.addEventListener('mouseup', ()=>draggingPoint=null); window.addEventListener('touchend', ()=>draggingPoint=null);
 
+    function createQRDashboardImage(doc, qrImgData) {
+        let resultCanvas = document.createElement('canvas'); resultCanvas.width = 1000; resultCanvas.height = 500;
+        let rCtx = resultCanvas.getContext('2d'); rCtx.fillStyle = '#ffffff'; rCtx.fillRect(0, 0, 1000, 500);
+        
+        rCtx.fillStyle = '#198754'; rCtx.font = 'bold 30px Arial'; rCtx.fillText('TRÍCH XUẤT DỮ LIỆU QR', 50, 60);
+        rCtx.beginPath(); rCtx.moveTo(50, 80); rCtx.lineTo(950, 80); rCtx.lineWidth = 3; rCtx.strokeStyle = '#198754'; rCtx.stroke();
+        
+        let tmpC = document.createElement('canvas'); tmpC.width = qrImgData.width; tmpC.height = qrImgData.height;
+        tmpC.getContext('2d').putImageData(qrImgData, 0, 0);
+        
+        let drawH = (qrImgData.height / qrImgData.width) * 250; rCtx.drawImage(tmpC, 50, 110, 250, drawH);
+        
+        rCtx.fillStyle = '#000000'; rCtx.font = '24px Arial';
+        let lines = doc.qrText.split('\n'); let textY = 130;
+        lines.forEach(line => { rCtx.fillText(line, 350, textY); textY += 40; });
+        
+        let newDocData = resultCanvas.toDataURL('image/jpeg', 1.0); let newDocId = Date.now() + Math.random();
+        let fakeImg = new Image(); fakeImg.src = newDocData;
+        fakeImg.onload = () => {
+             documents.push({
+                id: newDocId, img: fakeImg, w: 1000, h: 500, pts: [], croppedUrl: newDocData, rawCropped: newDocData, filter: 'original', rot: 0, claheLimit: 0, bright: 0, contrast: 1.0, isBw: false, qrText: null
+             });
+             exportOrder.push(newDocId); renderGallery();
+        };
+    }
+
     function doCrop() {
-        if(activeIndex === -1) return; let doc = documents[activeIndex]; document.getElementById('status').innerText = "Đang cắt...";
+        if(activeIndex === -1) return; let doc = documents[activeIndex]; document.getElementById('status').innerText = "Đang xử lý...";
         setTimeout(() => {
             let srcMat = cv.imread(doc.img); let dstMat = new cv.Mat();
             if(document.getElementById('cropModeSelect').value === 'warp') {
@@ -454,9 +550,47 @@
             }
             let tCanvas = document.createElement('canvas'); tCanvas.width = dstMat.cols; tCanvas.height = dstMat.rows;
             cv.imshow(tCanvas, dstMat); doc.rawCropped = tCanvas.toDataURL('image/jpeg', 1.0); doc.rot = 0;
+
+            let ctxTemp = tCanvas.getContext('2d');
+            let imgData = ctxTemp.getImageData(0, 0, tCanvas.width, tCanvas.height);
+            let code = typeof jsQR !== 'undefined' ? jsQR(imgData.data, imgData.width, imgData.height) : null;
+            let finalCtx = ctxTemp; let finalCanvas = tCanvas;
+            
+            // CHỮA LỖI ĐƠ ĐIỆN THOẠI: NÉN ẢNH NHÁP XUỐNG DƯỚI 1000PX TRƯỚC KHI GIAO CHO LÕI QR
+            if(!code && typeof jsQR !== 'undefined') {
+                let qrScanCanvas = document.createElement('canvas');
+                let maxQRSize = 1000; 
+                let scanW = doc.img.naturalWidth, scanH = doc.img.naturalHeight;
+                if(scanW > maxQRSize || scanH > maxQRSize) {
+                    let r = Math.min(maxQRSize/scanW, maxQRSize/scanH);
+                    scanW = Math.round(scanW * r); scanH = Math.round(scanH * r);
+                }
+                qrScanCanvas.width = scanW; qrScanCanvas.height = scanH;
+                let qrScanCtx = qrScanCanvas.getContext('2d');
+                qrScanCtx.drawImage(doc.img, 0, 0, scanW, scanH);
+                let qrScanData = qrScanCtx.getImageData(0, 0, scanW, scanH);
+                code = jsQR(qrScanData.data, qrScanData.width, qrScanData.height);
+                if(code) { finalCtx = qrScanCtx; finalCanvas = qrScanCanvas; }
+            }
+
+            if(code) { 
+                doc.qrText = parseQRData(code.data); 
+                let loc = code.location;
+                let minX = Math.min(loc.topLeftCorner.x, loc.bottomLeftCorner.x);
+                let maxX = Math.max(loc.topRightCorner.x, loc.bottomRightCorner.x);
+                let minY = Math.min(loc.topLeftCorner.y, loc.topRightCorner.y);
+                let maxY = Math.max(loc.bottomLeftCorner.y, loc.bottomRightCorner.y);
+                
+                let pad = 15; minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+                let wQR = Math.min(finalCanvas.width - minX, maxX - minX + pad*2);
+                let hQR = Math.min(finalCanvas.height - minY, maxY - minY + pad*2);
+                
+                let qrImgData = finalCtx.getImageData(minX, minY, wQR, hQR);
+                createQRDashboardImage(doc, qrImgData);
+            } else { doc.qrText = null; }
+
             srcMat.delete(); dstMat.delete(); 
             document.getElementById('colorFilterSelect').disabled = false; document.getElementById('rotLBtn').disabled = false; document.getElementById('rotRBtn').disabled = false;
-            
             if(!exportOrder.includes(doc.id)) exportOrder.push(doc.id);
             applyFilter(); document.getElementById('status').innerText = "Cắt thành công!"; setTimeout(()=>document.getElementById('canvasOutput').scrollIntoView({behavior:'smooth', block:'center'}), 200);
         }, 50);
@@ -466,8 +600,7 @@
 
     function handleFilterChange() {
         if (activeIndex === -1) return;
-        let mode = document.getElementById('colorFilterSelect').value;
-        documents[activeIndex].filter = mode;
+        let mode = document.getElementById('colorFilterSelect').value; documents[activeIndex].filter = mode;
         document.getElementById('sliderContainer').style.display = (mode === 'manual_all') ? 'flex' : 'none';
         applyFilter();
     }
@@ -475,7 +608,6 @@
     function applyFilter() {
         if(activeIndex === -1 || !documents[activeIndex].rawCropped) return;
         let doc = documents[activeIndex];
-        
         if(doc.filter === 'manual_all') {
             doc.claheLimit = parseFloat(document.getElementById('claheSlider').value);
             doc.bright = parseInt(document.getElementById('brightSlider').value);
@@ -486,14 +618,12 @@
         let img = new Image();
         img.onload = () => {
             let src = cv.imread(img); let dst = new cv.Mat();
-
             if (doc.filter === 'magic_stamp') {
                 let gray = new cv.Mat(); cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
                 let bg = new cv.Mat(); let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(25, 25)); cv.morphologyEx(gray, bg, cv.MORPH_DILATE, kernel); cv.GaussianBlur(bg, bg, new cv.Size(15, 15), 0); 
                 let gray32 = new cv.Mat(), bg32 = new cv.Mat(), diff32 = new cv.Mat(), diff = new cv.Mat(); gray.convertTo(gray32, cv.CV_32F); bg.convertTo(bg32, cv.CV_32F);
                 cv.divide(gray32, bg32, diff32, 255); diff32.convertTo(diff, cv.CV_8U);
                 cv.GaussianBlur(diff, diff, new cv.Size(3, 3), 0); cv.threshold(diff, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); cv.cvtColor(dst, dst, cv.COLOR_GRAY2RGBA);
-                
                 let hsv = new cv.Mat(); cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB); cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
                 let maskR1 = new cv.Mat(), maskR2 = new cv.Mat(), maskB = new cv.Mat(), colorMask = new cv.Mat();
                 cv.inRange(hsv, new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[0,50,50,0]), new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[10,255,255,0]), maskR1);
@@ -502,8 +632,7 @@
                 cv.bitwise_or(maskR1, maskR2, colorMask); cv.bitwise_or(colorMask, maskB, colorMask);
                 let M_dilate = cv.Mat.ones(3, 3, cv.CV_8U); cv.dilate(colorMask, colorMask, M_dilate, new cv.Point(-1,-1), 1); src.copyTo(dst, colorMask); 
                 gray.delete(); bg.delete(); kernel.delete(); gray32.delete(); bg32.delete(); diff32.delete(); diff.delete(); hsv.delete(); maskR1.delete(); maskR2.delete(); maskB.delete(); colorMask.delete(); M_dilate.delete();
-            } 
-            else if (doc.filter === 'magic') { cv.convertScaleAbs(src, dst, 1.25, 20); } 
+            } else if (doc.filter === 'magic') { cv.convertScaleAbs(src, dst, 1.25, 20); } 
             else if (doc.filter === 'manual_all') {
                 src.copyTo(dst);
                 if (doc.claheLimit > 0) {
@@ -513,12 +642,17 @@
                 }
                 cv.convertScaleAbs(dst, dst, doc.contrast, doc.bright);
                 if (doc.isBw) { let gray = new cv.Mat(); cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY); cv.threshold(gray, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); cv.cvtColor(dst, dst, cv.COLOR_GRAY2RGBA); gray.delete(); }
-            } 
-            else { src.copyTo(dst); }
+            } else { src.copyTo(dst); }
 
             let rotMat = new cv.Mat();
             if(doc.rot === 90) cv.rotate(dst, rotMat, cv.ROTATE_90_CLOCKWISE); else if(doc.rot === 180) cv.rotate(dst, rotMat, cv.ROTATE_180); else if(doc.rot === 270) cv.rotate(dst, rotMat, cv.ROTATE_90_COUNTERCLOCKWISE); else dst.copyTo(rotMat);
             canvasOutput.width = rotMat.cols; canvasOutput.height = rotMat.rows; cv.imshow('canvasOutput', rotMat); doc.croppedUrl = canvasOutput.toDataURL('image/jpeg', 0.95);
+            
+            if (doc.qrText) {
+                document.getElementById('qrResultGroup').style.display = 'flex'; document.getElementById('qrTextBox').value = doc.qrText;
+            } else {
+                document.getElementById('qrResultGroup').style.display = 'none'; document.getElementById('qrTextBox').value = '';
+            }
             src.delete(); dst.delete(); rotMat.delete(); renderGallery();
         }; img.src = doc.rawCropped;
     }
@@ -533,39 +667,39 @@
         });
     }
     function closeWebcamModal() { document.getElementById('webcamModal').style.display='none'; if(stream) stream.getTracks().forEach(t=>t.stop()); }
-    
-    // Đã xóa lựa chọn "Tự động" gây lỗi, gọi phân giải đúng định dạng
     function startStream() {
         if(stream) stream.getTracks().forEach(t=>t.stop());
-        let id = document.getElementById('webcamSelect').value; 
-        let res = document.getElementById('resSelect').value.split('x');
-        navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                deviceId: id ? {exact:id} : undefined, 
-                width:{ideal:parseInt(res[0])}, 
-                height:{ideal:parseInt(res[1])} 
-            } 
-        }).then(s => { 
-            stream = s; 
-            document.getElementById('webcamVideo').srcObject = s; 
-        }).catch(err => alert("Lỗi Camera: " + err.message + "\nAnh kiểm tra xem Zalo, Zoom có đang dùng Camera không nhé!"));
+        let id = document.getElementById('webcamSelect').value; let res = document.getElementById('resSelect').value.split('x');
+        navigator.mediaDevices.getUserMedia({ video: { deviceId: id ? {exact:id} : undefined, width:{ideal:parseInt(res[0])}, height:{ideal:parseInt(res[1])} } }).then(s => { stream = s; document.getElementById('webcamVideo').srcObject = s; })
+        .catch(err => alert("Lỗi Camera: " + err.message));
     }
-
     function captureWebcam() {
         let v = document.getElementById('webcamVideo'); let c = document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
         c.getContext('2d').drawImage(v,0,0); c.toBlob(b => { let file = new File([b], "webcam_"+Date.now()+".jpg", {type:"image/jpeg"}); loadFiles([file]); closeWebcamModal(); }, 'image/jpeg', 1.0);
     }
 
+    // KHẮC PHỤC CHẮC CHẮN BIẾN LỚP JSPDF CHO NÚT XUẤT TỰ ĐỘNG
     function exportStandardPDF() {
         if(exportOrder.length === 0) return alert("Vui lòng chọn ít nhất 1 ảnh để xuất!");
-        let mode = parseInt(document.getElementById('layoutSelect').value); let paperType = document.getElementById('paperSizeSelect').value; let exportFormat = document.getElementById('formatSelect').value; 
-        let BASE_W = paperType === 'a4' ? 2480 : 1748; let BASE_H = paperType === 'a4' ? 3508 : 2480; const GAP = 120; const CARD_MARGIN = 150; 
+        
+        let jsPDFClass = null;
+        if (window.jspdf && window.jspdf.jsPDF) jsPDFClass = window.jspdf.jsPDF;
+        else if (typeof jsPDF !== 'undefined') jsPDFClass = jsPDF;
+        
+        if (!jsPDFClass) return alert("Hệ thống chưa nạp xong bộ nén PDF. Anh vui lòng đợi 2 giây rồi bấm lại nhé!");
+
+        let mode = parseInt(document.getElementById('layoutSelect').value); 
+        let paperType = document.getElementById('paperSizeSelect').value; 
+        let exportFormat = document.getElementById('formatSelect').value; 
+        let BASE_W = paperType === 'a4' ? 2480 : 1748; let BASE_H = paperType === 'a4' ? 3508 : 2480; 
+        const GAP = 120; const CARD_MARGIN = 150; 
         
         let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && d.croppedUrl);
+        document.getElementById('status').innerText = `Đang xuất ${docsToExport.length} file hồ sơ...`;
+
         Promise.all(docsToExport.map(doc => new Promise(res => { let img = new Image(); img.onload = () => res(img); img.src = doc.croppedUrl; }))).then(async loadedImages => {
             let totalPages = Math.ceil(loadedImages.length / mode);
-            let { jsPDF } = window.jspdf; let pdf = null;
-            document.getElementById('status').innerText = `Đang xuất ${totalPages} trang...`;
+            let pdf = null;
 
             for (let page = 0; page < totalPages; page++) {
                 let imgs = loadedImages.slice(page * mode, (page + 1) * mode); let isLandscape = (mode === 1 && imgs[0].width > imgs[0].height);
@@ -582,7 +716,9 @@
                 }
 
                 if (exportFormat === 'pdf') {
-                    let orientation = isLandscape ? 'l' : 'p'; if (!pdf) { pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: paperType }); } else { pdf.addPage(paperType, orientation); }
+                    let orientation = isLandscape ? 'l' : 'p'; 
+                    if (!pdf) { pdf = new jsPDFClass({ orientation: orientation, unit: 'mm', format: paperType }); } 
+                    else { pdf.addPage(paperType, orientation); }
                     let pdfW = pdf.internal.pageSize.getWidth(); let pdfH = pdf.internal.pageSize.getHeight(); 
                     pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfW, pdfH);
                 } else {
@@ -677,7 +813,13 @@
     }
 
     async function exportCustomPDF() {
-        let { jsPDF } = window.jspdf; let pdf = new jsPDF('p', 'px', [794, 1123]); let items = document.querySelectorAll('.draggable-item');
+        let jsPDFClass = null;
+        if (window.jspdf && window.jspdf.jsPDF) jsPDFClass = window.jspdf.jsPDF;
+        else if (typeof jsPDF !== 'undefined') jsPDFClass = jsPDF;
+        
+        if (!jsPDFClass) return alert("Thư viện xuất PDF chưa sẵn sàng!");
+        
+        let pdf = new jsPDFClass('p', 'px', [794, 1123]); let items = document.querySelectorAll('.draggable-item');
         document.getElementById('statusLayout').innerText = `Đang tạo PDF, xin vui lòng đợi...`;
         for(let page = 0; page < boardPages; page++) {
             if(page > 0) pdf.addPage();
