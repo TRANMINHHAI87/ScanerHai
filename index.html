@@ -40,9 +40,8 @@
 
         .controls-bottom { background: #d1e7dd; border: 1px solid #badbcc; padding: 15px; border-radius: 8px; margin-bottom: 15px;}
         
-        /* FIX KHU VỰC BỐ CỤC */
         #layoutWorkspace { background: #525659; padding: 20px 0; border-radius: 8px; overflow-x: auto; display: flex; justify-content: center;}
-        #boardOuter { position: relative; } /* Vùng bao bọc khít với khổ A4 sau khi thu nhỏ */
+        #boardOuter { position: relative; } 
         #boardContainer { position: absolute; top: 0; left: 0; width: 794px; background: white; transform-origin: top left; box-shadow: 0 0 15px rgba(0,0,0,0.5);}
         .page-divider { position: absolute; left: 0; width: 100%; border-top: 2px dashed red; z-index: 0; }
         .page-divider span { background: red; color: white; padding: 2px 5px; position: absolute; top: -20px; font-weight: bold; font-size: 12px;}
@@ -69,13 +68,21 @@
             document.getElementById('cameraBtn').disabled = false; 
             document.getElementById('fileInput').disabled = false;
         }
-        function cvFailed() {
-            document.getElementById('status').innerText = 'LỖI TẢI AI: Mạng cơ quan đang chặn file hoặc kết nối kém. Vui lòng bật 4G hoặc dùng mạng ngoài!';
-            document.getElementById('status').style.color = 'red';
+        function loadLocalOpenCV() {
+            document.getElementById('status').innerText = 'Mạng chặn/lỗi! Đang chuyển sang file OpenCV nội bộ...';
+            document.getElementById('status').style.color = 'orange';
+            var script = document.createElement('script');
+            script.src = 'opencv.js';
+            script.onload = cvLoaded;
+            script.onerror = function() {
+                document.getElementById('status').innerText = 'LỖI: Mất mạng & Không tìm thấy opencv.js trên máy!';
+                document.getElementById('status').style.color = 'red';
+            };
+            document.head.appendChild(script);
         }
     </script>
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="cvLoaded()" onerror="cvFailed()"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="cvLoaded()" onerror="loadLocalOpenCV()"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="this.src='jspdf.umd.min.js'"></script>
 </head>
 <body>
 
@@ -101,9 +108,10 @@
                 <option value="warp">Nắn phẳng viền</option>
                 <option value="polygon">Cắt tự do</option>
             </select>
-            <button class="btn-primary" onclick="resetPoints('cccd')">🎯 CCCD</button>
-            <button class="btn-primary" onclick="resetPoints('a4')" style="background:#0dcaf0; color:black;">📄 A4</button>
+            <button class="btn-primary" onclick="resetPoints('cccd')">🎯 CCCD (Làm tay)</button>
+            <button class="btn-primary" onclick="resetPoints('a4')" style="background:#0dcaf0; color:black;">📄 A4 (Làm tay)</button>
         </div>
+        <p style="text-align:center; font-size:13px; color:#666; margin: 0 0 10px 0;">Hệ thống tự nhận diện. Có thể kéo 4 góc hoặc <b>kéo điểm giữa (màu vàng)</b> để di chuyển toàn bộ cạnh.</p>
         <canvas id="canvasInput" style="background:#f8f9fa; cursor:crosshair;"></canvas>
         <button class="btn-success" id="warpBtn" onclick="doCrop()" disabled style="margin-top:15px; border-radius: 50px;">✂️ CẮT ẢNH NÀY</button>
     </div>
@@ -181,7 +189,7 @@
         <h3 style="margin-top:0;">Camera Máy Tính</h3>
         <select id="webcamSelect" style="width:100%; padding: 10px; margin-bottom: 10px; border-radius:6px;"></select>
         <select id="resSelect" style="width:100%; padding: 10px; margin-bottom:10px; border-radius:6px;">
-            <option value="1920x1080">Độ phân giải: Cao (1080p/4K)</option>
+            <option value="1920x1080" selected>Độ phân giải: Cao (1080p/4K)</option>
             <option value="1280x720">Độ phân giải: Thường (720p)</option>
         </select>
         <button class="btn-primary" style="width:100%; padding: 12px; margin-bottom:10px;" onclick="startStream()">Mở Camera</button>
@@ -278,39 +286,66 @@
         } renderGallery();
     }
 
-    // THUẬT TOÁN BẮT ĐIỂM HÌNH HỌC ĐƠN GIẢN (TRÂU BÒ)
     function autoDetect(img) {
         let sc = 600 / img.naturalWidth; let src = cv.imread(img); let small = new cv.Mat(); cv.resize(src, small, new cv.Size(600, img.naturalHeight * sc));
-        let gray = new cv.Mat(), edges = new cv.Mat(); cv.cvtColor(small, gray, cv.COLOR_RGBA2GRAY);
-        cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
-        cv.Canny(gray, edges, 75, 200);
-        let M = cv.Mat.ones(3, 3, cv.CV_8U); cv.dilate(edges, edges, M, new cv.Point(-1,-1), 1);
-        
-        let contours = new cv.MatVector(), hierarchy = new cv.Mat();
-        cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-        
-        let largestA = 0, largestCnt = null;
-        for (let i = 0; i < contours.size(); ++i) {
-            let cnt = contours.get(i); let area = cv.contourArea(cnt);
-            if (area > 5000 && area > largestA) { largestA = area; if(largestCnt) largestCnt.delete(); largestCnt = cnt.clone(); }
-            cnt.delete();
+        let gray = new cv.Mat(); cv.cvtColor(small, gray, cv.COLOR_RGBA2GRAY);
+
+        // LÕI 1: TÌM CCCD (Sắc cạnh, diện tích 2% - 40%)
+        let edgesCard = new cv.Mat(); cv.GaussianBlur(gray, edgesCard, new cv.Size(3, 3), 0);
+        let meanObj = new cv.Mat(); cv.meanStdDev(edgesCard, meanObj, new cv.Mat());
+        let meanVal = meanObj.data64F[0]; meanObj.delete();
+        cv.Canny(edgesCard, edgesCard, Math.max(0, 0.66 * meanVal), Math.min(255, 1.33 * meanVal));
+        let M_card = cv.Mat.ones(3, 3, cv.CV_8U); cv.dilate(edgesCard, edgesCard, M_card, new cv.Point(-1,-1), 1);
+        let contoursCard = new cv.MatVector(), hierarchyCard = new cv.Mat();
+        cv.findContours(edgesCard, contoursCard, hierarchyCard, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+        let bestCard = null, maxCardA = 0; let imgArea = small.cols * small.rows;
+        for (let i = 0; i < contoursCard.size(); ++i) {
+            let cnt = contoursCard.get(i); let area = cv.contourArea(cnt);
+            if (area > imgArea * 0.02 && area < imgArea * 0.45) { 
+                let approx = new cv.Mat(); cv.approxPolyDP(cnt, approx, 0.02 * cv.arcLength(cnt, true), true);
+                if (approx.rows === 4 && cv.isContourConvex(approx) && area > maxCardA) {
+                    maxCardA = area; if(bestCard) bestCard.delete(); bestCard = approx.clone();
+                } approx.delete();
+            } cnt.delete();
         }
-        
+        edgesCard.delete(); contoursCard.delete(); hierarchyCard.delete(); M_card.delete();
+
+        // LÕI 2: TÌM A4 (Ép tương phản, xóa chữ, diện tích > 45%)
+        let grayA4 = new cv.Mat(); cv.equalizeHist(gray, grayA4);
+        cv.GaussianBlur(grayA4, grayA4, new cv.Size(9, 9), 0);
+        let thresh = new cv.Mat(); cv.threshold(grayA4, thresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+        let edgesA4 = new cv.Mat(); cv.Canny(thresh, edgesA4, 50, 150);
+        let M_a4 = cv.Mat.ones(5, 5, cv.CV_8U); cv.dilate(edgesA4, edgesA4, M_a4, new cv.Point(-1,-1), 1);
+        let contoursA4 = new cv.MatVector(), hierarchyA4 = new cv.Mat();
+        cv.findContours(edgesA4, contoursA4, hierarchyA4, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+
+        let bestA4 = null, maxA4A = 0;
+        for (let i = 0; i < contoursA4.size(); ++i) {
+            let cnt = contoursA4.get(i); let area = cv.contourArea(cnt);
+            if (area > imgArea * 0.45 && area < imgArea * 0.98) { 
+                let approx = new cv.Mat(); cv.approxPolyDP(cnt, approx, 0.03 * cv.arcLength(cnt, true), true);
+                if (approx.rows === 4 && cv.isContourConvex(approx) && area > maxA4A) {
+                    maxA4A = area; if(bestA4) bestA4.delete(); bestA4 = approx.clone();
+                } approx.delete();
+            } cnt.delete();
+        }
+        grayA4.delete(); thresh.delete(); edgesA4.delete(); contoursA4.delete(); hierarchyA4.delete(); M_a4.delete();
+
         let pts = [];
-        if (largestCnt) {
-            let approx = new cv.Mat(); cv.approxPolyDP(largestCnt, approx, 0.02 * cv.arcLength(largestCnt, true), true);
-            if (approx.rows === 4) {
-                pts = [{x: approx.data32S[0]/sc, y: approx.data32S[1]/sc}, {x: approx.data32S[2]/sc, y: approx.data32S[3]/sc}, {x: approx.data32S[4]/sc, y: approx.data32S[5]/sc}, {x: approx.data32S[6]/sc, y: approx.data32S[7]/sc}];
-            } else {
-                let r = cv.minAreaRect(largestCnt); let v = cv.RotatedRect.points(r);
-                pts = [{x: v[0].x/sc, y: v[0].y/sc}, {x: v[1].x/sc, y: v[1].y/sc}, {x: v[2].x/sc, y: v[2].y/sc}, {x: v[3].x/sc, y: v[3].y/sc}];
-            }
-            approx.delete(); largestCnt.delete();
+        if (bestCard && maxCardA > imgArea * 0.05 && maxA4A === 0) {
+            pts = [{x: bestCard.data32S[0]/sc, y: bestCard.data32S[1]/sc}, {x: bestCard.data32S[2]/sc, y: bestCard.data32S[3]/sc}, {x: bestCard.data32S[4]/sc, y: bestCard.data32S[5]/sc}, {x: bestCard.data32S[6]/sc, y: bestCard.data32S[7]/sc}];
+        } else if (bestA4) {
+            pts = [{x: bestA4.data32S[0]/sc, y: bestA4.data32S[1]/sc}, {x: bestA4.data32S[2]/sc, y: bestA4.data32S[3]/sc}, {x: bestA4.data32S[4]/sc, y: bestA4.data32S[5]/sc}, {x: bestA4.data32S[6]/sc, y: bestA4.data32S[7]/sc}];
+        } else if (bestCard) {
+            pts = [{x: bestCard.data32S[0]/sc, y: bestCard.data32S[1]/sc}, {x: bestCard.data32S[2]/sc, y: bestCard.data32S[3]/sc}, {x: bestCard.data32S[4]/sc, y: bestCard.data32S[5]/sc}, {x: bestCard.data32S[6]/sc, y: bestCard.data32S[7]/sc}];
         } else {
-            let w = img.naturalWidth, h = img.naturalHeight; pts = [{x: w*0.1, y: h*0.1}, {x: w*0.9, y: h*0.1}, {x: w*0.9, y: h*0.9}, {x: w*0.1, y: h*0.9}];
+            let w = img.naturalWidth, h = img.naturalHeight; pts = [{x: w*0.05, y: h*0.05}, {x: w*0.95, y: h*0.05}, {x: w*0.95, y: h*0.95}, {x: w*0.05, y: h*0.95}];
         }
+
+        if(bestCard) bestCard.delete(); if(bestA4) bestA4.delete();
         pts.sort((a,b)=>a.y-b.y); let top = pts.slice(0,2).sort((a,b)=>a.x-b.x), bot = pts.slice(2,4).sort((a,b)=>a.x-b.x);
-        src.delete(); small.delete(); gray.delete(); edges.delete(); M.delete(); contours.delete(); hierarchy.delete();
+        src.delete(); small.delete(); gray.delete();
         return [top[0], top[1], bot[1], bot[0]];
     }
 
@@ -328,18 +363,79 @@
         if(activeIndex === -1) return; let doc = documents[activeIndex];
         ctxInput.clearRect(0,0, canvasInput.width, canvasInput.height); ctxInput.drawImage(doc.img, 0,0, canvasInput.width, canvasInput.height);
         let dP = doc.pts.map(p => ({ x: p.x * scaleRatio, y: p.y * scaleRatio }));
+        
         ctxInput.beginPath(); ctxInput.moveTo(dP[0].x, dP[0].y); for(let i=1; i<4; i++) ctxInput.lineTo(dP[i].x, dP[i].y);
         ctxInput.closePath(); ctxInput.fillStyle='rgba(0,229,255,0.12)'; ctxInput.fill(); ctxInput.lineWidth=2.5; ctxInput.strokeStyle='#00e5ff'; ctxInput.stroke();
+        
+        if (document.getElementById('cropModeSelect').value === 'warp') { 
+            ctxInput.fillStyle='#ffc107';
+            for(let i=0; i<4; i++) { 
+                let p1 = dP[i], p2 = dP[(i+1)%4];
+                ctxInput.beginPath(); ctxInput.arc((p1.x + p2.x)/2, (p1.y + p2.y)/2, 8, 0, 2*Math.PI); ctxInput.fill(); ctxInput.stroke(); 
+            } 
+        }
+        
         ctxInput.fillStyle='#ffffff'; 
-        if (document.getElementById('cropModeSelect').value === 'warp') { for(let i=0; i<4; i++) { ctxInput.beginPath(); ctxInput.arc((dP[i].x + dP[(i+1)%4].x)/2, (dP[i].y + dP[(i+1)%4].y)/2, 6, 0, 2*Math.PI); ctxInput.fill(); ctxInput.stroke(); } }
         dP.forEach(p=>{ ctxInput.beginPath(); ctxInput.arc(p.x, p.y, 14, 0, 2*Math.PI); ctxInput.fill(); ctxInput.stroke(); });
     }
     
     function getPos(e) { let r = canvasInput.getBoundingClientRect(); let cX = e.clientX||(e.touches && e.touches[0].clientX); let cY = e.clientY||(e.touches && e.touches[0].clientY); return {x:(cX-r.left)*(canvasInput.width/r.width), y:(cY-r.top)*(canvasInput.height/r.height)}; }
-    canvasInput.addEventListener('mousedown', e=>{ let pos = getPos(e); let dP = documents[activeIndex].pts.map(p=>({x:p.x*scaleRatio,y:p.y*scaleRatio})); for(let i=0;i<4;i++) if(Math.hypot(dP[i].x-pos.x, dP[i].y-pos.y)<35) {draggingPoint=i; break;} });
-    canvasInput.addEventListener('touchstart', e=>{ let pos = getPos(e); let dP = documents[activeIndex].pts.map(p=>({x:p.x*scaleRatio,y:p.y*scaleRatio})); for(let i=0;i<4;i++) if(Math.hypot(dP[i].x-pos.x, dP[i].y-pos.y)<35) {draggingPoint=i; break;} }, {passive:false});
-    window.addEventListener('mousemove', e=>{ if(draggingPoint===null||activeIndex===-1) return; e.preventDefault(); let pos=getPos(e); documents[activeIndex].pts[draggingPoint] = {x: Math.max(0,Math.min(pos.x, canvasInput.width))/scaleRatio, y: Math.max(0,Math.min(pos.y, canvasInput.height))/scaleRatio}; drawEditor(); });
-    window.addEventListener('touchmove', e=>{ if(draggingPoint===null||activeIndex===-1) return; e.preventDefault(); let pos=getPos(e); documents[activeIndex].pts[draggingPoint] = {x: Math.max(0,Math.min(pos.x, canvasInput.width))/scaleRatio, y: Math.max(0,Math.min(pos.y, canvasInput.height))/scaleRatio}; drawEditor(); }, {passive:false});
+    
+    canvasInput.addEventListener('mousedown', e=>{ 
+        let pos = getPos(e); let dP = documents[activeIndex].pts.map(p=>({x:p.x*scaleRatio,y:p.y*scaleRatio})); 
+        for(let i=0;i<4;i++) if(Math.hypot(dP[i].x-pos.x, dP[i].y-pos.y)<35) { draggingPoint = {type:'corner', idx: i}; return; }
+        for(let i=0;i<4;i++) {
+            let mx = (dP[i].x + dP[(i+1)%4].x)/2, my = (dP[i].y + dP[(i+1)%4].y)/2;
+            if(Math.hypot(mx-pos.x, my-pos.y)<25) { draggingPoint = {type:'mid', idx: i, lastX: pos.x/scaleRatio, lastY: pos.y/scaleRatio}; return; }
+        }
+    });
+    canvasInput.addEventListener('touchstart', e=>{ 
+        let pos = getPos(e); let dP = documents[activeIndex].pts.map(p=>({x:p.x*scaleRatio,y:p.y*scaleRatio})); 
+        for(let i=0;i<4;i++) if(Math.hypot(dP[i].x-pos.x, dP[i].y-pos.y)<35) { draggingPoint = {type:'corner', idx: i}; return; }
+        for(let i=0;i<4;i++) {
+            let mx = (dP[i].x + dP[(i+1)%4].x)/2, my = (dP[i].y + dP[(i+1)%4].y)/2;
+            if(Math.hypot(mx-pos.x, my-pos.y)<25) { draggingPoint = {type:'mid', idx: i, lastX: pos.x/scaleRatio, lastY: pos.y/scaleRatio}; return; }
+        }
+    }, {passive:false});
+    
+    window.addEventListener('mousemove', e=>{ 
+        if(!draggingPoint||activeIndex===-1) return; e.preventDefault(); 
+        let pos=getPos(e); let doc = documents[activeIndex];
+        
+        if (draggingPoint.type === 'corner') {
+            doc.pts[draggingPoint.idx] = {x: Math.max(0,Math.min(pos.x, canvasInput.width))/scaleRatio, y: Math.max(0,Math.min(pos.y, canvasInput.height))/scaleRatio}; 
+        } else if (draggingPoint.type === 'mid') {
+            let curX = pos.x / scaleRatio, curY = pos.y / scaleRatio;
+            let dx = curX - draggingPoint.lastX, dy = curY - draggingPoint.lastY;
+            let p1 = draggingPoint.idx, p2 = (draggingPoint.idx + 1) % 4;
+            
+            let maxW = canvasInput.width / scaleRatio, maxH = canvasInput.height / scaleRatio;
+            doc.pts[p1].x = Math.max(0, Math.min(doc.pts[p1].x + dx, maxW)); doc.pts[p1].y = Math.max(0, Math.min(doc.pts[p1].y + dy, maxH));
+            doc.pts[p2].x = Math.max(0, Math.min(doc.pts[p2].x + dx, maxW)); doc.pts[p2].y = Math.max(0, Math.min(doc.pts[p2].y + dy, maxH));
+            
+            draggingPoint.lastX = curX; draggingPoint.lastY = curY;
+        }
+        drawEditor(); 
+    });
+    window.addEventListener('touchmove', e=>{ 
+        if(!draggingPoint||activeIndex===-1) return; e.preventDefault(); 
+        let pos=getPos(e); let doc = documents[activeIndex];
+        if (draggingPoint.type === 'corner') {
+            doc.pts[draggingPoint.idx] = {x: Math.max(0,Math.min(pos.x, canvasInput.width))/scaleRatio, y: Math.max(0,Math.min(pos.y, canvasInput.height))/scaleRatio}; 
+        } else if (draggingPoint.type === 'mid') {
+            let curX = pos.x / scaleRatio, curY = pos.y / scaleRatio;
+            let dx = curX - draggingPoint.lastX, dy = curY - draggingPoint.lastY;
+            let p1 = draggingPoint.idx, p2 = (draggingPoint.idx + 1) % 4;
+            
+            let maxW = canvasInput.width / scaleRatio, maxH = canvasInput.height / scaleRatio;
+            doc.pts[p1].x = Math.max(0, Math.min(doc.pts[p1].x + dx, maxW)); doc.pts[p1].y = Math.max(0, Math.min(doc.pts[p1].y + dy, maxH));
+            doc.pts[p2].x = Math.max(0, Math.min(doc.pts[p2].x + dx, maxW)); doc.pts[p2].y = Math.max(0, Math.min(doc.pts[p2].y + dy, maxH));
+            
+            draggingPoint.lastX = curX; draggingPoint.lastY = curY;
+        }
+        drawEditor(); 
+    }, {passive:false});
+    
     window.addEventListener('mouseup', ()=>draggingPoint=null); window.addEventListener('touchend', ()=>draggingPoint=null);
 
     function doCrop() {
@@ -396,10 +492,7 @@
                 let bg = new cv.Mat(); let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(25, 25)); cv.morphologyEx(gray, bg, cv.MORPH_DILATE, kernel); cv.GaussianBlur(bg, bg, new cv.Size(15, 15), 0); 
                 let gray32 = new cv.Mat(), bg32 = new cv.Mat(), diff32 = new cv.Mat(), diff = new cv.Mat(); gray.convertTo(gray32, cv.CV_32F); bg.convertTo(bg32, cv.CV_32F);
                 cv.divide(gray32, bg32, diff32, 255); diff32.convertTo(diff, cv.CV_8U);
-                
-                cv.GaussianBlur(diff, diff, new cv.Size(3, 3), 0); 
-                cv.threshold(diff, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); 
-                cv.cvtColor(dst, dst, cv.COLOR_GRAY2RGBA);
+                cv.GaussianBlur(diff, diff, new cv.Size(3, 3), 0); cv.threshold(diff, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); cv.cvtColor(dst, dst, cv.COLOR_GRAY2RGBA);
                 
                 let hsv = new cv.Mat(); cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB); cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
                 let maskR1 = new cv.Mat(), maskR2 = new cv.Mat(), maskB = new cv.Mat(), colorMask = new cv.Mat();
@@ -407,12 +500,8 @@
                 cv.inRange(hsv, new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[160,50,50,0]), new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[180,255,255,0]), maskR2);
                 cv.inRange(hsv, new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[90,40,40,0]), new cv.Mat(hsv.rows,hsv.cols,hsv.type(),[130,255,255,0]), maskB);
                 cv.bitwise_or(maskR1, maskR2, colorMask); cv.bitwise_or(colorMask, maskB, colorMask);
-                
-                let M_dilate = cv.Mat.ones(3, 3, cv.CV_8U); cv.dilate(colorMask, colorMask, M_dilate, new cv.Point(-1,-1), 1);
-                src.copyTo(dst, colorMask); 
-                
-                gray.delete(); bg.delete(); kernel.delete(); gray32.delete(); bg32.delete(); diff32.delete(); diff.delete();
-                hsv.delete(); maskR1.delete(); maskR2.delete(); maskB.delete(); colorMask.delete(); M_dilate.delete();
+                let M_dilate = cv.Mat.ones(3, 3, cv.CV_8U); cv.dilate(colorMask, colorMask, M_dilate, new cv.Point(-1,-1), 1); src.copyTo(dst, colorMask); 
+                gray.delete(); bg.delete(); kernel.delete(); gray32.delete(); bg32.delete(); diff32.delete(); diff.delete(); hsv.delete(); maskR1.delete(); maskR2.delete(); maskB.delete(); colorMask.delete(); M_dilate.delete();
             } 
             else if (doc.filter === 'magic') { cv.convertScaleAbs(src, dst, 1.25, 20); } 
             else if (doc.filter === 'manual_all') {
@@ -423,27 +512,17 @@
                     cv.cvtColor(lab, dst, cv.COLOR_Lab2RGB); cv.cvtColor(dst, dst, cv.COLOR_RGB2RGBA); lab.delete(); channels.delete(); l.delete(); claheObj.delete();
                 }
                 cv.convertScaleAbs(dst, dst, doc.contrast, doc.bright);
-                if (doc.isBw) { 
-                    let gray = new cv.Mat(); cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY); 
-                    cv.threshold(gray, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); 
-                    cv.cvtColor(dst, dst, cv.COLOR_GRAY2RGBA); gray.delete(); 
-                }
+                if (doc.isBw) { let gray = new cv.Mat(); cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY); cv.threshold(gray, dst, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); cv.cvtColor(dst, dst, cv.COLOR_GRAY2RGBA); gray.delete(); }
             } 
             else { src.copyTo(dst); }
 
             let rotMat = new cv.Mat();
-            if(doc.rot === 90) cv.rotate(dst, rotMat, cv.ROTATE_90_CLOCKWISE);
-            else if(doc.rot === 180) cv.rotate(dst, rotMat, cv.ROTATE_180);
-            else if(doc.rot === 270) cv.rotate(dst, rotMat, cv.ROTATE_90_COUNTERCLOCKWISE);
-            else dst.copyTo(rotMat);
-
-            canvasOutput.width = rotMat.cols; canvasOutput.height = rotMat.rows;
-            cv.imshow('canvasOutput', rotMat); doc.croppedUrl = canvasOutput.toDataURL('image/jpeg', 0.95);
+            if(doc.rot === 90) cv.rotate(dst, rotMat, cv.ROTATE_90_CLOCKWISE); else if(doc.rot === 180) cv.rotate(dst, rotMat, cv.ROTATE_180); else if(doc.rot === 270) cv.rotate(dst, rotMat, cv.ROTATE_90_COUNTERCLOCKWISE); else dst.copyTo(rotMat);
+            canvasOutput.width = rotMat.cols; canvasOutput.height = rotMat.rows; cv.imshow('canvasOutput', rotMat); doc.croppedUrl = canvasOutput.toDataURL('image/jpeg', 0.95);
             src.delete(); dst.delete(); rotMat.delete(); renderGallery();
         }; img.src = doc.rawCropped;
     }
 
-    // WEBCAM
     let stream = null;
     function openWebcamModal() {
         document.getElementById('webcamModal').style.display='block';
@@ -454,17 +533,29 @@
         });
     }
     function closeWebcamModal() { document.getElementById('webcamModal').style.display='none'; if(stream) stream.getTracks().forEach(t=>t.stop()); }
+    
+    // Đã xóa lựa chọn "Tự động" gây lỗi, gọi phân giải đúng định dạng
     function startStream() {
         if(stream) stream.getTracks().forEach(t=>t.stop());
-        let id = document.getElementById('webcamSelect').value; let res = document.getElementById('resSelect').value.split('x');
-        navigator.mediaDevices.getUserMedia({ video: { deviceId: id ? {exact:id} : undefined, width:{ideal:parseInt(res[0])}, height:{ideal:parseInt(res[1])} } }).then(s => { stream = s; document.getElementById('webcamVideo').srcObject = s; });
+        let id = document.getElementById('webcamSelect').value; 
+        let res = document.getElementById('resSelect').value.split('x');
+        navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                deviceId: id ? {exact:id} : undefined, 
+                width:{ideal:parseInt(res[0])}, 
+                height:{ideal:parseInt(res[1])} 
+            } 
+        }).then(s => { 
+            stream = s; 
+            document.getElementById('webcamVideo').srcObject = s; 
+        }).catch(err => alert("Lỗi Camera: " + err.message + "\nAnh kiểm tra xem Zalo, Zoom có đang dùng Camera không nhé!"));
     }
+
     function captureWebcam() {
         let v = document.getElementById('webcamVideo'); let c = document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
         c.getContext('2d').drawImage(v,0,0); c.toBlob(b => { let file = new File([b], "webcam_"+Date.now()+".jpg", {type:"image/jpeg"}); loadFiles([file]); closeWebcamModal(); }, 'image/jpeg', 1.0);
     }
 
-    // XUẤT BỐ CỤC TỰ ĐỘNG
     function exportStandardPDF() {
         if(exportOrder.length === 0) return alert("Vui lòng chọn ít nhất 1 ảnh để xuất!");
         let mode = parseInt(document.getElementById('layoutSelect').value); let paperType = document.getElementById('paperSizeSelect').value; let exportFormat = document.getElementById('formatSelect').value; 
@@ -490,62 +581,51 @@
                     imgs.forEach(img => { let drawW = standardWidth; let drawH = standardWidth * (img.height / img.width); let x = CARD_MARGIN + (usableW - drawW) / 2; ctx.drawImage(img, x, startY, drawW, drawH); startY += drawH + GAP; });
                 }
 
-                let imgData = canvas.toDataURL('image/jpeg', 0.95);
                 if (exportFormat === 'pdf') {
                     let orientation = isLandscape ? 'l' : 'p'; if (!pdf) { pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: paperType }); } else { pdf.addPage(paperType, orientation); }
-                    let pdfW = pdf.internal.pageSize.getWidth(); let pdfH = pdf.internal.pageSize.getHeight(); pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
+                    let pdfW = pdf.internal.pageSize.getWidth(); let pdfH = pdf.internal.pageSize.getHeight(); 
+                    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfW, pdfH);
                 } else {
-                    let link = document.createElement('a'); link.download = `Hoso_Trang_${page + 1}_${Date.now()}.jpg`; link.href = imgData; link.click(); await new Promise(r => setTimeout(r, 400));
+                    let link = document.createElement('a'); link.download = `Hoso_Trang_${page + 1}_${Date.now()}.jpg`; link.href = canvas.toDataURL('image/jpeg', 0.95); link.click(); await new Promise(r => setTimeout(r, 400));
                 }
             }
-            if (exportFormat === 'pdf') { pdf.save(`HoSo_Scan_${Date.now()}.pdf`); }
-            document.getElementById('status').innerText = "Xuất hồ sơ thành công!";
+            if (exportFormat === 'pdf') { 
+                let blob = pdf.output('blob'); let blobUrl = URL.createObjectURL(blob); let filename = `HoSo_Scan_${Date.now()}.pdf`;
+                if(/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+                    document.getElementById('status').innerHTML = `<span style="color:green;">Tạo PDF hoàn tất!</span><br><a href="${blobUrl}" target="_blank" download="${filename}" style="display:inline-block; margin-top:10px; background:#198754; color:white; padding:10px 20px; text-decoration:none; border-radius:8px; font-weight:bold;">📥 BẤM ĐÂY ĐỂ MỞ/LƯU TỆP</a>`;
+                } else {
+                    pdf.save(filename); document.getElementById('status').innerText = "Xuất hồ sơ thành công!";
+                }
+            } else { document.getElementById('status').innerText = "Hoàn tất lưu các file ảnh!"; }
         });
     }
 
-    // BỐ CỤC KÉO THẢ TỰ DO BẰNG TAY (ĐÃ FIX LỖI TỌA ĐỘ VÀ TÀNG HÌNH)
     let boardPages = 0;
     function openLayoutMode() {
         let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && d.croppedUrl);
-        if(docsToExport.length === 0) return alert("Vui lòng bấm dấu [+] góc trên bên trái của ảnh dưới khay để chọn hình trước khi xếp!");
+        if(docsToExport.length === 0) return alert("Hãy bấm dấu [+] ở góc ảnh để chọn hình muốn xếp nhé!");
 
-        document.getElementById('mainUI').style.display = 'none'; 
-        document.getElementById('layoutUI').style.display = 'block';
-        
-        let container = document.getElementById('boardContainer'); 
-        let outer = document.getElementById('boardOuter');
-        container.innerHTML = ''; 
+        document.getElementById('mainUI').style.display = 'none'; document.getElementById('layoutUI').style.display = 'block';
+        let container = document.getElementById('boardContainer'); let outer = document.getElementById('boardOuter'); container.innerHTML = ''; 
         
         let screenW = window.innerWidth;
-        if(screenW < 830) { layoutScale = (screenW - 40) / 794; } 
-        else { layoutScale = 1; }
-        
+        if(screenW < 830) { layoutScale = (screenW - 40) / 794; } else { layoutScale = 1; }
         container.style.transform = `scale(${layoutScale})`;
         
         let mode = parseInt(document.getElementById('layoutSelect').value);
-        let totalPages = Math.ceil(docsToExport.length / mode);
-        boardPages = totalPages;
-        
+        let totalPages = Math.ceil(docsToExport.length / mode); boardPages = totalPages;
         let PAPER_W = 794; let PAPER_H = 1123; let GAP = 40; let CARD_MARGIN = 50;
         
-        container.style.height = (boardPages * PAPER_H) + 'px';
-        outer.style.width = (PAPER_W * layoutScale) + 'px';
-        outer.style.height = (boardPages * PAPER_H * layoutScale) + 'px';
+        container.style.height = (boardPages * PAPER_H) + 'px'; outer.style.width = (PAPER_W * layoutScale) + 'px'; outer.style.height = (boardPages * PAPER_H * layoutScale) + 'px';
         
         for(let i=1; i<=boardPages; i++) {
-            let pageLine = document.createElement('div');
-            pageLine.className = 'page-divider'; pageLine.style.top = (i * PAPER_H) + 'px';
-            pageLine.innerHTML = `<span>Hết trang ${i}</span>`;
-            container.appendChild(pageLine);
+            let pageLine = document.createElement('div'); pageLine.className = 'page-divider'; pageLine.style.top = (i * PAPER_H) + 'px';
+            pageLine.innerHTML = `<span>Hết trang ${i}</span>`; container.appendChild(pageLine);
         }
 
-        Promise.all(docsToExport.map(doc => new Promise(res => {
-            let img = new Image(); img.onload = () => res(img); img.src = doc.croppedUrl;
-        }))).then(imgs => {
+        Promise.all(docsToExport.map(doc => new Promise(res => { let img = new Image(); img.onload = () => res(img); img.src = doc.croppedUrl; }))).then(imgs => {
             for (let page = 0; page < totalPages; page++) {
-                let pageImgs = imgs.slice(page * mode, (page + 1) * mode);
-                let pageStartY = page * PAPER_H;
-
+                let pageImgs = imgs.slice(page * mode, (page + 1) * mode); let pageStartY = page * PAPER_H;
                 if (mode === 1) {
                     pageImgs.forEach(img => {
                         let scale = Math.min(PAPER_W / img.width, PAPER_H / img.height);
@@ -574,17 +654,9 @@
         let resizer = document.createElement('div'); resizer.className = 'resizer'; div.appendChild(resizer); container.appendChild(div);
         
         let isDrag=false, isRes=false, sX, sY, sW, sH, sL, sT; 
-        
-        function getP(e) {
-            let rect = container.getBoundingClientRect();
-            let cX = e.clientX || (e.touches && e.touches[0].clientX);
-            let cY = e.clientY || (e.touches && e.touches[0].clientY);
-            return { x: (cX - rect.left) / layoutScale, y: (cY - rect.top) / layoutScale };
-        }
-
+        function getP(e) { let rect = container.getBoundingClientRect(); let cX = e.clientX || (e.touches && e.touches[0].clientX); let cY = e.clientY || (e.touches && e.touches[0].clientY); return { x: (cX - rect.left) / layoutScale, y: (cY - rect.top) / layoutScale }; }
         resizer.onmousedown = resizer.ontouchstart = e => { e.stopPropagation(); isRes=true; let p = getP(e); sX=p.x; sY=p.y; sW=div.offsetWidth; sH=div.offsetHeight; };
         div.onmousedown = div.ontouchstart = e => { if(e.target===resizer) return; isDrag=true; let p = getP(e); sX=p.x; sY=p.y; sL=div.offsetLeft; sT=div.offsetTop; };
-        
         let dragMove = e => {
             if(!isDrag && !isRes) return; let p = getP(e);
             if(isDrag) { e.preventDefault(); div.style.left = (sL + p.x - sX) + 'px'; div.style.top = (sT + p.y - sY) + 'px'; }
@@ -599,17 +671,14 @@
     
     function addBoardPage() {
         boardPages++; let container = document.getElementById('boardContainer'); let outer = document.getElementById('boardOuter');
-        container.style.height = (boardPages * 1123) + 'px'; 
-        outer.style.height = (boardPages * 1123 * layoutScale) + 'px';
-        let pageLine = document.createElement('div');
-        pageLine.className = 'page-divider'; pageLine.style.top = (boardPages * 1123) + 'px';
-        pageLine.innerHTML = `<span>Hết trang ${boardPages}</span>`;
-        container.appendChild(pageLine);
+        container.style.height = (boardPages * 1123) + 'px'; outer.style.height = (boardPages * 1123 * layoutScale) + 'px';
+        let pageLine = document.createElement('div'); pageLine.className = 'page-divider'; pageLine.style.top = (boardPages * 1123) + 'px';
+        pageLine.innerHTML = `<span>Hết trang ${boardPages}</span>`; container.appendChild(pageLine);
     }
 
     async function exportCustomPDF() {
         let { jsPDF } = window.jspdf; let pdf = new jsPDF('p', 'px', [794, 1123]); let items = document.querySelectorAll('.draggable-item');
-        document.getElementById('statusLayout').innerText = `Đang xuất PDF...`;
+        document.getElementById('statusLayout').innerText = `Đang tạo PDF, xin vui lòng đợi...`;
         for(let page = 0; page < boardPages; page++) {
             if(page > 0) pdf.addPage();
             let pageStartY = page * 1123; let pageEndY = (page + 1) * 1123;
@@ -619,7 +688,13 @@
                 if(centerY >= pageStartY && centerY < pageEndY) { let img = item.querySelector('img'); pdf.addImage(img.src, 'JPEG', x, y - pageStartY, w, h); }
             });
         }
-        pdf.save(`HoSo_BanGhep_${Date.now()}.pdf`); document.getElementById('statusLayout').innerText = `Hoàn tất lưu PDF! Cảm ơn anh Hải!`;
+        
+        let blob = pdf.output('blob'); let blobUrl = URL.createObjectURL(blob); let filename = `HoSo_BanGhep_${Date.now()}.pdf`;
+        if(/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+            document.getElementById('statusLayout').innerHTML = `<span style="color:green;">Tạo PDF hoàn tất!</span><br><a href="${blobUrl}" target="_blank" download="${filename}" style="display:inline-block; margin-top:10px; background:#198754; color:white; padding:10px 20px; text-decoration:none; border-radius:8px; font-weight:bold;">📥 BẤM ĐÂY ĐỂ MỞ/LƯU TỆP NÀY</a>`;
+        } else {
+            pdf.save(filename); document.getElementById('statusLayout').innerText = `Hoàn tất lưu PDF!`;
+        }
     }
 </script>
 </body>
