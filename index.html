@@ -61,28 +61,56 @@
     </style>
     
     <script>
-        function cvLoaded() {
-            cvReady = true; 
-            document.getElementById('status').innerText = 'Hệ thống đã sẵn sàng!'; 
-            document.getElementById('status').style.color = 'green';
-            document.getElementById('cameraBtn').disabled = false; 
-            document.getElementById('fileInput').disabled = false;
+        let cvReady = false, qrReady = false;
+
+        function bootloader() {
+            let status = document.getElementById('status');
+            let checkCount = 0;
+            
+            let checker = setInterval(() => {
+                checkCount++;
+                
+                // Đợi file OpenCV khởi động ngầm xong mới bật cờ cvReady
+                if (typeof cv !== 'undefined' && typeof cv.imread !== 'undefined') {
+                    cvReady = true;
+                }
+                // Đợi file jsQR khởi động
+                if (typeof jsQR !== 'undefined') {
+                    qrReady = true;
+                }
+
+                if (cvReady && qrReady) {
+                    clearInterval(checker);
+                    status.innerHTML = '✅ Hệ thống AI, PDF và QR đã sẵn sàng!'; 
+                    status.style.color = '#198754';
+                    document.getElementById('cameraBtn').disabled = false; 
+                    document.getElementById('fileInput').disabled = false;
+                } 
+                else if (checkCount > 20) { 
+                    // Chờ 3 giây mà chưa xong -> Lỗi file nội bộ -> Tải online
+                    clearInterval(checker);
+                    status.innerText = '⏳ File Offline hỏng hoặc tải sai. Đang tự động vá lỗi bằng Internet...';
+                    status.style.color = '#d9534f';
+                    
+                    if (!cvReady) {
+                        let s1 = document.createElement('script');
+                        s1.src = 'https://docs.opencv.org/4.8.0/opencv.js';
+                        document.head.appendChild(s1);
+                    }
+                    if (!qrReady) {
+                        let s2 = document.createElement('script');
+                        s2.src = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+                        document.head.appendChild(s2);
+                    }
+                    setTimeout(bootloader, 1500);
+                }
+            }, 150);
         }
-        function loadLocalOpenCV() {
-            document.getElementById('status').innerText = 'Mạng chặn/lỗi! Đang chuyển sang file OpenCV nội bộ...';
-            document.getElementById('status').style.color = 'orange';
-            var script = document.createElement('script');
-            script.src = 'opencv.js';
-            script.onload = cvLoaded;
-            script.onerror = function() {
-                document.getElementById('status').innerText = 'LỖI: Mất mạng & Không tìm thấy opencv.js trên máy!';
-                document.getElementById('status').style.color = 'red';
-            };
-            document.head.appendChild(script);
-        }
+        window.onload = bootloader;
     </script>
-    <script async src="https://docs.opencv.org/4.8.0/opencv.js" onload="cvLoaded()" onerror="loadLocalOpenCV()"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onerror="this.src='jspdf.umd.min.js'"></script>
+    <script src="opencv.js"></script>
+    <script src="jsQR.min.js"></script>
+    <script src="jspdf.umd.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'"></script>
 </head>
 <body>
 
@@ -94,7 +122,7 @@
         </div>
     </div>
 
-    <div id="status" class="status" style="color:#d9534f;">Đang tải lõi AI (khoảng 8MB) - Vui lòng chờ...</div>
+    <div id="status" class="status" style="color:#d9534f;">Đang nạp dữ liệu phần mềm...</div>
     
     <div class="controls">
         <input type="file" id="fileInput" accept="image/*" multiple disabled title="Tải ảnh có sẵn" style="flex-grow: 1;">
@@ -119,6 +147,12 @@
     <div class="panel">
         <canvas id="canvasOutput" style="background:#f8f9fa; border:1px dashed #ccc; margin-bottom:10px; min-height:100px;"></canvas>
         
+        <div id="qrResultGroup" style="display: none; flex-direction: column; gap: 5px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #ccc;">
+            <label style="color: #198754; font-weight: bold;">Mã QR đã được trích xuất tự động thành ảnh riêng!</label>
+            <textarea id="qrTextBox" rows="6" style="width: 100%; border-radius: 6px; padding: 10px; font-size: 14px; border: 2px solid #198754; box-sizing: border-box; resize: vertical;" readonly></textarea>
+            <button class="btn-success" onclick="copyQR()" style="padding: 10px; border-radius: 6px; background: #198754; color: white; border: none; font-weight: bold; cursor: pointer;">📋 Sao chép Đoạn Text này</button>
+        </div>
+
         <div class="filter-group">
             <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
                 <label style="white-space: nowrap;"><b>Chỉnh màu:</b></label>
@@ -202,7 +236,7 @@
 </div>
 
 <script>
-    let cvReady = false, documents = [], activeIndex = -1, exportOrder = [];
+    let documents = [], activeIndex = -1, exportOrder = [];
     let canvasInput = document.getElementById('canvasInput'), ctxInput = canvasInput.getContext('2d');
     let canvasOutput = document.getElementById('canvasOutput');
     let scaleRatio = 1, draggingPoint = null, layoutScale = 1;
@@ -212,8 +246,14 @@
         else { openWebcamModal(); }
     }
 
-    document.getElementById('fileInput').addEventListener('change', e => loadFiles(e.target.files));
-    document.getElementById('cameraInput').addEventListener('change', e => loadFiles(e.target.files));
+    document.getElementById('fileInput').addEventListener('change', e => {
+        loadFiles(e.target.files);
+        e.target.value = ''; // Reset để tải được lại cùng 1 file nếu lỡ xóa
+    });
+    document.getElementById('cameraInput').addEventListener('change', e => {
+        loadFiles(e.target.files);
+        e.target.value = '';
+    });
 
     function loadFiles(files) {
         if(!cvReady) return alert("Hệ thống chưa tải xong AI!");
@@ -226,7 +266,7 @@
                     documents.push({ 
                         id: Date.now() + Math.random(), img: img, w: img.naturalWidth, h: img.naturalHeight, pts: pts, 
                         croppedUrl: null, rawCropped: null, filter: 'original', rot: 0, 
-                        claheLimit: 0, bright: 0, contrast: 1.0, isBw: false 
+                        claheLimit: 0, bright: 0, contrast: 1.0, isBw: false, qrText: null 
                     });
                     renderGallery(); selectDoc(documents.length - 1);
                 }; img.src = e.target.result;
@@ -283,14 +323,42 @@
             document.getElementById('colorFilterSelect').disabled = false; document.getElementById('rotLBtn').disabled = false; document.getElementById('rotRBtn').disabled = false; applyFilter(); 
         } else { 
             document.getElementById('colorFilterSelect').disabled = true; document.getElementById('rotLBtn').disabled = true; document.getElementById('rotRBtn').disabled = true; canvasOutput.width=0; canvasOutput.height=0; 
-        } renderGallery();
+        } 
+
+        if (doc.qrText) {
+            document.getElementById('qrResultGroup').style.display = 'flex';
+            document.getElementById('qrTextBox').value = doc.qrText;
+        } else {
+            document.getElementById('qrResultGroup').style.display = 'none';
+            document.getElementById('qrTextBox').value = '';
+        }
+        renderGallery();
+    }
+
+    function copyQR() {
+        let text = document.getElementById('qrTextBox');
+        text.select(); document.execCommand("copy");
+        let btn = document.querySelector('#qrResultGroup button');
+        btn.innerText = "✅ Đã sao chép thành công!";
+        setTimeout(() => btn.innerText = "📋 Sao chép Đoạn Text này", 2000);
+    }
+
+    function parseQRData(data) {
+        if (data.includes('|') && data.split('|').length >= 6) {
+            let p = data.split('|');
+            return `Họ và tên: ${p[2]}\nSố CCCD hiện tại: ${p[0]}\nSố CMT cũ: ${p[1] ? p[1] : 'Không có'}\nNgày sinh: ${p[3]}\nGiới tính: ${p[4]}\nĐịa chỉ: ${p[5]}`;
+        }
+        let text = data;
+        if(text.includes('|')) text = text.split('|').join('\n');
+        else if(text.includes(';')) text = text.split(';').join('\n');
+        else if(text.includes(', ')) text = text.split(', ').join('\n');
+        return text;
     }
 
     function autoDetect(img) {
         let sc = 600 / img.naturalWidth; let src = cv.imread(img); let small = new cv.Mat(); cv.resize(src, small, new cv.Size(600, img.naturalHeight * sc));
         let gray = new cv.Mat(); cv.cvtColor(small, gray, cv.COLOR_RGBA2GRAY);
 
-        // LÕI 1: TÌM CCCD (Sắc cạnh, diện tích 2% - 40%)
         let edgesCard = new cv.Mat(); cv.GaussianBlur(gray, edgesCard, new cv.Size(3, 3), 0);
         let meanObj = new cv.Mat(); cv.meanStdDev(edgesCard, meanObj, new cv.Mat());
         let meanVal = meanObj.data64F[0]; meanObj.delete();
@@ -311,7 +379,6 @@
         }
         edgesCard.delete(); contoursCard.delete(); hierarchyCard.delete(); M_card.delete();
 
-        // LÕI 2: TÌM A4 (Ép tương phản, xóa chữ, diện tích > 45%)
         let grayA4 = new cv.Mat(); cv.equalizeHist(gray, grayA4);
         cv.GaussianBlur(grayA4, grayA4, new cv.Size(9, 9), 0);
         let thresh = new cv.Mat(); cv.threshold(grayA4, thresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
@@ -438,8 +505,54 @@
     
     window.addEventListener('mouseup', ()=>draggingPoint=null); window.addEventListener('touchend', ()=>draggingPoint=null);
 
+    // HÀM TẠO ẢNH SỐ HÓA QR ĐỘC LẬP
+    function createQRDashboardImage(doc, qrImgData) {
+        let resultCanvas = document.createElement('canvas');
+        resultCanvas.width = 1000; resultCanvas.height = 500;
+        let rCtx = resultCanvas.getContext('2d');
+        rCtx.fillStyle = '#ffffff'; rCtx.fillRect(0, 0, 1000, 500);
+        
+        // Vẽ Tiêu đề
+        rCtx.fillStyle = '#198754'; rCtx.font = 'bold 30px Arial';
+        rCtx.fillText('TRÍCH XUẤT DỮ LIỆU QR', 50, 60);
+        rCtx.beginPath(); rCtx.moveTo(50, 80); rCtx.lineTo(950, 80); rCtx.lineWidth = 3; rCtx.strokeStyle = '#198754'; rCtx.stroke();
+        
+        // Vẽ lại cục QR xén được bên trái
+        let tmpC = document.createElement('canvas'); 
+        tmpC.width = qrImgData.width; tmpC.height = qrImgData.height;
+        tmpC.getContext('2d').putImageData(qrImgData, 0, 0);
+        
+        // Giữ tỷ lệ QR đẹp, in ra với size 250px
+        let drawH = (qrImgData.height / qrImgData.width) * 250;
+        rCtx.drawImage(tmpC, 50, 110, 250, drawH);
+        
+        // Viết Text bên phải
+        rCtx.fillStyle = '#000000'; rCtx.font = '24px Arial';
+        let lines = doc.qrText.split('\n');
+        let textY = 130;
+        lines.forEach(line => {
+            rCtx.fillText(line, 350, textY);
+            textY += 40;
+        });
+        
+        let newDocData = resultCanvas.toDataURL('image/jpeg', 1.0);
+        let newDocId = Date.now() + Math.random();
+        
+        let fakeImg = new Image();
+        fakeImg.src = newDocData;
+        fakeImg.onload = () => {
+             documents.push({
+                id: newDocId, img: fakeImg, w: 1000, h: 500, pts: [],
+                croppedUrl: newDocData, rawCropped: newDocData, filter: 'original', rot: 0,
+                claheLimit: 0, bright: 0, contrast: 1.0, isBw: false, qrText: null
+             });
+             exportOrder.push(newDocId); // Tự động check chọn
+             renderGallery();
+        };
+    }
+
     function doCrop() {
-        if(activeIndex === -1) return; let doc = documents[activeIndex]; document.getElementById('status').innerText = "Đang cắt...";
+        if(activeIndex === -1) return; let doc = documents[activeIndex]; document.getElementById('status').innerText = "Đang xử lý...";
         setTimeout(() => {
             let srcMat = cv.imread(doc.img); let dstMat = new cv.Mat();
             if(document.getElementById('cropModeSelect').value === 'warp') {
@@ -454,6 +567,44 @@
             }
             let tCanvas = document.createElement('canvas'); tCanvas.width = dstMat.cols; tCanvas.height = dstMat.rows;
             cv.imshow(tCanvas, dstMat); doc.rawCropped = tCanvas.toDataURL('image/jpeg', 1.0); doc.rot = 0;
+
+            // XỬ LÝ QUÉT MÃ QR (Lớp phòng thủ 2 lớp)
+            let ctxTemp = tCanvas.getContext('2d');
+            let imgData = ctxTemp.getImageData(0, 0, tCanvas.width, tCanvas.height);
+            let code = typeof jsQR !== 'undefined' ? jsQR(imgData.data, imgData.width, imgData.height) : null;
+            let finalCtx = ctxTemp;
+            let finalCanvas = tCanvas;
+            
+            // Cứu vãn: Đọc trên ảnh gốc nếu ảnh cắt mờ hoặc hỏng góc
+            if(!code) {
+                let rawCanvas = document.createElement('canvas');
+                rawCanvas.width = doc.img.naturalWidth; rawCanvas.height = doc.img.naturalHeight;
+                let rawCtx = rawCanvas.getContext('2d'); rawCtx.drawImage(doc.img, 0, 0);
+                let rawData = rawCtx.getImageData(0, 0, rawCanvas.width, rawCanvas.height);
+                code = typeof jsQR !== 'undefined' ? jsQR(rawData.data, rawData.width, rawData.height) : null;
+                if(code) { finalCtx = rawCtx; finalCanvas = rawCanvas; }
+            }
+
+            if(code) { 
+                doc.qrText = parseQRData(code.data); 
+                
+                // Cắt phần ảnh QR tạo ảnh thứ 3
+                let loc = code.location;
+                let minX = Math.min(loc.topLeftCorner.x, loc.bottomLeftCorner.x);
+                let maxX = Math.max(loc.topRightCorner.x, loc.bottomRightCorner.x);
+                let minY = Math.min(loc.topLeftCorner.y, loc.topRightCorner.y);
+                let maxY = Math.max(loc.bottomLeftCorner.y, loc.bottomRightCorner.y);
+                
+                let pad = 15;
+                minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+                let wQR = Math.min(finalCanvas.width - minX, maxX - minX + pad*2);
+                let hQR = Math.min(finalCanvas.height - minY, maxY - minY + pad*2);
+                
+                let qrImgData = finalCtx.getImageData(minX, minY, wQR, hQR);
+                createQRDashboardImage(doc, qrImgData);
+            } 
+            else { doc.qrText = null; }
+
             srcMat.delete(); dstMat.delete(); 
             document.getElementById('colorFilterSelect').disabled = false; document.getElementById('rotLBtn').disabled = false; document.getElementById('rotRBtn').disabled = false;
             
@@ -519,6 +670,15 @@
             let rotMat = new cv.Mat();
             if(doc.rot === 90) cv.rotate(dst, rotMat, cv.ROTATE_90_CLOCKWISE); else if(doc.rot === 180) cv.rotate(dst, rotMat, cv.ROTATE_180); else if(doc.rot === 270) cv.rotate(dst, rotMat, cv.ROTATE_90_COUNTERCLOCKWISE); else dst.copyTo(rotMat);
             canvasOutput.width = rotMat.cols; canvasOutput.height = rotMat.rows; cv.imshow('canvasOutput', rotMat); doc.croppedUrl = canvasOutput.toDataURL('image/jpeg', 0.95);
+            
+            if (doc.qrText) {
+                document.getElementById('qrResultGroup').style.display = 'flex';
+                document.getElementById('qrTextBox').value = doc.qrText;
+            } else {
+                document.getElementById('qrResultGroup').style.display = 'none';
+                document.getElementById('qrTextBox').value = '';
+            }
+
             src.delete(); dst.delete(); rotMat.delete(); renderGallery();
         }; img.src = doc.rawCropped;
     }
@@ -533,24 +693,12 @@
         });
     }
     function closeWebcamModal() { document.getElementById('webcamModal').style.display='none'; if(stream) stream.getTracks().forEach(t=>t.stop()); }
-    
-    // Đã xóa lựa chọn "Tự động" gây lỗi, gọi phân giải đúng định dạng
     function startStream() {
         if(stream) stream.getTracks().forEach(t=>t.stop());
-        let id = document.getElementById('webcamSelect').value; 
-        let res = document.getElementById('resSelect').value.split('x');
-        navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                deviceId: id ? {exact:id} : undefined, 
-                width:{ideal:parseInt(res[0])}, 
-                height:{ideal:parseInt(res[1])} 
-            } 
-        }).then(s => { 
-            stream = s; 
-            document.getElementById('webcamVideo').srcObject = s; 
-        }).catch(err => alert("Lỗi Camera: " + err.message + "\nAnh kiểm tra xem Zalo, Zoom có đang dùng Camera không nhé!"));
+        let id = document.getElementById('webcamSelect').value; let res = document.getElementById('resSelect').value.split('x');
+        navigator.mediaDevices.getUserMedia({ video: { deviceId: id ? {exact:id} : undefined, width:{ideal:parseInt(res[0])}, height:{ideal:parseInt(res[1])} } }).then(s => { stream = s; document.getElementById('webcamVideo').srcObject = s; })
+        .catch(err => alert("Lỗi Camera: " + err.message + "\nHãy đảm bảo không có app nào chiếm quyền máy ảnh!"));
     }
-
     function captureWebcam() {
         let v = document.getElementById('webcamVideo'); let c = document.createElement('canvas'); c.width=v.videoWidth; c.height=v.videoHeight;
         c.getContext('2d').drawImage(v,0,0); c.toBlob(b => { let file = new File([b], "webcam_"+Date.now()+".jpg", {type:"image/jpeg"}); loadFiles([file]); closeWebcamModal(); }, 'image/jpeg', 1.0);
