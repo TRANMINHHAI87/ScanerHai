@@ -65,13 +65,12 @@
 
         function checkSystemInit() {
             let statusEl = document.getElementById('status');
-            
             if (typeof cv !== 'undefined' && typeof cv.imread !== 'undefined') cvReady = true;
             if (typeof jsQR !== 'undefined') qrReady = true;
             if (typeof window.jspdf !== 'undefined' || typeof jsPDF !== 'undefined') pdfReady = true;
 
             if (cvReady && qrReady && pdfReady) {
-                statusEl.innerText = "✅ Hệ thống Độc lập (AI + QR + PDF) đã kích hoạt!";
+                statusEl.innerText = "✅ Hệ thống quét đa tầng hoàn hảo đã sẵn sàng!";
                 statusEl.style.color = "#198754";
                 document.getElementById('cameraBtn').disabled = false;
                 document.getElementById('fileInput').disabled = false;
@@ -122,7 +121,7 @@
         </div>
     </div>
 
-    <div id="status" class="status" style="color:#d9534f;">Đang cấu hình hệ thống...</div>
+    <div id="status" class="status" style="color:#d9534f;">Đang khởi động phần mềm...</div>
     
     <div class="controls">
         <input type="file" id="fileInput" accept="image/*" multiple disabled title="Tải ảnh có sẵn" style="flex-grow: 1;">
@@ -247,7 +246,7 @@
     function loadFiles(files) {
         if(!cvReady) return alert("Hệ thống chưa tải xong AI!");
         let statusEl = document.getElementById('status');
-        statusEl.innerText = "Đang tối ưu ảnh (Chống giật lag)...";
+        statusEl.innerText = "Đang tối ưu ảnh và quét viền...";
         statusEl.style.color = "orange";
         
         Array.from(files).forEach(file => {
@@ -265,7 +264,7 @@
                     c.getContext('2d').drawImage(img, 0, 0, w, h);
                     let newImg = new Image();
                     newImg.onload = () => {
-                        let pts = autoDetect(newImg);
+                        let pts = autoDetect(newImg); 
                         documents.push({ 
                             id: Date.now() + Math.random(), img: newImg, w: w, h: h, pts: pts, 
                             croppedUrl: null, rawCropped: null, filter: 'original', rot: 0, 
@@ -355,8 +354,8 @@
     function parseQRData(data) {
         if (data.includes('|') && data.split('|').length >= 6) {
             let p = data.split('|');
-            // Format ngày sinh chèn dấu gạch chéo
             let dob = p[3];
+            // Format ngày sinh theo quy chuẩn: DD/MM/YYYY
             if(dob && dob.length === 8) {
                 dob = dob.substring(0,2) + '/' + dob.substring(2,4) + '/' + dob.substring(4,8);
             }
@@ -369,71 +368,83 @@
         return text;
     }
 
+    // --- BỘ MẮT THẦN AUTO DETECT (BILATERAL FILTER) HOÀN HẢO TỪ BẢN LỖI ---
     function autoDetect(img) {
-        let sc = 600 / img.naturalWidth; 
+        let processWidth = 800; let sc = processWidth / img.naturalWidth; 
+        let processHeight = Math.round(img.naturalHeight * sc);
+        
         let src = cv.imread(img); 
         let small = new cv.Mat(); 
-        
-        // Toán học bảo mật: Làm tròn chiều cao, loại bỏ pixel thập phân
-        cv.resize(src, small, new cv.Size(600, Math.round(img.naturalHeight * sc)));
+        cv.resize(src, small, new cv.Size(processWidth, processHeight));
         
         let gray = new cv.Mat(); cv.cvtColor(small, gray, cv.COLOR_RGBA2GRAY);
+        cv.equalizeHist(gray, gray);
 
-        let edgesCard = new cv.Mat(); cv.GaussianBlur(gray, edgesCard, new cv.Size(3, 3), 0);
-        let meanObj = new cv.Mat(); cv.meanStdDev(edgesCard, meanObj, new cv.Mat());
+        let blurred = new cv.Mat();
+        cv.bilateralFilter(gray, blurred, 9, 75, 75);
+
+        let edges = new cv.Mat();
+        let meanObj = new cv.Mat(); cv.meanStdDev(blurred, meanObj, new cv.Mat());
         let meanVal = meanObj.data64F[0]; meanObj.delete();
-        cv.Canny(edgesCard, edgesCard, Math.max(0, 0.66 * meanVal), Math.min(255, 1.33 * meanVal));
-        let M_card = cv.Mat.ones(3, 3, cv.CV_8U); cv.dilate(edgesCard, edgesCard, M_card, new cv.Point(-1,-1), 1);
-        let contoursCard = new cv.MatVector(), hierarchyCard = new cv.Mat();
-        cv.findContours(edgesCard, contoursCard, hierarchyCard, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+        let lower = Math.max(0, 0.66 * meanVal); let upper = Math.min(255, 1.33 * meanVal);
+        cv.Canny(blurred, edges, lower, upper);
+        
+        let M = cv.Mat.ones(5, 5, cv.CV_8U); 
+        cv.morphologyEx(edges, edges, cv.MORPH_CLOSE, M);
+        
+        let contours = new cv.MatVector(), hierarchy = new cv.Mat();
+        cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
-        let bestCard = null, maxCardA = 0; let imgArea = small.cols * small.rows;
-        for (let i = 0; i < contoursCard.size(); ++i) {
-            let cnt = contoursCard.get(i); let area = cv.contourArea(cnt);
-            if (area > imgArea * 0.02 && area < imgArea * 0.45) { 
-                let approx = new cv.Mat(); cv.approxPolyDP(cnt, approx, 0.02 * cv.arcLength(cnt, true), true);
-                if (approx.rows === 4 && cv.isContourConvex(approx) && area > maxCardA) {
-                    maxCardA = area; if(bestCard) bestCard.delete(); bestCard = approx.clone();
-                } approx.delete();
-            } cnt.delete();
+        let bestApprox = null, maxArea = 0, largestContour = null, largestArea = 0;
+        let imgArea = processWidth * processHeight;
+        
+        for (let i = 0; i < contours.size(); ++i) {
+            let cnt = contours.get(i); let area = cv.contourArea(cnt);
+            if (area > imgArea * 0.05 && area < imgArea * 0.98) { 
+                let peri = cv.arcLength(cnt, true); let approx = new cv.Mat(); 
+                cv.approxPolyDP(cnt, approx, 0.03 * peri, true);
+                
+                if (area > largestArea) {
+                    largestArea = area;
+                    if(largestContour) largestContour.delete();
+                    largestContour = cnt.clone();
+                }
+
+                if (approx.rows === 4 && cv.isContourConvex(approx) && area > maxArea) {
+                    maxArea = area; 
+                    if(bestApprox) bestApprox.delete(); 
+                    bestApprox = approx.clone();
+                } 
+                approx.delete();
+            }
         }
-        edgesCard.delete(); contoursCard.delete(); hierarchyCard.delete(); M_card.delete();
-
-        let grayA4 = new cv.Mat(); cv.equalizeHist(gray, grayA4);
-        cv.GaussianBlur(grayA4, grayA4, new cv.Size(9, 9), 0);
-        let thresh = new cv.Mat(); cv.threshold(grayA4, thresh, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-        let edgesA4 = new cv.Mat(); cv.Canny(thresh, edgesA4, 50, 150);
-        let M_a4 = cv.Mat.ones(5, 5, cv.CV_8U); cv.dilate(edgesA4, edgesA4, M_a4, new cv.Point(-1,-1), 1);
-        let contoursA4 = new cv.MatVector(), hierarchyA4 = new cv.Mat();
-        cv.findContours(edgesA4, contoursA4, hierarchyA4, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-        let bestA4 = null, maxA4A = 0;
-        for (let i = 0; i < contoursA4.size(); ++i) {
-            let cnt = contoursA4.get(i); let area = cv.contourArea(cnt);
-            if (area > imgArea * 0.45 && area < imgArea * 0.98) { 
-                let approx = new cv.Mat(); cv.approxPolyDP(cnt, approx, 0.03 * cv.arcLength(cnt, true), true);
-                if (approx.rows === 4 && cv.isContourConvex(approx) && area > maxA4A) {
-                    maxA4A = area; if(bestA4) bestA4.delete(); bestA4 = approx.clone();
-                } approx.delete();
-            } cnt.delete();
-        }
-        grayA4.delete(); thresh.delete(); edgesA4.delete(); contoursA4.delete(); hierarchyA4.delete(); M_a4.delete();
 
         let pts = [];
-        if (bestCard && maxCardA > imgArea * 0.05 && maxA4A === 0) {
-            pts = [{x: bestCard.data32S[0]/sc, y: bestCard.data32S[1]/sc}, {x: bestCard.data32S[2]/sc, y: bestCard.data32S[3]/sc}, {x: bestCard.data32S[4]/sc, y: bestCard.data32S[5]/sc}, {x: bestCard.data32S[6]/sc, y: bestCard.data32S[7]/sc}];
-        } else if (bestA4) {
-            pts = [{x: bestA4.data32S[0]/sc, y: bestA4.data32S[1]/sc}, {x: bestA4.data32S[2]/sc, y: bestA4.data32S[3]/sc}, {x: bestA4.data32S[4]/sc, y: bestA4.data32S[5]/sc}, {x: bestA4.data32S[6]/sc, y: bestA4.data32S[7]/sc}];
-        } else if (bestCard) {
-            // Không còn biến someDoc lỗi
-            pts = [{x: bestCard.data32S[0]/sc, y: bestCard.data32S[1]/sc}, {x: bestCard.data32S[2]/sc, y: bestCard.data32S[3]/sc}, {x: bestCard.data32S[4]/sc, y: bestCard.data32S[5]/sc}, {x: bestCard.data32S[6]/sc, y: bestCard.data32S[7]/sc}];
+        if (bestApprox) {
+            pts = [
+                {x: bestApprox.data32S[0]/sc, y: bestApprox.data32S[1]/sc},
+                {x: bestApprox.data32S[2]/sc, y: bestApprox.data32S[3]/sc},
+                {x: bestApprox.data32S[4]/sc, y: bestApprox.data32S[5]/sc},
+                {x: bestApprox.data32S[6]/sc, y: bestApprox.data32S[7]/sc}
+            ];
+            bestApprox.delete();
+        } else if (largestContour) {
+            let rect = cv.minAreaRect(largestContour); let vertices = cv.RotatedRect.points(rect);
+            pts = [
+                {x: vertices[0].x/sc, y: vertices[0].y/sc},
+                {x: vertices[1].x/sc, y: vertices[1].y/sc},
+                {x: vertices[2].x/sc, y: vertices[2].y/sc},
+                {x: vertices[3].x/sc, y: vertices[3].y/sc}
+            ];
+            largestContour.delete();
         } else {
-            let w = img.naturalWidth, h = img.naturalHeight; pts = [{x: w*0.05, y: h*0.05}, {x: w*0.95, y: h*0.05}, {x: w*0.95, y: h*0.95}, {x: w*0.05, y: h*0.95}];
+            let w = img.naturalWidth, h = img.naturalHeight; let mX = w*0.05, mY = h*0.05;
+            pts = [{x: mX, y: mY}, {x: w-mX, y: mY}, {x: w-mX, y: h-mY}, {x: mX, y: h-mY}];
         }
 
-        if(bestCard) bestCard.delete(); if(bestA4) bestA4.delete();
-        pts.sort((a,b)=>a.y-b.y); let top = pts.slice(0,2).sort((a,b)=>a.x-b.x), bot = pts.slice(2,4).sort((a,b)=>a.x-b.x);
-        src.delete(); small.delete(); gray.delete();
+        pts.sort((a,b)=>a.y-b.y); 
+        let top = pts.slice(0,2).sort((a,b)=>a.x-b.x), bot = pts.slice(2,4).sort((a,b)=>a.x-b.x);
+        src.delete(); small.delete(); gray.delete(); blurred.delete(); edges.delete(); M.delete(); contours.delete(); hierarchy.delete();
         return [top[0], top[1], bot[1], bot[0]];
     }
 
@@ -517,7 +528,6 @@
     
     window.addEventListener('mouseup', ()=>draggingPoint=null); window.addEventListener('touchend', ()=>draggingPoint=null);
 
-    // HÀM TẠO ẢNH SỐ HÓA: DÙNG ĐÚNG CỤC QR GỐC CẮT ĐƯỢC TỪ ẢNH
     function createQRDashboardImage(doc, qrImgData) {
         let resultCanvas = document.createElement('canvas'); resultCanvas.width = 1000; resultCanvas.height = 500;
         let rCtx = resultCanvas.getContext('2d'); rCtx.fillStyle = '#ffffff'; rCtx.fillRect(0, 0, 1000, 500);
@@ -525,12 +535,14 @@
         rCtx.fillStyle = '#198754'; rCtx.font = 'bold 30px Arial'; rCtx.fillText('TRÍCH XUẤT DỮ LIỆU QR', 50, 60);
         rCtx.beginPath(); rCtx.moveTo(50, 80); rCtx.lineTo(950, 80); rCtx.lineWidth = 3; rCtx.strokeStyle = '#198754'; rCtx.stroke();
         
-        // Vẽ lại cục QR GỐC (Bằng chứng vật lý)
         let tmpC = document.createElement('canvas'); tmpC.width = qrImgData.width; tmpC.height = qrImgData.height;
-        tmpC.getContext('2d').putImageData(qrImgData, 0, 0);
-        let drawH = (qrImgData.height / qrImgData.width) * 250; rCtx.drawImage(tmpC, 50, 110, 250, drawH);
+        let tmpCtx = tmpC.getContext('2d'); tmpCtx.putImageData(qrImgData, 0, 0);
         
-        // Viết Text bên cạnh
+        rCtx.imageSmoothingEnabled = false; 
+        let drawH = (qrImgData.height / qrImgData.width) * 250; 
+        rCtx.drawImage(tmpC, 50, 110, 250, drawH);
+        rCtx.imageSmoothingEnabled = true;
+        
         rCtx.fillStyle = '#000000'; rCtx.font = '24px Arial';
         let lines = doc.qrText.split('\n'); let textY = 130;
         lines.forEach(line => { rCtx.fillText(line, 350, textY); textY += 40; });
@@ -545,8 +557,16 @@
         };
     }
 
+    function scanQRWithFallback(canvasObj) {
+        if (typeof jsQR === 'undefined') return null;
+        let ctx = canvasObj.getContext('2d');
+        let imgData = ctx.getImageData(0, 0, canvasObj.width, canvasObj.height);
+        return jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: "attemptBoth" });
+    }
+
+    // --- CỖ MÁY 4 TẦNG TRỊ ẢNH NGHIÊNG CẤY GHÉP HOÀN HẢO ---
     function doCrop() {
-        if(activeIndex === -1) return; let doc = documents[activeIndex]; document.getElementById('status').innerText = "Đang xử lý...";
+        if(activeIndex === -1) return; let doc = documents[activeIndex]; document.getElementById('status').innerText = "Đang xử lý nắn góc và quét QR...";
         setTimeout(() => {
             let srcMat = cv.imread(doc.img); let dstMat = new cv.Mat();
             if(document.getElementById('cropModeSelect').value === 'warp') {
@@ -559,46 +579,92 @@
                 let mX=Math.min(...doc.pts.map(p=>p.x)), mY=Math.min(...doc.pts.map(p=>p.y)), maxX=Math.max(...doc.pts.map(p=>p.x)), maxY=Math.max(...doc.pts.map(p=>p.y));
                 dstMat = srcMat.roi(new cv.Rect(mX, mY, maxX-mX, maxY-mY));
             }
+            
             let tCanvas = document.createElement('canvas'); tCanvas.width = dstMat.cols; tCanvas.height = dstMat.rows;
             cv.imshow(tCanvas, dstMat); doc.rawCropped = tCanvas.toDataURL('image/jpeg', 1.0); doc.rot = 0;
 
-            let ctxTemp = tCanvas.getContext('2d');
-            let imgData = ctxTemp.getImageData(0, 0, tCanvas.width, tCanvas.height);
-            let code = typeof jsQR !== 'undefined' ? jsQR(imgData.data, imgData.width, imgData.height) : null;
-            let finalCtx = ctxTemp; let finalCanvas = tCanvas;
+            let codeText = null; let qrBounds = null; let finalCtx = null; let finalCanvas = null; let pad = 50;
             
-            if(!code && typeof jsQR !== 'undefined') {
-                let qrScanCanvas = document.createElement('canvas');
-                let maxQRSize = 1000; 
-                let scanW = doc.img.naturalWidth, scanH = doc.img.naturalHeight;
-                if(scanW > maxQRSize || scanH > maxQRSize) {
-                    let r = Math.min(maxQRSize/scanW, maxQRSize/scanH);
-                    scanW = Math.round(scanW * r); scanH = Math.round(scanH * r);
-                }
-                qrScanCanvas.width = scanW; qrScanCanvas.height = scanH;
-                let qrScanCtx = qrScanCanvas.getContext('2d');
-                qrScanCtx.drawImage(doc.img, 0, 0, scanW, scanH);
-                let qrScanData = qrScanCtx.getImageData(0, 0, scanW, scanH);
-                code = jsQR(qrScanData.data, qrScanData.width, qrScanData.height);
-                if(code) { finalCtx = qrScanCtx; finalCanvas = qrScanCanvas; }
+            function createPaddedCanvas(cvMat) {
+                let pCanv = document.createElement('canvas'); pCanv.width = cvMat.cols + pad*2; pCanv.height = cvMat.rows + pad*2;
+                let pCtx = pCanv.getContext('2d'); pCtx.fillStyle = '#ffffff'; pCtx.fillRect(0,0, pCanv.width, pCanv.height);
+                let tmpC = document.createElement('canvas'); tmpC.width = cvMat.cols; tmpC.height = cvMat.rows;
+                cv.imshow(tmpC, cvMat); pCtx.imageSmoothingEnabled = false; pCtx.drawImage(tmpC, pad, pad); return pCanv;
             }
 
-            if(code) { 
-                doc.qrText = parseQRData(code.data); 
-                let loc = code.location;
-                // BẢO VỆ TỌA ĐỘ QR CHỐNG SẬP MÁY BẰNG CÁCH ÉP VÀO TRONG KHUNG ẢNH
-                let minX = Math.max(0, Math.min(loc.topLeftCorner.x, loc.bottomLeftCorner.x));
-                let maxX = Math.min(finalCanvas.width, Math.max(loc.topRightCorner.x, loc.bottomRightCorner.x));
-                let minY = Math.max(0, Math.min(loc.topLeftCorner.y, loc.topRightCorner.y));
-                let maxY = Math.min(finalCanvas.height, Math.max(loc.bottomLeftCorner.y, loc.bottomRightCorner.y));
+            if (typeof jsQR !== 'undefined') {
                 
-                let pad = 15; 
-                minX = Math.max(0, minX - pad); 
-                minY = Math.max(0, minY - pad);
-                let wQR = Math.min(finalCanvas.width - minX, maxX - minX + pad*2);
-                let hQR = Math.min(finalCanvas.height - minY, maxY - minY + pad*2);
+                // TẦNG 1: Bí kíp quét trên BẢN GỐC CHƯA BỊ LÀM MỜ BỞI OPENCV (Tuyệt chiêu trị ảnh thẻ bị nghiêng)
+                let origCanvas = document.createElement('canvas');
+                origCanvas.width = doc.img.naturalWidth; origCanvas.height = doc.img.naturalHeight;
+                let origCtx = origCanvas.getContext('2d'); origCtx.imageSmoothingEnabled = false;
+                origCtx.drawImage(doc.img, 0, 0);
+                let origData = origCtx.getImageData(0, 0, origCanvas.width, origCanvas.height);
+                let qrOrig = jsQR(origData.data, origData.width, origData.height, { inversionAttempts: "attemptBoth" });
                 
-                // Chỉ cắt khi kích thước tồn tại hợp lệ
+                if (qrOrig) {
+                    codeText = qrOrig.data;
+                    let loc = qrOrig.location;
+                    qrBounds = { minX: Math.min(loc.topLeftCorner.x, loc.bottomLeftCorner.x), maxX: Math.max(loc.topRightCorner.x, loc.bottomRightCorner.x), minY: Math.min(loc.topLeftCorner.y, loc.topRightCorner.y), maxY: Math.max(loc.bottomLeftCorner.y, loc.bottomRightCorner.y) };
+                    finalCtx = origCtx; finalCanvas = origCanvas;
+                }
+
+                // TẦNG 2: Quét trên bản nắn phẳng (Có viền trắng)
+                if (!codeText) {
+                    let pCanv1 = createPaddedCanvas(dstMat);
+                    let qr1 = scanQRWithFallback(pCanv1);
+                    if (qr1) {
+                        codeText = qr1.data;
+                        let loc = qr1.location;
+                        qrBounds = { minX: Math.min(loc.topLeftCorner.x, loc.bottomLeftCorner.x) - pad, maxX: Math.max(loc.topRightCorner.x, loc.bottomRightCorner.x) - pad, minY: Math.min(loc.topLeftCorner.y, loc.topRightCorner.y) - pad, maxY: Math.max(loc.bottomLeftCorner.y, loc.bottomRightCorner.y) - pad };
+                        finalCtx = tCanvas.getContext('2d'); finalCanvas = tCanvas;
+                    }
+                }
+
+                // TẦNG 3: Radar quét góc 3D C++ (cv.QRCodeDetector)
+                if (!codeText && typeof cv.QRCodeDetector !== 'undefined') {
+                    try {
+                        let qcd = new cv.QRCodeDetector();
+                        let ptsMat = new cv.Mat(); let straight = new cv.Mat();
+                        let text = qcd.detectAndDecode(dstMat, ptsMat, straight);
+                        if (text && text.length > 0 && ptsMat.rows > 0) {
+                            codeText = text;
+                            let xs = [ptsMat.data32F[0], ptsMat.data32F[2], ptsMat.data32F[4], ptsMat.data32F[6]];
+                            let ys = [ptsMat.data32F[1], ptsMat.data32F[3], ptsMat.data32F[5], ptsMat.data32F[7]];
+                            qrBounds = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+                            finalCtx = tCanvas.getContext('2d'); finalCanvas = tCanvas;
+                        }
+                        qcd.delete(); ptsMat.delete(); straight.delete();
+                    } catch(e) {}
+                }
+
+                // TẦNG 4: Adaptive Threshold (Trị Thẻ lóa bóng nilon)
+                if (!codeText) {
+                    let bwMat = new cv.Mat();
+                    cv.cvtColor(dstMat, bwMat, cv.COLOR_RGBA2GRAY);
+                    cv.adaptiveThreshold(bwMat, bwMat, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 21, 15);
+                    let pCanv3 = createPaddedCanvas(bwMat);
+                    let qr3 = scanQRWithFallback(pCanv3);
+                    if (qr3) {
+                        codeText = qr3.data;
+                        let loc = qr3.location;
+                        qrBounds = { minX: Math.min(loc.topLeftCorner.x, loc.bottomLeftCorner.x) - pad, maxX: Math.max(loc.topRightCorner.x, loc.bottomRightCorner.x) - pad, minY: Math.min(loc.topLeftCorner.y, loc.topRightCorner.y) - pad, maxY: Math.max(loc.bottomLeftCorner.y, loc.bottomRightCorner.y) - pad };
+                        finalCtx = tCanvas.getContext('2d'); finalCanvas = tCanvas;
+                    }
+                    bwMat.delete();
+                }
+            }
+
+            if(codeText && qrBounds) { 
+                doc.qrText = parseQRData(codeText); 
+                let cropPad = 15; 
+                let minX = Math.max(0, Math.floor(qrBounds.minX) - cropPad);
+                let maxX = Math.min(finalCanvas.width, Math.ceil(qrBounds.maxX) + cropPad);
+                let minY = Math.max(0, Math.floor(qrBounds.minY) - cropPad);
+                let maxY = Math.min(finalCanvas.height, Math.ceil(qrBounds.maxY) + cropPad);
+                
+                let wQR = maxX - minX; let hQR = maxY - minY;
+                
                 if (wQR > 0 && hQR > 0) {
                     let qrImgData = finalCtx.getImageData(minX, minY, wQR, hQR);
                     createQRDashboardImage(doc, qrImgData);
@@ -608,7 +674,10 @@
             srcMat.delete(); dstMat.delete(); 
             document.getElementById('colorFilterSelect').disabled = false; document.getElementById('rotLBtn').disabled = false; document.getElementById('rotRBtn').disabled = false;
             if(!exportOrder.includes(doc.id)) exportOrder.push(doc.id);
-            applyFilter(); document.getElementById('status').innerText = "Cắt thành công!"; setTimeout(()=>document.getElementById('canvasOutput').scrollIntoView({behavior:'smooth', block:'center'}), 200);
+            
+            applyFilter(); 
+            
+            document.getElementById('status').innerText = "Cắt thành công!"; setTimeout(()=>document.getElementById('canvasOutput').scrollIntoView({behavior:'smooth', block:'center'}), 200);
         }, 50);
     }
 
