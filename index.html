@@ -763,7 +763,7 @@
         c.getContext('2d').drawImage(v,0,0); c.toBlob(b => { let file = new File([b], "webcam_"+Date.now()+".jpg", {type:"image/jpeg"}); loadFiles([file]); closeWebcamModal(); }, 'image/jpeg', 1.0);
     }
 
-    function exportStandardPDF() {
+    async function exportStandardPDF() {
         if(exportOrder.length === 0) return alert("Vui lòng chọn ít nhất 1 ảnh để xuất!");
         
         let jsPDFClass = null;
@@ -775,48 +775,92 @@
         let mode = parseInt(document.getElementById('layoutSelect').value); 
         let paperType = document.getElementById('paperSizeSelect').value; 
         let exportFormat = document.getElementById('formatSelect').value; 
-        let BASE_W = paperType === 'a4' ? 2480 : 1748; let BASE_H = paperType === 'a4' ? 3508 : 2480; 
-        const GAP = 120; const CARD_MARGIN = 150; 
         
-        let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && d.croppedUrl);
+        // KIỂM TRA THIẾT BỊ: Phân loại dòng họ nhà Apple với thế giới còn lại
+        let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        
+        let BASE_W, BASE_H, GAP, CARD_MARGIN;
+        
+        if (isIOS) {
+            // 1. Cấu hình nhẹ nhàng cho iPhone (150 DPI) để không bị treo máy
+            BASE_W = paperType === 'a4' ? 1240 : 874; 
+            BASE_H = paperType === 'a4' ? 1754 : 1240; 
+            GAP = 60; 
+            CARD_MARGIN = 75; 
+        } else {
+            // 2. Cấu hình siêu nét cho PC & Android (300 DPI)
+            BASE_W = paperType === 'a4' ? 2480 : 1748; 
+            BASE_H = paperType === 'a4' ? 3508 : 2480; 
+            GAP = 120; 
+            CARD_MARGIN = 150; 
+        }
+        
+        let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && (d.croppedUrl || d.rawCroppedDataUrl || d.rawCropped));
         document.getElementById('status').innerText = `Đang xuất ${docsToExport.length} file hồ sơ...`;
 
-        Promise.all(docsToExport.map(doc => new Promise(res => { let img = new Image(); img.onload = () => res(img); img.src = doc.croppedUrl; }))).then(async loadedImages => {
+        Promise.all(docsToExport.map(doc => new Promise(res => { 
+            let img = new Image(); 
+            img.onload = () => res(img); 
+            img.src = doc.croppedUrl || doc.rawCroppedDataUrl || doc.rawCropped; 
+        }))).then(async loadedImages => {
             let totalPages = Math.ceil(loadedImages.length / mode);
             let pdf = null;
 
             for (let page = 0; page < totalPages; page++) {
-                let imgs = loadedImages.slice(page * mode, (page + 1) * mode); let isLandscape = (mode === 1 && imgs[0].width > imgs[0].height);
-                let PAPER_W = isLandscape ? Math.max(BASE_W, BASE_H) : Math.min(BASE_W, BASE_H); let PAPER_H = isLandscape ? Math.min(BASE_W, BASE_H) : Math.max(BASE_W, BASE_H);
-                let canvas = document.createElement('canvas'); canvas.width = PAPER_W; canvas.height = PAPER_H; let ctx = canvas.getContext('2d'); ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, PAPER_W, PAPER_H);
+                let imgs = loadedImages.slice(page * mode, (page + 1) * mode); 
+                let isLandscape = (mode === 1 && imgs[0].width > imgs[0].height);
+                let PAPER_W = isLandscape ? Math.max(BASE_W, BASE_H) : Math.min(BASE_W, BASE_H); 
+                let PAPER_H = isLandscape ? Math.min(BASE_W, BASE_H) : Math.max(BASE_W, BASE_H);
+                
+                let canvas = document.createElement('canvas'); 
+                canvas.width = PAPER_W; canvas.height = PAPER_H; 
+                let ctx = canvas.getContext('2d'); 
+                ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, PAPER_W, PAPER_H);
 
-                if (mode === 1) { ctx.drawImage(imgs[0], 0, 0, PAPER_W, PAPER_H); } 
+                if (mode === 1) { 
+                    ctx.drawImage(imgs[0], 0, 0, PAPER_W, PAPER_H); 
+                } 
                 else {
                     let usableW = PAPER_W - CARD_MARGIN * 2; let usableH = PAPER_H - CARD_MARGIN * 2; let standardWidth = usableW * 0.65; 
                     let totalBlockHeight = imgs.reduce((sum, img) => sum + standardWidth * (img.height / img.width), 0) + GAP * (imgs.length - 1);
                     if (totalBlockHeight > usableH) { let shrinkRatio = usableH / totalBlockHeight; standardWidth *= shrinkRatio; totalBlockHeight = usableH; }
                     let startY = CARD_MARGIN + (usableH - totalBlockHeight) / 2;
-                    imgs.forEach(img => { let drawW = standardWidth; let drawH = standardWidth * (img.height / img.width); let x = CARD_MARGIN + (usableW - drawW) / 2; ctx.drawImage(img, x, startY, drawW, drawH); startY += drawH + GAP; });
+                    imgs.forEach(img => { 
+                        let drawW = standardWidth; let drawH = standardWidth * (img.height / img.width); 
+                        let x = CARD_MARGIN + (usableW - drawW) / 2; 
+                        ctx.drawImage(img, x, startY, drawW, drawH); 
+                        startY += drawH + GAP; 
+                    });
                 }
 
                 if (exportFormat === 'pdf') {
                     let orientation = isLandscape ? 'l' : 'p'; 
-                    if (!pdf) { pdf = new jsPDFClass({ orientation: orientation, unit: 'mm', format: paperType }); } 
-                    else { pdf.addPage(paperType, orientation); }
+                    if (!pdf) { pdf = new jsPDFClass({ orientation: orientation, unit: 'px', format: [PAPER_W, PAPER_H] }); } 
+                    else { pdf.addPage([PAPER_W, PAPER_H], orientation); }
                     let pdfW = pdf.internal.pageSize.getWidth(); let pdfH = pdf.internal.pageSize.getHeight(); 
-                    pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfW, pdfH);
+                    pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, pdfW, pdfH);
                 } else {
-                    let link = document.createElement('a'); link.download = `Hoso_Trang_${page + 1}_${Date.now()}.jpg`; link.href = canvas.toDataURL('image/jpeg', 0.95); link.click(); await new Promise(r => setTimeout(r, 400));
+                    let link = document.createElement('a'); 
+                    link.download = `Hoso_Trang_${page + 1}_${Date.now()}.jpg`; 
+                    link.href = canvas.toDataURL('image/jpeg', 0.95); 
+                    link.click(); 
+                    await new Promise(r => setTimeout(r, 400));
                 }
             }
             if (exportFormat === 'pdf') { 
-                let blob = pdf.output('blob'); let blobUrl = URL.createObjectURL(blob); let filename = `HoSo_Scan_${Date.now()}.pdf`;
-                if(/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
-                    document.getElementById('status').innerHTML = `<span style="color:green;">Tạo PDF hoàn tất!</span><br><a href="${blobUrl}" target="_blank" download="${filename}" style="display:inline-block; margin-top:10px; background:#198754; color:white; padding:10px 20px; text-decoration:none; border-radius:8px; font-weight:bold;">📥 BẤM ĐÂY ĐỂ MỞ/LƯU TỆP</a>`;
+                let blob = pdf.output('blob'); 
+                let blobUrl = URL.createObjectURL(blob); 
+                let filename = `HoSo_Scan_${Date.now()}.pdf`;
+                
+                // Trả kết quả thông minh tùy thiết bị
+                if(isIOS) {
+                    document.getElementById('status').innerHTML = `<span style="color:green;">Tạo PDF hoàn tất!</span><br><a href="${blobUrl}" target="_blank" download="${filename}" style="display:inline-block; margin-top:10px; background:#198754; color:white; padding:10px 20px; text-decoration:none; border-radius:8px; font-weight:bold;">📥 BẤM ĐÂY ĐỂ MỞ TỆP BẰNG IPHONE</a>`;
                 } else {
                     pdf.save(filename); document.getElementById('status').innerText = "Xuất hồ sơ thành công!";
                 }
-            } else { document.getElementById('status').innerText = "Hoàn tất lưu các file ảnh!"; }
+            } else { 
+                document.getElementById('status').innerText = "Hoàn tất lưu các file ảnh!"; 
+            }
         });
     }
 
