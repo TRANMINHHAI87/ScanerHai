@@ -763,7 +763,7 @@
         c.getContext('2d').drawImage(v,0,0); c.toBlob(b => { let file = new File([b], "webcam_"+Date.now()+".jpg", {type:"image/jpeg"}); loadFiles([file]); closeWebcamModal(); }, 'image/jpeg', 1.0);
     }
 
-    async function exportStandardPDF() {
+async function exportStandardPDF() {
         if(exportOrder.length === 0) return alert("Vui lòng chọn ít nhất 1 ảnh để xuất!");
         
         let jsPDFClass = null;
@@ -776,35 +776,46 @@
         let paperType = document.getElementById('paperSizeSelect').value; 
         let exportFormat = document.getElementById('formatSelect').value; 
         
-        // KIỂM TRA THIẾT BỊ: Phân loại dòng họ nhà Apple với thế giới còn lại
+        // GIÁN ĐIỆP KIỂM TRA THIẾT BỊ: Nhận diện dòng họ nhà Apple
         let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         
         let BASE_W, BASE_H, GAP, CARD_MARGIN;
         
         if (isIOS) {
-            // 1. Cấu hình nhẹ nhàng cho iPhone (150 DPI) để không bị treo máy
+            // 1. Cấu hình nhẹ nhàng cho iPhone (150 DPI) để không bị đơ máy
             BASE_W = paperType === 'a4' ? 1240 : 874; 
             BASE_H = paperType === 'a4' ? 1754 : 1240; 
             GAP = 60; 
             CARD_MARGIN = 75; 
         } else {
-            // 2. Cấu hình siêu nét cho PC & Android (300 DPI)
+            // 2. Cấu hình siêu nét cho PC & Android (300 DPI) tội gì không quẩy hết nấc
             BASE_W = paperType === 'a4' ? 2480 : 1748; 
             BASE_H = paperType === 'a4' ? 3508 : 2480; 
             GAP = 120; 
             CARD_MARGIN = 150; 
         }
         
-        let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && (d.croppedUrl || d.rawCroppedDataUrl || d.rawCropped));
-        document.getElementById('status').innerText = `Đang xuất ${docsToExport.length} file hồ sơ...`;
+        let docsToExport = exportOrder.map(id => documents.find(d => d.id === id)).filter(d => d && d.croppedUrl);
+        document.getElementById('status').innerText = `Đang khởi tạo hồ sơ...`;
 
-        Promise.all(docsToExport.map(doc => new Promise(res => { 
-            let img = new Image(); 
-            img.onload = () => res(img); 
-            img.src = doc.croppedUrl || doc.rawCroppedDataUrl || doc.rawCropped; 
-        }))).then(async loadedImages => {
+        try {
+            // Tải toàn bộ ảnh từ khay lên bộ nhớ RAM ngầm
+            let loadedImages = await Promise.all(docsToExport.map(doc => {
+                return new Promise((resolve, reject) => {
+                    let img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => reject(new Error("Lỗi đọc dữ liệu ảnh"));
+                    img.src = doc.croppedUrl;
+                });
+            }));
+
+            document.getElementById('status').innerText = `Đang đóng gói file PDF...`;
             let totalPages = Math.ceil(loadedImages.length / mode);
             let pdf = null;
+
+            // BÍ KÍP GIẢI PHÓNG RAM CHO IPHONE: Tạo sẵn đúng 1 Canvas để dùng đi dùng lại
+            let canvas = document.createElement('canvas');
+            let ctx = canvas.getContext('2d');
 
             for (let page = 0; page < totalPages; page++) {
                 let imgs = loadedImages.slice(page * mode, (page + 1) * mode); 
@@ -812,10 +823,10 @@
                 let PAPER_W = isLandscape ? Math.max(BASE_W, BASE_H) : Math.min(BASE_W, BASE_H); 
                 let PAPER_H = isLandscape ? Math.min(BASE_W, BASE_H) : Math.max(BASE_W, BASE_H);
                 
-                let canvas = document.createElement('canvas'); 
-                canvas.width = PAPER_W; canvas.height = PAPER_H; 
-                let ctx = canvas.getContext('2d'); 
-                ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, PAPER_W, PAPER_H);
+                canvas.width = PAPER_W; 
+                canvas.height = PAPER_H; 
+                ctx.fillStyle = "#ffffff"; 
+                ctx.fillRect(0, 0, PAPER_W, PAPER_H);
 
                 if (mode === 1) { 
                     ctx.drawImage(imgs[0], 0, 0, PAPER_W, PAPER_H); 
@@ -835,10 +846,17 @@
 
                 if (exportFormat === 'pdf') {
                     let orientation = isLandscape ? 'l' : 'p'; 
-                    if (!pdf) { pdf = new jsPDFClass({ orientation: orientation, unit: 'px', format: [PAPER_W, PAPER_H] }); } 
-                    else { pdf.addPage([PAPER_W, PAPER_H], orientation); }
-                    let pdfW = pdf.internal.pageSize.getWidth(); let pdfH = pdf.internal.pageSize.getHeight(); 
-                    pdf.addImage(canvas.toDataURL('image/jpeg', 0.85), 'JPEG', 0, 0, pdfW, pdfH);
+                    if (!pdf) { 
+                        pdf = new jsPDFClass({ orientation: orientation, unit: 'mm', format: paperType }); 
+                    } else { 
+                        pdf.addPage(paperType, orientation); 
+                    }
+                    let pdfW = pdf.internal.pageSize.getWidth(); 
+                    let pdfH = pdf.internal.pageSize.getHeight(); 
+                    
+                    // Ép nén chất lượng ảnh xuống 0.75 nếu là iPhone để máy chạy siêu nhẹ
+                    let pdfImgData = canvas.toDataURL('image/jpeg', isIOS ? 0.75 : 0.90);
+                    pdf.addImage(pdfImgData, 'JPEG', 0, 0, pdfW, pdfH);
                 } else {
                     let link = document.createElement('a'); 
                     link.download = `Hoso_Trang_${page + 1}_${Date.now()}.jpg`; 
@@ -847,21 +865,32 @@
                     await new Promise(r => setTimeout(r, 400));
                 }
             }
+
+            // Hủy diệt canvas sau khi dùng xong để trả lại bộ nhớ cho máy
+            canvas.width = 0; canvas.height = 0; canvas = null;
+
             if (exportFormat === 'pdf') { 
                 let blob = pdf.output('blob'); 
                 let blobUrl = URL.createObjectURL(blob); 
                 let filename = `HoSo_Scan_${Date.now()}.pdf`;
                 
-                // Trả kết quả thông minh tùy thiết bị
                 if(isIOS) {
-                    document.getElementById('status').innerHTML = `<span style="color:green;">Tạo PDF hoàn tất!</span><br><a href="${blobUrl}" target="_blank" download="${filename}" style="display:inline-block; margin-top:10px; background:#198754; color:white; padding:10px 20px; text-decoration:none; border-radius:8px; font-weight:bold;">📥 BẤM ĐÂY ĐỂ MỞ TỆP BẰNG IPHONE</a>`;
+                    // Trả về giao diện nút bấm màu xanh lá cây và cuộn màn hình đến để người dùng thấy luôn
+                    document.getElementById('status').innerHTML = `<span style="color:green; font-weight:bold;">🎉 ĐÃ TRÍCH XUẤT THÀNH CÔNG!</span><br><a href="${blobUrl}" target="_blank" style="display:inline-block; margin-top:12px; background:#198754; color:white; padding:12px 25px; text-decoration:none; border-radius:8px; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">📥 BẤM VÀO ĐÂY ĐỂ MỞ FILE PDF</a>`;
+                    document.getElementById('status').scrollIntoView({behavior:'smooth', block:'center'});
                 } else {
-                    pdf.save(filename); document.getElementById('status').innerText = "Xuất hồ sơ thành công!";
+                    pdf.save(filename); 
+                    document.getElementById('status').innerText = "✅ Xuất hồ sơ thành công!";
                 }
             } else { 
-                document.getElementById('status').innerText = "Hoàn tất lưu các file ảnh!"; 
+                document.getElementById('status').innerText = "✅ Hoàn tất lưu các file ảnh!"; 
             }
-        });
+
+        } catch (err) {
+            // Nếu có bất kỳ lỗi gì phát sinh, bật bảng thông báo lên ngay lập tức
+            alert("Lỗi hệ thống: " + err.message);
+            document.getElementById('status').innerText = "❌ Xuất file thất bại.";
+        }
     }
 
     let boardPages = 0;
