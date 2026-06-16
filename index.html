@@ -776,19 +776,17 @@ async function exportStandardPDF() {
         let paperType = document.getElementById('paperSizeSelect').value; 
         let exportFormat = document.getElementById('formatSelect').value; 
         
-        // GIÁN ĐIỆP KIỂM TRA THIẾT BỊ: Nhận diện dòng họ nhà Apple
+        // KIỂM TRA THIẾT BỊ: Phân loại dòng họ nhà Apple với thế giới còn lại
         let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
         
         let BASE_W, BASE_H, GAP, CARD_MARGIN;
         
         if (isIOS) {
-            // 1. Cấu hình nhẹ nhàng cho iPhone (150 DPI) để không bị đơ máy
             BASE_W = paperType === 'a4' ? 1240 : 874; 
             BASE_H = paperType === 'a4' ? 1754 : 1240; 
             GAP = 60; 
             CARD_MARGIN = 75; 
         } else {
-            // 2. Cấu hình siêu nét cho PC & Android (300 DPI) tội gì không quẩy hết nấc
             BASE_W = paperType === 'a4' ? 2480 : 1748; 
             BASE_H = paperType === 'a4' ? 3508 : 2480; 
             GAP = 120; 
@@ -799,7 +797,6 @@ async function exportStandardPDF() {
         document.getElementById('status').innerText = `Đang khởi tạo hồ sơ...`;
 
         try {
-            // Tải toàn bộ ảnh từ khay lên bộ nhớ RAM ngầm
             let loadedImages = await Promise.all(docsToExport.map(doc => {
                 return new Promise((resolve, reject) => {
                     let img = new Image();
@@ -813,7 +810,6 @@ async function exportStandardPDF() {
             let totalPages = Math.ceil(loadedImages.length / mode);
             let pdf = null;
 
-            // BÍ KÍP GIẢI PHÓNG RAM CHO IPHONE: Tạo sẵn đúng 1 Canvas để dùng đi dùng lại
             let canvas = document.createElement('canvas');
             let ctx = canvas.getContext('2d');
 
@@ -854,7 +850,6 @@ async function exportStandardPDF() {
                     let pdfW = pdf.internal.pageSize.getWidth(); 
                     let pdfH = pdf.internal.pageSize.getHeight(); 
                     
-                    // Ép nén chất lượng ảnh xuống 0.75 nếu là iPhone để máy chạy siêu nhẹ
                     let pdfImgData = canvas.toDataURL('image/jpeg', isIOS ? 0.75 : 0.90);
                     pdf.addImage(pdfImgData, 'JPEG', 0, 0, pdfW, pdfH);
                 } else {
@@ -866,17 +861,33 @@ async function exportStandardPDF() {
                 }
             }
 
-            // Hủy diệt canvas sau khi dùng xong để trả lại bộ nhớ cho máy
             canvas.width = 0; canvas.height = 0; canvas = null;
 
             if (exportFormat === 'pdf') { 
                 let blob = pdf.output('blob'); 
-                let blobUrl = URL.createObjectURL(blob); 
                 let filename = `HoSo_Scan_${Date.now()}.pdf`;
                 
                 if(isIOS) {
-                    // Trả về giao diện nút bấm màu xanh lá cây và cuộn màn hình đến để người dùng thấy luôn
-                    document.getElementById('status').innerHTML = `<span style="color:green; font-weight:bold;">🎉 ĐÃ TRÍCH XUẤT THÀNH CÔNG!</span><br><a href="${blobUrl}" target="_blank" style="display:inline-block; margin-top:12px; background:#198754; color:white; padding:12px 25px; text-decoration:none; border-radius:8px; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">📥 BẤM VÀO ĐÂY ĐỂ MỞ FILE PDF</a>`;
+                    // TRỊ BỆNH IPHONE NGÁO: Chuyển Blob thành đối tượng File xịn
+                    let file = new File([blob], filename, { type: 'application/pdf' });
+                    
+                    // Triệu hồi sức mạnh Web Share API gốc của iOS
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        let btnId = 'shareBtn_' + Date.now();
+                        document.getElementById('status').innerHTML = `<span style="color:green; font-weight:bold;">🎉 ĐÃ TRÍCH XUẤT THÀNH CÔNG!</span><br><button id="${btnId}" style="display:inline-block; margin-top:12px; background:#198754; color:white; padding:12px 25px; border:none; border-radius:8px; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.15); cursor:pointer; font-size:16px;">📤 LƯU PDF HOẶC GỬI ZALO NGAY</button>`;
+                        
+                        document.getElementById(btnId).onclick = () => {
+                            navigator.share({
+                                files: [file],
+                                title: filename,
+                                text: 'Hồ sơ quét từ Agribank'
+                            }).catch(err => console.log("Hủy share", err));
+                        };
+                    } else {
+                        // Kế hoạch B cho iPhone đời Tống: Mở trực tiếp (Không dùng lệnh tải)
+                        let blobUrl = URL.createObjectURL(blob);
+                        document.getElementById('status').innerHTML = `<span style="color:green; font-weight:bold;">🎉 ĐÃ TRÍCH XUẤT THÀNH CÔNG!</span><br><a href="${blobUrl}" target="_self" style="display:inline-block; margin-top:12px; background:#198754; color:white; padding:12px 25px; text-decoration:none; border-radius:8px; font-weight:bold; box-shadow: 0 4px 6px rgba(0,0,0,0.15);">👁️ MỞ LÊN ĐỂ XEM & LƯU TỆP</a>`;
+                    }
                     document.getElementById('status').scrollIntoView({behavior:'smooth', block:'center'});
                 } else {
                     pdf.save(filename); 
@@ -887,7 +898,6 @@ async function exportStandardPDF() {
             }
 
         } catch (err) {
-            // Nếu có bất kỳ lỗi gì phát sinh, bật bảng thông báo lên ngay lập tức
             alert("Lỗi hệ thống: " + err.message);
             document.getElementById('status').innerText = "❌ Xuất file thất bại.";
         }
