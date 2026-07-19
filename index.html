@@ -2,64 +2,345 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#8a0c25">
     <title>Scanner Pro - Gió Phiêu Du</title>
     <style>
-        body { font-family: Arial, sans-serif; padding: 10px; background: #f4f6f9; margin: 0; box-sizing: border-box;}
-        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        
-        .brand-header { text-align: center; margin-bottom: 25px; }
-        .brand-wrapper { display: inline-flex; flex-direction: column; align-items: center; width: 300px; margin: 0 auto; }
-        .brand-logo { height: 100px; width: 100%; object-fit: fill; display: block; }
-        .branch-name { color: #8a0c25; font-size: 15px; font-weight: 900; -webkit-text-stroke: 0.5px #8a0c25; margin-top: 5px; width: 200px; text-align: justify; text-align-last: justify; border-top: 2px solid #8a0c25; padding-top: 4px; }
-        
-        .controls { display: flex; gap: 10px; flex-wrap: wrap; background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        button, select, input[type="file"] { padding: 10px 15px; cursor: pointer; border: 1px solid #ccc; border-radius: 6px; background: #fff; font-size: 14px; font-weight: bold;}
-        .btn-primary { background: #0d6efd; color: white; border: none; }
-        .btn-success { background: #198754; color: white; border: none; padding: 15px; font-size: 16px;}
-        .btn-warning { background: #ffc107; color: #000; border: none; }
-        .btn-danger { background: #dc3545; color: white; border: none; flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px;}
-        button:disabled { background: #ccc !important; cursor: not-allowed !important; color: #666 !important; }
-        
-        .panel { border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
-        canvas { max-width: 100%; display: block; margin: auto; border-radius: 4px; touch-action: none; }
-        
-        .filter-group { display: flex; flex-direction: column; gap: 10px; background: #f8f9fa; padding: 15px; border-radius: 6px; border: 1px solid #dee2e6; width: 100%; box-sizing: border-box;}
-        .slider-container { display: none; flex-direction: column; gap: 12px; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #e9ecef;}
-        .slider-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;}
-        .slider-row label { font-size: 14px; font-weight: bold; color: #495057; width: 100px;}
-        .slider-row input[type="range"] { flex-grow: 1; accent-color: #0d6efd;}
+    *, *::before, *::after { box-sizing: border-box; }
 
-        .gallery-container { border-top: 2px solid #eee; padding-top: 25px; overflow-x: auto; white-space: nowrap; margin-bottom: 15px; padding-bottom: 15px;}
-        .thumb-wrapper { display: inline-block; position: relative; width: 85px; margin-right: 20px; text-align: center; }
-        .thumb { width: 100%; height: 85px; object-fit: contain; cursor: pointer; border: 3px solid transparent; border-radius: 8px; background: #f8f9fa; transition: 0.2s;}
-        .thumb.active { border-color: #0d6efd; box-shadow: 0 0 10px rgba(13,110,253,0.4); }
-        .thumb.cropped { border-color: #198754; background: #fff;}
-        .order-badge { position: absolute; top: -12px; left: -12px; width: 28px; height: 28px; border-radius: 50%; background: #e9ecef; color: #6c757d; line-height: 28px; cursor: pointer; font-weight: bold; user-select: none; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10;}
-        .order-badge.selected { background: #0d6efd; color: white; border-color: #0d6efd; }
+    :root{
+      --brand:#8a0c25; --brand-700:#6d0a1d; --brand-600:#a3122f; --brand-050:#fdf2f4;
+      --ink:#161a21; --ink-2:#39414f; --muted:#6f7889;
+      --bg:#e9edf3; --surface:#ffffff; --surface-2:#f6f8fc;
+      --line:#dfe4ee; --line-2:#c8d0de;
+      --ok:#0d7a54; --ok-bg:#eefaf5; --ok-line:#b7e3d0;
+      --danger:#b3271e;
+      --stage:#242932;
+      --r:14px; --r-sm:10px;
+      --sh-1:0 1px 2px rgba(17,24,39,.05), 0 1px 3px rgba(17,24,39,.08);
+      --sh-2:0 8px 24px rgba(17,24,39,.10), 0 2px 6px rgba(17,24,39,.05);
+    }
 
-        .controls-bottom { background: #d1e7dd; border: 1px solid #badbcc; padding: 15px; border-radius: 8px; margin-bottom: 15px;}
-        
-        #layoutWorkspace { background: #525659; padding: 20px 0; border-radius: 8px; overflow-x: auto; display: flex; justify-content: center;}
-        #boardOuter { position: relative; } 
-        #boardContainer { position: absolute; top: 0; left: 0; width: 794px; background: white; transform-origin: top left; box-shadow: 0 0 15px rgba(0,0,0,0.5);}
-        .page-divider { position: absolute; left: 0; width: 100%; border-top: 2px dashed red; z-index: 0; }
-        .page-divider span { background: red; color: white; padding: 2px 5px; position: absolute; top: -20px; font-weight: bold; font-size: 12px;}
-        .draggable-item { position: absolute; border: 2px solid transparent; box-sizing: border-box; }
-        .draggable-item:hover { border: 2px dashed #0d6efd; }
-        .draggable-item img { width: 100%; height: 100%; display: block; object-fit: fill; pointer-events: none;}
-        .resizer { position: absolute; right: -10px; bottom: -10px; width: 25px; height: 25px; background: #0d6efd; border-radius: 50%; cursor: se-resize; z-index: 10; border: 2px solid white; box-shadow: 0 0 3px #000;}
-        
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; }
-        .modal-content { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 700px; }
-        #webcamVideo { width: 100%; background: #000; border-radius: 8px; margin: 10px 0; max-height: 60vh;}
-        
-        .status { font-weight: bold; color: #198754; text-align: center; margin-bottom: 10px; }
-        .footer-credit { text-align: center; padding: 20px; color: #555; font-size: 14px; font-weight: bold; margin-top: 20px; border-top: 1px solid #eee; }
-        
-        @media (max-width: 600px) { .controls { flex-direction: column; align-items: stretch; } .btn-danger, .btn-warning, .btn-success, .btn-primary { width: 100%; } }
+    html{ -webkit-text-size-adjust:100%; }
+    body{
+      margin:0; min-height:100vh; color:var(--ink); background:var(--bg);
+      font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,"SF Pro Text",Roboto,"Noto Sans","Helvetica Neue",Arial,sans-serif;
+      font-size:15px; line-height:1.5;
+      background-image:
+        radial-gradient(1100px 560px at 100% -8%, #f4e6ea 0%, transparent 58%),
+        radial-gradient(900px 520px at -8% 0%, #e4ebf7 0%, transparent 55%);
+      background-attachment:fixed;
+    }
+
+    /* ---------- APP SHELL : tràn màn hình, không co vào giữa ---------- */
+    .app{
+      max-width:2100px; margin:0 auto;
+      padding:16px max(20px, env(safe-area-inset-left)) calc(40px + env(safe-area-inset-bottom));
+    }
+
+    /* ---------- APP BAR ---------- */
+    .appbar{
+      position:sticky; top:10px; z-index:60;
+      display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+      padding:12px 18px; margin-bottom:16px;
+      border-radius:var(--r); border:1px solid rgba(255,255,255,.14);
+      background:linear-gradient(120deg, var(--brand-700) 0%, var(--brand) 46%, var(--brand-600) 100%);
+      color:#fff; box-shadow:var(--sh-2);
+    }
+    .brand{ display:flex; align-items:center; gap:12px; min-width:0; }
+    .brand-logo{ height:42px; width:auto; max-width:140px; object-fit:contain; background:rgba(255,255,255,.94); border-radius:8px; padding:4px 8px; }
+    .brand-name{ font-size:18px; font-weight:800; letter-spacing:.14em; line-height:1.15; }
+    .brand-sub{ margin-top:2px; font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; opacity:.82; }
+    .appbar-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+
+    /* ---------- BUTTONS ---------- */
+    button, .btn{
+      -webkit-appearance:none; appearance:none; font:inherit;
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      padding:11px 16px; border-radius:11px; border:1px solid transparent;
+      font-size:14px; font-weight:700; line-height:1.15; white-space:nowrap;
+      background:var(--surface); color:var(--ink-2); cursor:pointer; user-select:none;
+      transition:background .16s, border-color .16s, box-shadow .16s, color .16s, transform .05s;
+    }
+    button:active, .btn:active{ transform:translateY(1px); }
+    button:focus-visible, .btn:focus-visible{ outline:3px solid rgba(138,12,37,.35); outline-offset:2px; }
+    button:disabled{ opacity:.45; cursor:not-allowed; box-shadow:none; filter:grayscale(.35); }
+
+    .btn-ghost{ background:var(--surface); border-color:var(--line-2); color:var(--ink-2); box-shadow:var(--sh-1); }
+    .btn-ghost:hover:not(:disabled){ border-color:var(--brand); color:var(--brand); background:var(--brand-050); }
+    .btn-primary{ background:linear-gradient(180deg, var(--brand-600), var(--brand)); color:#fff; box-shadow:0 2px 10px rgba(138,12,37,.28); }
+    .btn-primary:hover:not(:disabled){ filter:brightness(1.08); }
+    .btn-success{ background:linear-gradient(180deg,#12946a,#0d7a54); color:#fff; box-shadow:0 2px 10px rgba(13,122,84,.26); }
+    .btn-success:hover:not(:disabled){ filter:brightness(1.08); }
+    .btn-danger{ background:linear-gradient(180deg,#d0402f,#b3271e); color:#fff; box-shadow:0 2px 10px rgba(179,39,30,.28); }
+    .btn-danger:hover:not(:disabled){ filter:brightness(1.08); }
+    .btn-warning{ background:#fff; border-color:#e7cd94; color:#8a5a06; box-shadow:var(--sh-1); }
+    .btn-outline{ background:transparent; border-color:var(--brand); color:var(--brand); }
+    .btn-outline:hover:not(:disabled){ background:var(--brand-050); }
+    .btn-onbrand{ background:rgba(255,255,255,.18); border-color:rgba(255,255,255,.55); color:#fff; font-weight:800; }
+    .btn-onbrand:hover:not(:disabled){ background:rgba(255,255,255,.32); border-color:#fff; }
+    .btn-onbrand-solid{ background:rgba(0,0,0,.30); border-color:rgba(255,255,255,.85); color:#fff; font-weight:800; box-shadow:0 2px 10px rgba(0,0,0,.22); }
+    .btn-onbrand-solid:hover:not(:disabled){ background:rgba(0,0,0,.44); border-color:#fff; }
+    /* Lúc chờ nạp thư viện: KHÔNG làm mờ chữ, chỉ dịu nền lại */
+    .btn-onbrand:disabled, .btn-onbrand-solid:disabled,
+    .file-native:disabled + .btn-onbrand{
+      opacity:1; filter:none; cursor:not-allowed; box-shadow:none;
+      background:rgba(0,0,0,.16); border-color:rgba(255,255,255,.32); color:rgba(255,255,255,.8);
+    }
+    .btn-lg{ padding:14px 20px; font-size:15px; border-radius:12px; }
+    .btn-block{ width:100%; }
+
+    .file-native{ position:absolute; width:1px; height:1px; padding:0; margin:0; border:0; opacity:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+    .file-native:disabled + label{ pointer-events:none; }
+
+    /* ---------- FORM CONTROLS ---------- */
+    select, textarea{
+      font:inherit; font-size:14px; color:var(--ink); width:100%;
+      background:var(--surface); border:1px solid var(--line-2); border-radius:10px; padding:10px 12px;
+      transition:border-color .16s, box-shadow .16s;
+    }
+    select{
+      -webkit-appearance:none; appearance:none; cursor:pointer; font-weight:600; padding-right:36px;
+      background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236f7889' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:right 12px center;
+    }
+    select:focus, textarea:focus{ outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(138,12,37,.13); }
+    select:disabled{ opacity:.55; cursor:not-allowed; background-color:var(--surface-2); }
+    input[type=checkbox]{ width:20px; height:20px; accent-color:var(--brand); cursor:pointer; }
+    input[type=range]{ accent-color:var(--brand); height:22px; cursor:pointer; }
+
+    /* ---------- STATUS ---------- */
+    .status{
+      display:block; text-align:center; margin:0 0 16px; padding:12px 16px;
+      font-size:13.5px; font-weight:700;
+      background:var(--surface); border:1px solid var(--line); border-left:5px solid currentColor;
+      border-radius:var(--r-sm); box-shadow:var(--sh-1);
+    }
+
+    /* ---------- WORKSPACE GRID ---------- */
+    .workspace{
+      display:grid; gap:16px; align-items:start;
+      grid-template-columns:minmax(0,1fr);
+      grid-template-areas:"editor" "result" "tray" "export";
+    }
+    .card-editor{ grid-area:editor; } .card-result{ grid-area:result; }
+    .card-tray{ grid-area:tray; }    .card-export{ grid-area:export; }
+
+    @media (min-width:1180px){
+      .workspace{
+        grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);
+        grid-template-areas:"editor result" "tray tray" "export export";
+      }
+    }
+    @media (min-width:1700px){
+      .workspace{ grid-template-areas:"editor result" "tray export"; }
+    }
+
+    /* ---------- CARDS ---------- */
+    .card{
+      display:flex; flex-direction:column; overflow:hidden;
+      background:var(--surface); border:1px solid var(--line);
+      border-radius:var(--r); box-shadow:var(--sh-1);
+    }
+    .card-head{
+      display:flex; align-items:center; gap:10px; padding:13px 16px;
+      border-bottom:1px solid var(--line);
+      background:linear-gradient(180deg,#fbfcfe,#f3f6fb);
+    }
+    .card-head h2{ margin:0; font-size:13.5px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; color:var(--ink); }
+    .step{
+      flex:none; width:26px; height:26px; border-radius:8px; display:grid; place-items:center;
+      background:var(--brand); color:#fff; font-size:12.5px; font-weight:800;
+      box-shadow:0 2px 6px rgba(138,12,37,.3);
+    }
+    .head-note{ margin-left:auto; font-size:11.5px; font-weight:600; color:var(--muted); text-align:right; }
+    .card-body{ flex:1; display:flex; flex-direction:column; gap:14px; padding:16px; }
+
+    /* ---------- TOOLBAR / HINT ---------- */
+    .toolbar{ display:flex; gap:10px; flex-wrap:wrap; }
+    .toolbar select{ flex:1 1 190px; min-width:0; }
+    .hint{
+      margin:0; padding:9px 12px; text-align:center; font-size:12.5px; color:var(--muted);
+      background:var(--surface-2); border:1px dashed var(--line-2); border-radius:9px;
+    }
+    .hint b{ color:var(--brand); }
+
+    /* ---------- STAGE (nền tối kiểu phần mềm ảnh) ---------- */
+    .stage{
+      position:relative; display:flex; align-items:center; justify-content:center;
+      padding:14px; min-height:250px; overflow:hidden;
+      border-radius:var(--r-sm); border:1px solid rgba(0,0,0,.28);
+      background-color:var(--stage);
+      background-image:
+        linear-gradient(45deg, rgba(255,255,255,.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.03) 75%),
+        linear-gradient(45deg, rgba(255,255,255,.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.03) 75%);
+      background-size:24px 24px; background-position:0 0, 12px 12px;
+      box-shadow:inset 0 2px 16px rgba(0,0,0,.38);
+    }
+    .stage::before{
+      content:attr(data-empty); position:absolute; inset:0; display:grid; place-items:center;
+      padding:24px; text-align:center; pointer-events:none;
+      color:rgba(255,255,255,.36); font-size:12.5px; font-weight:600; letter-spacing:.03em;
+      opacity:0; transition:opacity .2s;
+    }
+    /* canvas chưa có width (chưa dùng) hoặc width=0 (đã xoá) -> mới hiện chữ gợi ý */
+    .stage:has(canvas:not([width]))::before,
+    .stage:has(canvas[width="0"])::before{ opacity:1; }
+    .stage canvas{
+      position:relative; z-index:1; display:block; margin:auto;
+      max-width:100%; background:transparent; border-radius:4px; touch-action:none;
+    }
+    .stage-out{ min-height:210px; }
+    .canvas-edit{ cursor:crosshair; }
+
+    /* ---------- QR RESULT ---------- */
+    #qrResultGroup{
+      display:none; flex-direction:column; gap:10px; padding:14px;
+      background:var(--ok-bg); border:1px solid var(--ok-line); border-radius:var(--r-sm);
+    }
+    .qr-label{ font-size:12px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--ok); }
+    #qrTextBox{
+      font-family:ui-monospace,"Cascadia Mono",Consolas,"SF Mono","Roboto Mono",monospace;
+      font-size:13px; line-height:1.65; background:#fff; border-color:var(--ok-line); resize:vertical;
+    }
+    #qrTextBox:focus{ border-color:var(--ok); box-shadow:0 0 0 3px rgba(13,122,84,.14); }
+
+    /* ---------- FILTERS ---------- */
+    .filter-group{
+      display:flex; flex-direction:column; gap:12px; padding:14px;
+      background:var(--surface-2); border:1px solid var(--line); border-radius:var(--r-sm);
+    }
+    .field-row{ display:flex; align-items:center; gap:10px; }
+    .field-row > label{ flex:none; font-size:13px; font-weight:700; color:var(--ink-2); white-space:nowrap; }
+    .field-row select{ flex:1; }
+    .slider-container{
+      display:none; flex-direction:column; gap:12px; padding:14px;
+      background:var(--surface); border:1px solid var(--line); border-radius:9px;
+    }
+    .slider-row{ display:flex; align-items:center; gap:12px; }
+    .slider-row label{ flex:none; width:96px; font-size:13px; font-weight:700; color:var(--ink-2); }
+    .slider-row input[type=range]{ flex:1; min-width:0; }
+    .switch{ margin-left:auto; }
+    .rot-row{ display:flex; gap:10px; }
+    .rot-row .btn{ flex:1; }
+
+    /* ---------- GALLERY / KHAY ẢNH ---------- */
+    .gallery-container{
+      flex:1; padding:26px 16px 18px; min-height:158px;
+      background:var(--surface-2); white-space:nowrap; overflow-x:auto; overflow-y:hidden;
+    }
+    .gallery-container::-webkit-scrollbar{ height:9px; }
+    .gallery-container::-webkit-scrollbar-thumb{ background:var(--line-2); border-radius:99px; }
+    .gallery-container::-webkit-scrollbar-track{ background:transparent; }
+    #gallery:empty{ display:grid; place-items:center; }
+    #gallery:empty::before{
+      content:"Chưa có ảnh nào trong khay — hãy tải hoặc chụp ảnh để bắt đầu";
+      color:var(--muted); font-size:13px; font-weight:600; white-space:normal; text-align:center;
+    }
+    .thumb-wrapper{ display:inline-block; position:relative; width:96px; margin-right:22px; vertical-align:top; }
+    .thumb{
+      width:100%; height:96px; object-fit:contain; padding:4px; cursor:pointer;
+      background:#fff; border:2px solid var(--line-2); border-radius:10px;
+      box-shadow:var(--sh-1); transition:transform .18s, box-shadow .18s, border-color .18s;
+    }
+    .thumb:hover{ transform:translateY(-2px); box-shadow:var(--sh-2); }
+    .thumb.cropped{ border-color:var(--ok); }
+    .thumb.active{ border-color:var(--brand); box-shadow:0 0 0 3px rgba(138,12,37,.18), var(--sh-2); }
+    .order-badge{
+      position:absolute; top:-10px; left:-10px; z-index:10;
+      width:26px; height:26px; border-radius:50%; display:grid; place-items:center;
+      background:#fff; color:var(--muted); border:2px solid var(--line-2);
+      font-size:12px; font-weight:800; line-height:1; cursor:pointer; user-select:none;
+      box-shadow:var(--sh-1);
+    }
+    .order-badge.selected{ background:var(--brand); color:#fff; border-color:#fff; box-shadow:0 2px 8px rgba(138,12,37,.45); }
+    .order-badge.disabled{ opacity:.5; cursor:default; }
+
+    /* ---------- EXPORT ---------- */
+    .export-bar{ display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+    .field{ display:flex; flex-direction:column; gap:6px; flex:1 1 170px; min-width:0; }
+    .field > span{ font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+    .export-actions{ display:flex; gap:12px; flex:1 1 100%; }
+    .export-actions .btn{ flex:1; }
+    @media (min-width:1180px){
+      .export-actions{ flex:0 0 auto; }
+      .export-actions .btn{ flex:none; }
+    }
+
+    .credit{ margin-top:22px; padding:16px; text-align:center; font-size:12.5px; font-weight:700; letter-spacing:.03em; color:var(--muted); }
+
+    /* ---------- LAYOUT MODE ---------- */
+    #statusLayout{
+      display:block; text-align:center; margin:0 0 14px; padding:11px 14px;
+      font-size:13px; font-weight:700;
+      background:var(--surface); border:1px solid var(--line); border-left:5px solid currentColor;
+      border-radius:var(--r-sm); box-shadow:var(--sh-1);
+    }
+    #layoutWorkspace{
+      display:flex; justify-content:center; overflow-x:auto; padding:22px 0;
+      background:#2f343d; border-radius:var(--r); box-shadow:inset 0 2px 18px rgba(0,0,0,.42);
+    }
+    #boardOuter{ position:relative; }
+    #boardContainer{
+      position:absolute; top:0; left:0; width:794px; background:#fff;
+      transform-origin:top left; box-shadow:0 0 26px rgba(0,0,0,.55);
+    }
+    .page-divider{ position:absolute; left:0; width:100%; border-top:2px dashed #e0402f; z-index:0; }
+    .page-divider span{
+      position:absolute; top:-21px; padding:2px 7px; border-radius:5px 5px 0 0;
+      background:#e0402f; color:#fff; font-size:11px; font-weight:700;
+    }
+    .draggable-item{ position:absolute; border:2px solid transparent; box-sizing:border-box; }
+    .draggable-item:hover{ border:2px dashed var(--brand); }
+    .draggable-item img{ width:100%; height:100%; display:block; object-fit:fill; pointer-events:none; }
+    .resizer{
+      position:absolute; right:-11px; bottom:-11px; z-index:10;
+      width:26px; height:26px; border-radius:50%; cursor:se-resize;
+      background:var(--brand); border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.5);
+    }
+
+    /* ---------- MODAL ---------- */
+    .modal{ display:none; position:fixed; inset:0; z-index:1000; background:rgba(12,14,18,.74); }
+    .modal-content{
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:min(94vw,720px); max-height:92vh; overflow:auto; padding:20px;
+      background:var(--surface); border-radius:16px; box-shadow:0 30px 70px rgba(0,0,0,.5);
+    }
+    .modal-title{ margin:0 0 14px; font-size:16px; font-weight:800; color:var(--ink); }
+    .modal-fields{ display:flex; gap:12px; flex-wrap:wrap; }
+    #webcamVideo{ width:100%; max-height:54vh; margin:12px 0; background:#000; border-radius:12px; object-fit:contain; }
+    .modal-actions{ display:flex; gap:10px; }
+    .modal-actions .btn:last-child{ flex:2; }
+    .modal-actions .btn:first-child{ flex:1; }
+
+    /* ---------- MOBILE ---------- */
+    @media (max-width:767px){
+      body{ font-size:14.5px; }
+      .app{ padding:12px max(12px, env(safe-area-inset-left)) calc(30px + env(safe-area-inset-bottom)); }
+      .appbar{ position:static; padding:12px 14px; gap:12px; }
+      .brand-name{ font-size:16px; letter-spacing:.1em; }
+      .brand-logo{ height:36px; }
+      .appbar-actions{ width:100%; }
+      .appbar-actions .btn{ flex:1 1 0; min-width:0; padding:11px 8px; font-size:13px; }
+      .card-body{ padding:13px; gap:12px; }
+      .card-head{ padding:11px 13px; }
+      .head-note{ display:none; }
+      .stage{ padding:10px; min-height:200px; }
+      .stage-out{ min-height:170px; }
+      select, textarea{ font-size:16px; }   /* chặn iOS tự phóng to */
+      .toolbar{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+      .toolbar select{ grid-column:1 / -1; }
+      .field{ flex:1 1 calc(50% - 7px); }
+      .export-actions{ flex-direction:column; }
+      .slider-row label{ width:80px; font-size:12.5px; }
+      .thumb-wrapper{ width:80px; margin-right:18px; }
+      .thumb{ height:80px; }
+      .gallery-container{ padding:24px 12px 14px; min-height:140px; }
+      .credit{ margin-top:14px; padding:12px; }
+    }
+
     </style>
-    
+
     <script>
         let cvReady = false, qrReady = false, pdfReady = false;
 
@@ -106,125 +387,187 @@
             }, 1000);
         };
     </script>
-    
+
     <script src="opencv.js"></script>
     <script src="jsQR.min.js"></script>
     <script src="jspdf.umd.min.js"></script>
 </head>
 <body>
 
-<div class="container" id="mainUI">
-    <div class="brand-header">
-        <div class="brand-wrapper">
+<div class="app" id="mainUI">
+
+    <header class="appbar">
+        <div class="brand">
             <img src="logo.png" alt="Logo" class="brand-logo" onerror="this.style.display='none';">
-            <div class="branch-name">GIÓ PHIÊU DU</div>
+            <div class="brand-text">
+                <div class="brand-name">GIÓ PHIÊU DU</div>
+                <div class="brand-sub">Scanner Pro · Số hóa hồ sơ</div>
+            </div>
         </div>
-    </div>
+        <div class="appbar-actions">
+            <input type="file" id="fileInput" accept="image/*" multiple disabled class="file-native">
+            <label for="fileInput" class="btn btn-onbrand" title="Tải ảnh có sẵn trong máy">📁 Chọn ảnh có sẵn</label>
+            <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
+            <button id="cameraBtn" class="btn btn-onbrand-solid" onclick="handleCameraBtn()" disabled>📸 Chụp ảnh trực tiếp</button>
+        </div>
+    </header>
 
     <div id="status" class="status" style="color:#d9534f;">Đang khởi động phần mềm...</div>
-    
-    <div class="controls">
-        <input type="file" id="fileInput" accept="image/*" multiple disabled title="Tải ảnh có sẵn" style="flex-grow: 1;">
-        <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
-        <button id="cameraBtn" class="btn-danger" onclick="handleCameraBtn()" disabled>📸 Chụp Ảnh Trực Tiếp</button>
-    </div>
 
-    <div class="panel">
-        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-            <select id="cropModeSelect" style="flex-grow: 1;">
-                <option value="warp">Nắn phẳng viền</option>
-                <option value="polygon">Cắt tự do</option>
-            </select>
-            <button class="btn-primary" onclick="resetPoints('cccd')">🎯 CCCD (Làm tay)</button>
-            <button class="btn-primary" onclick="resetPoints('a4')" style="background:#0dcaf0; color:black;">📄 A4 (Làm tay)</button>
-        </div>
-        <p style="text-align:center; font-size:13px; color:#666; margin: 0 0 10px 0;">Hệ thống tự nhận diện. Có thể kéo 4 góc hoặc <b>kéo điểm giữa (màu vàng)</b> để di chuyển toàn bộ cạnh.</p>
-        <canvas id="canvasInput" style="background:#f8f9fa; cursor:crosshair;"></canvas>
-        <button class="btn-success" id="warpBtn" onclick="doCrop()" disabled style="margin-top:15px; border-radius: 50px;">✂️ CẮT ẢNH NÀY</button>
-    </div>
+    <main class="workspace">
 
-    <div class="panel">
-        <canvas id="canvasOutput" style="background:#f8f9fa; border:1px dashed #ccc; margin-bottom:10px; min-height:100px;"></canvas>
-        
-        <div id="qrResultGroup" style="display: none; flex-direction: column; gap: 5px; margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed #ccc;">
-            <label style="color: #198754; font-weight: bold;">Mã QR đã được trích xuất tự động thành ảnh riêng!</label>
-            <textarea id="qrTextBox" rows="6" style="width: 100%; border-radius: 6px; padding: 10px; font-size: 14px; border: 2px solid #198754; box-sizing: border-box; resize: vertical;" readonly></textarea>
-            <button class="btn-success" onclick="copyQR()" style="padding: 10px; border-radius: 6px; background: #198754; color: white; border: none; font-weight: bold; cursor: pointer;">📋 Sao chép Đoạn Text này</button>
-        </div>
-
-        <div class="filter-group">
-            <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
-                <label style="white-space: nowrap;"><b>Chỉnh màu:</b></label>
-                <select id="colorFilterSelect" style="flex-grow: 1;" onchange="handleFilterChange()" disabled>
-                    <option value="original" selected>🖼️ Ảnh Gốc (Màu thật)</option>
-                    <option value="magic_stamp">✨ Lọc Dấu Đỏ & Chữ Đen</option>
-                    <option value="magic">🌟 Tự Bù Sáng (Giữ màu)</option>
-                    <option value="manual_all">🎚️ Chỉnh tay (Sáng/Tối)</option>
-                </select>
+        <section class="card card-editor">
+            <div class="card-head">
+                <span class="step">1</span>
+                <h2>Cắt &amp; nắn phẳng</h2>
+                <span class="head-note">Hệ thống tự nhận diện viền</span>
             </div>
-            
-            <div id="sliderContainer" class="slider-container">
-                <div class="slider-row"><label>Khử bóng:</label><input type="range" id="claheSlider" min="0" max="10" step="0.5" value="0" oninput="applyFilter()"></div>
-                <div class="slider-row"><label>Sáng/Tối:</label><input type="range" id="brightSlider" min="-100" max="100" value="0" oninput="applyFilter()"></div>
-                <div class="slider-row"><label>Tương phản:</label><input type="range" id="contrastSlider" min="1" max="3" step="0.1" value="1.0" oninput="applyFilter()"></div>
-                <div class="slider-row"><label>Đen Trắng:</label><input type="checkbox" id="bwCheckbox" style="transform: scale(1.3); cursor:pointer;" onchange="applyFilter()"></div>
+            <div class="card-body">
+                <div class="toolbar">
+                    <select id="cropModeSelect" title="Kiểu cắt">
+                        <option value="warp">Nắn phẳng viền</option>
+                        <option value="polygon">Cắt tự do</option>
+                    </select>
+                    <button class="btn btn-ghost" onclick="resetPoints('cccd')">🎯 Khung CCCD</button>
+                    <button class="btn btn-ghost" onclick="resetPoints('a4')">📄 Khung A4</button>
+                </div>
+                <p class="hint">Kéo <b>4 góc trắng</b> để chỉnh, hoặc kéo <b>điểm vàng giữa cạnh</b> để dời cả cạnh.</p>
+                <div class="stage" data-empty="Chưa có ảnh — bấm “Chọn ảnh có sẵn” hoặc “Chụp ảnh trực tiếp” ở phía trên">
+                    <canvas id="canvasInput" class="canvas-edit"></canvas>
+                </div>
+                <button class="btn btn-primary btn-lg btn-block" id="warpBtn" onclick="doCrop()" disabled>✂️ CẮT ẢNH NÀY</button>
             </div>
-            
-            <div style="display:flex; gap:10px; margin-top: 5px;">
-                <button id="rotLBtn" class="btn-warning" style="flex:1;" onclick="rotateImg(-90)" disabled>↺ Xoay Trái</button>
-                <button id="rotRBtn" class="btn-warning" style="flex:1;" onclick="rotateImg(90)" disabled>Xoay Phải ↻</button>
-            </div>
-        </div>
-    </div>
+        </section>
 
-    <h4 style="color:#495057; margin-bottom: 5px; margin-top: 20px;">Khay Ảnh (Bấm dấu [+] ở góc để đánh số thứ tự)</h4>
-    <div class="gallery-container" id="gallery"></div>
-    
-    <div class="controls-bottom">
-        <h4 style="margin-top:0; color:#8a0c25; text-align:center;">BỐ CỤC & XUẤT HỒ SƠ</h4>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;">
-            <select id="paperSizeSelect" style="flex: 1;"><option value="a4" selected>Khổ A4</option></select>
-            <select id="layoutSelect" style="flex: 1;">
-                <option value="1">1 ảnh/trang</option>
-                <option value="2" selected>2 ảnh/trang (CCCD)</option>
-                <option value="3">3 ảnh/trang</option>
-            </select>
-            <select id="formatSelect" style="flex: 1;">
-                <option value="pdf" selected>📄 PDF chung</option>
-                <option value="jpg">🖼️ JPG rời</option>
-            </select>
-        </div>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-            <button id="exportAutoBtn" class="btn-success" style="flex:1; border-radius: 8px;" onclick="exportStandardPDF()" disabled>🖨️ XUẤT TỰ ĐỘNG</button>
-            <button id="exportLayoutBtn" class="btn-primary" style="flex:1; border-radius: 8px; background: #005c66;" onclick="openLayoutMode()" disabled>📐 CHỈNH TAY THỦ CÔNG</button>
-        </div>
-    </div>
-    <div class="footer-credit">Tác giả: Trần Minh Hải - 0938150987</div>
+        <section class="card card-result">
+            <div class="card-head">
+                <span class="step">2</span>
+                <h2>Kết quả &amp; tinh chỉnh</h2>
+            </div>
+            <div class="card-body">
+                <div class="stage stage-out" data-empty="Ảnh sau khi cắt sẽ hiện ở đây">
+                    <canvas id="canvasOutput"></canvas>
+                </div>
+
+                <div id="qrResultGroup">
+                    <div class="qr-label">✅ Đã đọc mã QR &amp; tách thành ảnh riêng</div>
+                    <textarea id="qrTextBox" rows="7" readonly></textarea>
+                    <button class="btn btn-success btn-block" onclick="copyQR()">📋 Sao chép Đoạn Text này</button>
+                </div>
+
+                <div class="filter-group">
+                    <div class="field-row">
+                        <label for="colorFilterSelect">Chỉnh màu</label>
+                        <select id="colorFilterSelect" onchange="handleFilterChange()" disabled>
+                            <option value="original" selected>🖼️ Ảnh Gốc (Màu thật)</option>
+                            <option value="magic_stamp">✨ Lọc Dấu Đỏ &amp; Chữ Đen</option>
+                            <option value="magic">🌟 Tự Bù Sáng (Giữ màu)</option>
+                            <option value="manual_all">🎚️ Chỉnh tay (Sáng/Tối)</option>
+                        </select>
+                    </div>
+
+                    <div id="sliderContainer" class="slider-container">
+                        <div class="slider-row"><label for="claheSlider">Khử bóng</label><input type="range" id="claheSlider" min="0" max="10" step="0.5" value="0" oninput="applyFilter()"></div>
+                        <div class="slider-row"><label for="brightSlider">Sáng / Tối</label><input type="range" id="brightSlider" min="-100" max="100" value="0" oninput="applyFilter()"></div>
+                        <div class="slider-row"><label for="contrastSlider">Tương phản</label><input type="range" id="contrastSlider" min="1" max="3" step="0.1" value="1.0" oninput="applyFilter()"></div>
+                        <div class="slider-row"><label for="bwCheckbox">Đen trắng</label><input type="checkbox" id="bwCheckbox" class="switch" onchange="applyFilter()"></div>
+                    </div>
+
+                    <div class="rot-row">
+                        <button id="rotLBtn" class="btn btn-ghost" onclick="rotateImg(-90)" disabled>↺ Xoay trái</button>
+                        <button id="rotRBtn" class="btn btn-ghost" onclick="rotateImg(90)" disabled>Xoay phải ↻</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card card-tray">
+            <div class="card-head">
+                <span class="step">3</span>
+                <h2>Khay ảnh</h2>
+                <span class="head-note">Bấm dấu [+] ở góc ảnh để đánh số thứ tự xuất</span>
+            </div>
+            <div class="gallery-container" id="gallery"></div>
+        </section>
+
+        <section class="card card-export">
+            <div class="card-head">
+                <span class="step">4</span>
+                <h2>Bố cục &amp; xuất hồ sơ</h2>
+            </div>
+            <div class="card-body">
+                <div class="export-bar">
+                    <label class="field">
+                        <span>Khổ giấy</span>
+                        <select id="paperSizeSelect"><option value="a4" selected>Khổ A4</option></select>
+                    </label>
+                    <label class="field">
+                        <span>Bố cục</span>
+                        <select id="layoutSelect">
+                            <option value="1">1 ảnh / trang</option>
+                            <option value="2" selected>2 ảnh / trang (CCCD)</option>
+                            <option value="3">3 ảnh / trang</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>Định dạng</span>
+                        <select id="formatSelect">
+                            <option value="pdf" selected>📄 PDF chung</option>
+                            <option value="jpg">🖼️ JPG rời</option>
+                        </select>
+                    </label>
+                    <div class="export-actions">
+                        <button id="exportAutoBtn" class="btn btn-primary btn-lg" onclick="exportStandardPDF()" disabled>🖨️ XUẤT TỰ ĐỘNG</button>
+                        <button id="exportLayoutBtn" class="btn btn-outline btn-lg" onclick="openLayoutMode()" disabled>📐 CHỈNH TAY THỦ CÔNG</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="credit">Tác giả: Trần Minh Hải · 0938150987</footer>
 </div>
 
-<div class="container" id="layoutUI" style="display: none;">
-    <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-        <button class="btn-warning" style="flex: 1;" onclick="closeLayoutMode()">🔙 Trở lại</button>
-        <button class="btn-primary" style="flex: 1;" onclick="addBoardPage()">➕ Thêm A4</button>
-        <button class="btn-success" style="flex: 2;" onclick="exportCustomPDF()">🖨️ LƯU THÀNH PDF</button>
-    </div>
-    <p id="statusLayout" style="text-align:center; color:#dc3545; font-weight:bold; margin-bottom: 15px;">Ảnh đã tự xếp sẵn. Lôi kéo tự do cho vừa ý!</p>
+<div class="app" id="layoutUI" style="display: none;">
+    <header class="appbar">
+        <div class="brand">
+            <div class="brand-text">
+                <div class="brand-name">GHÉP TRANG THỦ CÔNG</div>
+                <div class="brand-sub">Kéo thả &amp; đổi kích thước tự do</div>
+            </div>
+        </div>
+        <div class="appbar-actions">
+            <button class="btn btn-onbrand" onclick="closeLayoutMode()">🔙 Trở lại</button>
+            <button class="btn btn-onbrand" onclick="addBoardPage()">➕ Thêm trang A4</button>
+            <button class="btn btn-onbrand-solid" onclick="exportCustomPDF()">🖨️ LƯU THÀNH PDF</button>
+        </div>
+    </header>
+    <p id="statusLayout" style="color:#dc3545;">Ảnh đã tự xếp sẵn. Lôi kéo tự do cho vừa ý!</p>
     <div id="layoutWorkspace"><div id="boardOuter"><div id="boardContainer"></div></div></div>
 </div>
 
 <div class="modal" id="webcamModal">
     <div class="modal-content">
-        <h3 style="margin-top:0;">Camera Máy Tính</h3>
-        <select id="webcamSelect" style="width:100%; padding: 10px; margin-bottom: 10px; border-radius:6px;"></select>
-        <select id="resSelect" style="width:100%; padding: 10px; margin-bottom:10px; border-radius:6px;">
-            <option value="1920x1080" selected>Độ phân giải: Cao (1080p/4K)</option>
-            <option value="1280x720">Độ phân giải: Thường (720p)</option>
-        </select>
-        <button class="btn-primary" style="width:100%; padding: 12px; margin-bottom:10px;" onclick="startStream()">Mở Camera</button>
+        <h3 class="modal-title">📷 Camera máy tính</h3>
+        <div class="modal-fields">
+            <label class="field">
+                <span>Thiết bị</span>
+                <select id="webcamSelect"></select>
+            </label>
+            <label class="field">
+                <span>Độ phân giải</span>
+                <select id="resSelect">
+                    <option value="1920x1080" selected>Cao (1080p / 4K)</option>
+                    <option value="1280x720">Thường (720p)</option>
+                </select>
+            </label>
+        </div>
+        <button class="btn btn-ghost btn-block" style="margin-top:12px;" onclick="startStream()">🔄 Mở / đổi camera</button>
         <video id="webcamVideo" autoplay playsinline></video>
-        <div style="display:flex; gap:10px;">
-            <button class="btn-warning" style="flex:1; padding: 12px;" onclick="closeWebcamModal()">Hủy</button>
-            <button class="btn-danger" style="flex:2; padding: 12px; font-size: 16px;" onclick="captureWebcam()">📸 CHỤP MÀN HÌNH NÀY</button>
+        <div class="modal-actions">
+            <button class="btn btn-ghost" onclick="closeWebcamModal()">Hủy</button>
+            <button class="btn btn-danger btn-lg" onclick="captureWebcam()">📸 CHỤP MÀN HÌNH NÀY</button>
         </div>
     </div>
 </div>
@@ -327,7 +670,7 @@
         document.getElementById('bwCheckbox').checked = doc.isBw;
         document.getElementById('sliderContainer').style.display = (doc.filter === 'manual_all') ? 'flex' : 'none';
 
-        document.getElementById('warpBtn').disabled = false; drawEditor();
+        document.getElementById('warpBtn').disabled = (!doc.pts || doc.pts.length < 4); drawEditor();
         
         if(doc.croppedUrl) { 
             document.getElementById('colorFilterSelect').disabled = false; document.getElementById('rotLBtn').disabled = false; document.getElementById('rotRBtn').disabled = false; applyFilter(); 
@@ -473,6 +816,7 @@
         if(activeIndex === -1) return; let doc = documents[activeIndex];
         ctxInput.clearRect(0,0, canvasInput.width, canvasInput.height); ctxInput.drawImage(doc.img, 0,0, canvasInput.width, canvasInput.height);
         let dP = doc.pts.map(p => ({ x: p.x * scaleRatio, y: p.y * scaleRatio }));
+        if (dP.length < 4) return; // Ảnh QR trích xuất không có 4 góc -> chỉ hiện ảnh, không vẽ khung
         
         ctxInput.beginPath(); ctxInput.moveTo(dP[0].x, dP[0].y); for(let i=1; i<4; i++) ctxInput.lineTo(dP[i].x, dP[i].y);
         ctxInput.closePath(); ctxInput.fillStyle='rgba(0,229,255,0.12)'; ctxInput.fill(); ctxInput.lineWidth=2.5; ctxInput.strokeStyle='#00e5ff'; ctxInput.stroke();
@@ -490,6 +834,7 @@
     function getPos(e) { let r = canvasInput.getBoundingClientRect(); let cX = e.clientX||(e.touches && e.touches[0].clientX); let cY = e.clientY||(e.touches && e.touches[0].clientY); return {x:(cX-r.left)*(canvasInput.width/r.width), y:(cY-r.top)*(canvasInput.height/r.height)}; }
     
     canvasInput.addEventListener('mousedown', e=>{ 
+        if(activeIndex === -1 || documents[activeIndex].pts.length < 4) return;
         let pos = getPos(e); let dP = documents[activeIndex].pts.map(p=>({x:p.x*scaleRatio,y:p.y*scaleRatio})); 
         for(let i=0;i<4;i++) if(Math.hypot(dP[i].x-pos.x, dP[i].y-pos.y)<35) { draggingPoint = {type:'corner', idx: i}; return; }
         for(let i=0;i<4;i++) {
@@ -498,6 +843,7 @@
         }
     });
     canvasInput.addEventListener('touchstart', e=>{ 
+        if(activeIndex === -1 || documents[activeIndex].pts.length < 4) return;
         let pos = getPos(e); let dP = documents[activeIndex].pts.map(p=>({x:p.x*scaleRatio,y:p.y*scaleRatio})); 
         for(let i=0;i<4;i++) if(Math.hypot(dP[i].x-pos.x, dP[i].y-pos.y)<35) { draggingPoint = {type:'corner', idx: i}; return; }
         for(let i=0;i<4;i++) {
@@ -568,78 +914,110 @@
         };
     }
 
-    // ================= CỖ MÁY ĐỌC QR ĐA CHIẾN LƯỢC =================
-    // Quét 1 ảnh thẻ (RGBA cv.Mat) bằng NHIỀU cách xử lý ảnh + NHIỀU tỉ lệ phóng to.
-    // Trả về { data, bounds } theo hệ toạ độ của cardMat, hoặc null.
-    function decodeQRFromMat(cardMat) {
-        if (typeof jsQR === 'undefined' || !cardMat || cardMat.cols === 0) return null;
-        const PAD = 40; // Viền trắng (quiet zone) giúp QR sát mép vẫn đọc được
-        let found = null;
+    // ================= CỖ MÁY ĐỌC QR (BẢN NHANH) =================
+    // Nguyên tắc: RẺ TRƯỚC - ĐẮT SAU, thấy là dừng ngay, và có HẠN GIỜ để không bao giờ treo máy.
+    // Cốt lõi: QR trên CCCD chỉ cần ~4 điểm ảnh/ô là đọc được. Thẻ nắn phẳng 1100px đã cho
+    // QR cỡ 200px (thừa sức), trong khi bản cũ quét nguyên ảnh 2600px -> chậm gấp ~5 lần vô ích.
+
+    let _bdCache; // bộ giải mã QR sẵn có của trình duyệt (Chrome/Android/macOS)
+    async function getBarcodeDetector() {
+        if (_bdCache !== undefined) return _bdCache;
+        _bdCache = null;
+        try {
+            if ('BarcodeDetector' in window) {
+                const fmts = await window.BarcodeDetector.getSupportedFormats();
+                if (fmts && fmts.indexOf('qr_code') !== -1) _bdCache = new window.BarcodeDetector({ formats: ['qr_code'] });
+            }
+        } catch (e) { _bdCache = null; }
+        return _bdCache;
+    }
+
+    // Quét 1 canvas -> { data, bounds } theo toạ độ của chính canvas đó, hoặc null
+    async function scanOneCanvas(canvas) {
+        // (a) Bộ giải mã của trình duyệt: nhanh nhất, chịu ảnh nghiêng tốt nhất
+        const bd = await getBarcodeDetector();
+        if (bd) {
+            try {
+                const res = await bd.detect(canvas);
+                if (res && res.length) {
+                    const cp = res[0].cornerPoints;
+                    let xs, ys;
+                    if (cp && cp.length) { xs = cp.map(p => p.x); ys = cp.map(p => p.y); }
+                    else { const b = res[0].boundingBox; xs = [b.x, b.x + b.width]; ys = [b.y, b.y + b.height]; }
+                    return { data: res[0].rawValue, bounds: { minX: Math.min.apply(null, xs), maxX: Math.max.apply(null, xs), minY: Math.min.apply(null, ys), maxY: Math.max.apply(null, ys) } };
+                }
+                return null; // trình duyệt đã soi kỹ rồi, khỏi cần jsQR cho bậc này
+            } catch (e) { /* lỗi thì rơi xuống jsQR */ }
+        }
+        // (b) jsQR — dontInvert: QR trên CCCD luôn nền sáng, bỏ dò bản đảo ngược -> nhanh gấp đôi
+        if (typeof jsQR === 'undefined') return null;
+        const d = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(d.data, d.width, d.height, { inversionAttempts: 'dontInvert' });
+        if (!code) return null;
+        const L = code.location;
+        const xs = [L.topLeftCorner.x, L.topRightCorner.x, L.bottomRightCorner.x, L.bottomLeftCorner.x];
+        const ys = [L.topLeftCorner.y, L.topRightCorner.y, L.bottomRightCorner.y, L.bottomLeftCorner.y];
+        return { data: code.data, bounds: { minX: Math.min.apply(null, xs), maxX: Math.max.apply(null, xs), minY: Math.min.apply(null, ys), maxY: Math.max.apply(null, ys) } };
+    }
+
+    // cardMat (RGBA) -> { data, bounds theo toạ độ cardMat } | null. budgetMs = hạn giờ.
+    async function decodeQRFromMat(cardMat, budgetMs) {
+        if (!cardMat || cardMat.cols === 0) return null;
+        budgetMs = budgetMs || 1200;
+        const now = () => ((performance && performance.now) ? performance.now() : Date.now());
+        const t0 = now();
+        const elapsed = () => now() - t0;
+        const PAD = 24;
 
         let gray = new cv.Mat();
         cv.cvtColor(cardMat, gray, cv.COLOR_RGBA2GRAY);
-        let padded = new cv.Mat();
-        cv.copyMakeBorder(gray, padded, PAD, PAD, PAD, PAD, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
+        const base = Math.max(gray.cols, gray.rows);
 
-        // Chọn tỉ lệ quét: ảnh nhỏ thì PHÓNG TO, ảnh quá lớn thì thu nhỏ bớt cho nhanh & bớt nhiễu
-        let baseSide = Math.min(padded.rows, padded.cols);
-        let scales;
-        if (baseSide < 1400) scales = [Math.min(3, 1400 / baseSide), 1];
-        else if (baseSide > 2200) scales = [1, 0.6];
-        else scales = [1];
+        // Bậc thang kích thước: chỉ thêm bậc thứ 2 khi thực sự có ích (tránh quét trùng)
+        let sides = [Math.min(base, 1100)];
+        if (base > 1300) sides.push(Math.min(base, 1800));      // ảnh to: soi kỹ hơn
+        else if (base < 950) sides.push(Math.round(base * 2));  // ảnh nhỏ: phóng to cho jsQR lấy mẫu tốt hơn
 
-        function scan(procMat, scale) {
-            let canvas = document.createElement('canvas');
-            canvas.width = procMat.cols; canvas.height = procMat.rows;
-            cv.imshow(canvas, procMat);
-            let d = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-            let code = jsQR(d.data, d.width, d.height, { inversionAttempts: "attemptBoth" });
-            if (!code) return null;
-            let loc = code.location;
-            let pts = [loc.topLeftCorner, loc.topRightCorner, loc.bottomRightCorner, loc.bottomLeftCorner];
-            // Đưa toạ độ về đúng cardMat: bỏ scale, bỏ viền PAD
-            let xs = pts.map(p => p.x / scale - PAD);
-            let ys = pts.map(p => p.y / scale - PAD);
-            return { data: code.data, bounds: { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) } };
-        }
+        let tiers = [];
+        for (const sd of sides) { tiers.push({ side: sd, otsu: false }); tiers.push({ side: sd, otsu: true }); }
 
-        // Danh sách cách tiền xử lý ảnh (mỗi cái trả về 1 Mat RGBA từ `padded`)
-        let variants = [
-            // 1. Ảnh xám gốc (ảnh rõ nét, chụp thẳng)
-            () => { let m = new cv.Mat(); cv.cvtColor(padded, m, cv.COLOR_GRAY2RGBA); return m; },
-            // 2. Nhị phân Otsu toàn cục (tăng tương phản đen/trắng)
-            () => { let t = new cv.Mat(); cv.threshold(padded, t, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); let m = new cv.Mat(); cv.cvtColor(t, m, cv.COLOR_GRAY2RGBA); t.delete(); return m; },
-            // 3. Nhị phân thích ứng ô nhỏ (ánh sáng không đều)
-            () => { let t = new cv.Mat(); cv.adaptiveThreshold(padded, t, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 21, 10); let m = new cv.Mat(); cv.cvtColor(t, m, cv.COLOR_GRAY2RGBA); t.delete(); return m; },
-            // 4. Nhị phân thích ứng ô lớn (module QR to / bóng loang)
-            () => { let t = new cv.Mat(); cv.adaptiveThreshold(padded, t, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 45, 15); let m = new cv.Mat(); cv.cvtColor(t, m, cv.COLOR_GRAY2RGBA); t.delete(); return m; },
-            // 5. Cân bằng sáng CLAHE rồi Otsu (thẻ bị loá / ép nilon)
-            () => { let cl = new cv.CLAHE(2.5, new cv.Size(8, 8)); let e = new cv.Mat(); cl.apply(padded, e); let t = new cv.Mat(); cv.threshold(e, t, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); let m = new cv.Mat(); cv.cvtColor(t, m, cv.COLOR_GRAY2RGBA); cl.delete(); e.delete(); t.delete(); return m; },
-            // 6. Làm nét (unsharp mask) rồi quét (ảnh hơi mờ / rung tay)
-            () => { let blur = new cv.Mat(); cv.GaussianBlur(padded, blur, new cv.Size(9, 9), 0); let sharp = new cv.Mat(); cv.addWeighted(padded, 1.6, blur, -0.6, 0, sharp); let m = new cv.Mat(); cv.cvtColor(sharp, m, cv.COLOR_GRAY2RGBA); blur.delete(); sharp.delete(); return m; }
-        ];
+        let found = null, msPerMP = 0;   // msPerMP: tốc độ THỰC TẾ của máy này, đo được sau bậc đầu
+        for (const t of tiers) {
+            const k = t.side / base;
+            // Ước lượng số điểm ảnh của bậc này -> biết trước có kịp giờ không mà bỏ, khỏi lố
+            const px = ((Math.round(gray.cols * k) + PAD * 2) * (Math.round(gray.rows * k) + PAD * 2)) / 1e6;
+            if (elapsed() > budgetMs) break;
+            if (msPerMP > 0 && elapsed() + msPerMP * px > budgetMs) break;
+            const tTier = now();
+            let work = new cv.Mat();
+            try {
+                if (Math.abs(k - 1) < 0.02) gray.copyTo(work);
+                else cv.resize(gray, work, new cv.Size(Math.round(gray.cols * k), Math.round(gray.rows * k)), 0, 0, k > 1 ? cv.INTER_CUBIC : cv.INTER_AREA);
+                if (t.otsu) { let b = new cv.Mat(); cv.threshold(work, b, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); work.delete(); work = b; }
 
-        outer:
-        for (let makeVariant of variants) {
-            let vMat;
-            try { vMat = makeVariant(); } catch (e) { continue; }
-            for (let s of scales) {
-                let proc, ownProc = false;
-                if (Math.abs(s - 1) < 1e-6) { proc = vMat; }
-                else {
-                    proc = new cv.Mat(); ownProc = true;
-                    let interp = s > 1 ? cv.INTER_CUBIC : cv.INTER_AREA;
-                    cv.resize(vMat, proc, new cv.Size(Math.round(vMat.cols * s), Math.round(vMat.rows * s)), 0, 0, interp);
+                let padded = new cv.Mat();
+                cv.copyMakeBorder(work, padded, PAD, PAD, PAD, PAD, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
+                let rgba = new cv.Mat();
+                cv.cvtColor(padded, rgba, cv.COLOR_GRAY2RGBA);
+                let canvas = document.createElement('canvas');
+                canvas.width = rgba.cols; canvas.height = rgba.rows;
+                cv.imshow(canvas, rgba);
+                padded.delete(); rgba.delete();
+
+                const r = await scanOneCanvas(canvas);
+                if (r) {
+                    const kk = Math.abs(k - 1) < 0.02 ? 1 : k;   // gỡ phóng to/thu nhỏ và gỡ viền PAD
+                    found = { data: r.data, bounds: {
+                        minX: (r.bounds.minX - PAD) / kk, maxX: (r.bounds.maxX - PAD) / kk,
+                        minY: (r.bounds.minY - PAD) / kk, maxY: (r.bounds.maxY - PAD) / kk } };
                 }
-                let r = null;
-                try { r = scan(proc, s); } catch (e) {}
-                if (ownProc) proc.delete();
-                if (r) { found = r; vMat.delete(); break outer; }
-            }
-            vMat.delete();
+            } catch (e) { /* bậc này hỏng thì thử bậc kế */ }
+            work.delete();
+            if (px > 0.01) msPerMP = (now() - tTier) / px;   // học tốc độ máy để đoán bậc sau
+            if (found) break;
         }
 
-        gray.delete(); padded.delete();
+        gray.delete();
         return found;
     }
 
@@ -729,20 +1107,23 @@
             doc.rawCropped = tCanvas.toDataURL('image/jpeg', 1.0); doc.rot = 0;
             srcMat.delete(); dstMat.delete();
 
-            // (2) QUÉT QR trên bản NẮN PHẲNG ĐỘ PHÂN GIẢI GỐC (chính xác nhất)
+            // (2) QUÉT QR trên bản NẮN PHẲNG — có HẠN GIỜ chung, thấy là dừng
             let codeText = null, qrBounds = null, qrSourceCanvas = null;
+            const QR_BUDGET = 1200;  // ms: quá hạn thì kết luận "không thấy QR", không bắt người dùng chờ
+            const qrT0 = (performance && performance.now) ? performance.now() : Date.now();
+            const qrLeft = () => QR_BUDGET - (((performance && performance.now) ? performance.now() : Date.now()) - qrT0);
             try {
                 let hiRes = await warpFromOriginal(doc);
                 if (hiRes && hiRes.cols > 0 && hiRes.rows > 0) {
-                    // Giới hạn kích thước để quét cho nhanh (thẻ quá lớn thì thu bớt)
+                    // 1800px là quá đủ cho QR (bản cũ để 2600px -> chậm gấp ~2 lần mà không đọc thêm được gì)
                     let maxSide = Math.max(hiRes.cols, hiRes.rows);
-                    if (maxSide > 2600) {
-                        let s = 2600 / maxSide;
+                    if (maxSide > 1800) {
+                        let s2 = 1800 / maxSide;
                         let capped = new cv.Mat();
-                        cv.resize(hiRes, capped, new cv.Size(Math.round(hiRes.cols * s), Math.round(hiRes.rows * s)), 0, 0, cv.INTER_AREA);
+                        cv.resize(hiRes, capped, new cv.Size(Math.round(hiRes.cols * s2), Math.round(hiRes.rows * s2)), 0, 0, cv.INTER_AREA);
                         hiRes.delete(); hiRes = capped;
                     }
-                    let r = decodeQRFromMat(hiRes);
+                    let r = await decodeQRFromMat(hiRes, qrLeft());
                     if (r) {
                         codeText = r.data; qrBounds = r.bounds;
                         let hc = document.createElement('canvas'); hc.width = hiRes.cols; hc.height = hiRes.rows;
@@ -752,12 +1133,12 @@
                 }
             } catch (e) { console.warn('hi-res QR', e); }
 
-            // (3) DỰ PHÒNG: quét toàn ảnh gốc (khi cắt lỗi hoặc QR nằm ngoài vùng cắt)
-            if (!codeText && doc.origDataUrl) {
+            // (3) DỰ PHÒNG (chỉ khi CÒN GIỜ): quét toàn ảnh gốc, phòng khi QR nằm ngoài vùng cắt
+            if (!codeText && doc.origDataUrl && qrLeft() > 250) {
                 try {
-                    let fo = await loadOriginalMatScaled(doc, 1800);
+                    let fo = await loadOriginalMatScaled(doc, 1400);
                     if (fo) {
-                        let r = decodeQRFromMat(fo.mat);
+                        let r = await decodeQRFromMat(fo.mat, qrLeft());
                         if (r) { codeText = r.data; qrBounds = r.bounds; qrSourceCanvas = fo.canvas; }
                         fo.mat.delete();
                     }
