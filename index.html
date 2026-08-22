@@ -88,6 +88,7 @@
       background:rgba(0,0,0,.16); border-color:rgba(255,255,255,.32); color:rgba(255,255,255,.8);
     }
     .btn-lg{ padding:14px 20px; font-size:15px; border-radius:12px; }
+    .onbrand-select{ width:auto; min-width:132px; flex:none; font-weight:800; padding-top:12px; padding-bottom:12px; }
     .btn-block{ width:100%; }
 
     .file-native{ position:absolute; width:1px; height:1px; padding:0; margin:0; border:0; opacity:0; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
@@ -322,6 +323,7 @@
       .brand-logo{ height:36px; }
       .appbar-actions{ width:100%; }
       .appbar-actions .btn{ flex:1 1 0; min-width:0; padding:11px 8px; font-size:13px; }
+      .onbrand-select{ flex:1 1 100%; width:100%; }
       .card-body{ padding:13px; gap:12px; }
       .card-head{ padding:11px 13px; }
       .head-note{ display:none; }
@@ -540,7 +542,11 @@
         <div class="appbar-actions">
             <button class="btn btn-onbrand" onclick="closeLayoutMode()">🔙 Trở lại</button>
             <button class="btn btn-onbrand" onclick="addBoardPage()">➕ Thêm trang A4</button>
-            <button class="btn btn-onbrand-solid" onclick="exportCustomPDF()">🖨️ LƯU THÀNH PDF</button>
+            <select id="layoutFormatSelect" class="onbrand-select" title="Định dạng xuất">
+                <option value="pdf" selected>📄 PDF</option>
+                <option value="jpg">🖼️ Ảnh JPG</option>
+            </select>
+            <button class="btn btn-onbrand-solid" onclick="exportLayoutFile()">🖨️ XUẤT HỒ SƠ</button>
         </div>
     </header>
     <p id="statusLayout" style="color:#dc3545;">Ảnh đã tự xếp sẵn. Lôi kéo tự do cho vừa ý!</p>
@@ -914,10 +920,11 @@
         };
     }
 
-    // ================= CỖ MÁY ĐỌC QR (BẢN NHANH) =================
-    // Nguyên tắc: RẺ TRƯỚC - ĐẮT SAU, thấy là dừng ngay, và có HẠN GIỜ để không bao giờ treo máy.
-    // Cốt lõi: QR trên CCCD chỉ cần ~4 điểm ảnh/ô là đọc được. Thẻ nắn phẳng 1100px đã cho
-    // QR cỡ 200px (thừa sức), trong khi bản cũ quét nguyên ảnh 2600px -> chậm gấp ~5 lần vô ích.
+    // ================= CỖ MÁY ĐỌC QR (DÒ 3 Ô VUÔNG ĐỊNH VỊ) =================
+    // Ý tưởng: mã QR luôn có 3 "ô định vị" ở 3 góc — mỗi ô là 3 hình vuông LỒNG NHAU (đen-trắng-đen).
+    // Ta dò 3 ô này bằng OpenCV (chạy WASM, rất nhanh) trên ảnh THU NHỎ để khoanh vùng mã QR,
+    // rồi chỉ giải mã đúng ô vuông nhỏ đó ở độ nét cao — thay vì rà cả tấm ảnh.
+    // Lợi kép: nhanh hơn nhiều VÀ đọc tốt hơn với ảnh chụp xa (vì vùng QR được phóng to ra).
 
     let _bdCache; // bộ giải mã QR sẵn có của trình duyệt (Chrome/Android/macOS)
     async function getBarcodeDetector() {
@@ -934,7 +941,6 @@
 
     // Quét 1 canvas -> { data, bounds } theo toạ độ của chính canvas đó, hoặc null
     async function scanOneCanvas(canvas) {
-        // (a) Bộ giải mã của trình duyệt: nhanh nhất, chịu ảnh nghiêng tốt nhất
         const bd = await getBarcodeDetector();
         if (bd) {
             try {
@@ -946,10 +952,9 @@
                     else { const b = res[0].boundingBox; xs = [b.x, b.x + b.width]; ys = [b.y, b.y + b.height]; }
                     return { data: res[0].rawValue, bounds: { minX: Math.min.apply(null, xs), maxX: Math.max.apply(null, xs), minY: Math.min.apply(null, ys), maxY: Math.max.apply(null, ys) } };
                 }
-                return null; // trình duyệt đã soi kỹ rồi, khỏi cần jsQR cho bậc này
+                return null;
             } catch (e) { /* lỗi thì rơi xuống jsQR */ }
         }
-        // (b) jsQR — dontInvert: QR trên CCCD luôn nền sáng, bỏ dò bản đảo ngược -> nhanh gấp đôi
         if (typeof jsQR === 'undefined') return null;
         const d = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(d.data, d.width, d.height, { inversionAttempts: 'dontInvert' });
@@ -958,6 +963,89 @@
         const xs = [L.topLeftCorner.x, L.topRightCorner.x, L.bottomRightCorner.x, L.bottomLeftCorner.x];
         const ys = [L.topLeftCorner.y, L.topRightCorner.y, L.bottomRightCorner.y, L.bottomLeftCorner.y];
         return { data: code.data, bounds: { minX: Math.min.apply(null, xs), maxX: Math.max.apply(null, xs), minY: Math.min.apply(null, ys), maxY: Math.max.apply(null, ys) } };
+    }
+
+    // Gom các ô định vị cùng cỡ & gần nhau thành vùng chứa 1 mã QR
+    function groupFinders(cands, imgW, imgH) {
+        let used = new Array(cands.length).fill(false), groups = [];
+        for (let i = 0; i < cands.length; i++) {
+            if (used[i]) continue;
+            let g = [cands[i]]; used[i] = true;
+            let grew = true;
+            while (grew) {              // lan dần: ô mới hợp lệ với BẤT KỲ ô nào trong nhóm
+                grew = false;
+                for (let j = 0; j < cands.length; j++) {
+                    if (used[j]) continue;
+                    const fit = g.some(m => {
+                        const sr = m.size > cands[j].size ? m.size / cands[j].size : cands[j].size / m.size;
+                        const d = Math.hypot(m.cx - cands[j].cx, m.cy - cands[j].cy);
+                        const avg = (m.size + cands[j].size) / 2;
+                        // Cùng cỡ (lệch < 2.5 lần) và cách nhau 1.2-12 lần cỡ ô.
+                        // Mã QR trên CCCD cỡ phiên bản 6-8 -> tỉ lệ thật ~6-8; để 12 là dư,
+                        // rộng hơn nữa sẽ gộp nhầm 2 mã QR nằm cạnh nhau thành một vùng.
+                        return sr <= 2.5 && d >= avg * 1.2 && d <= avg * 12;
+                    });
+                    if (fit) { g.push(cands[j]); used[j] = true; grew = true; }
+                }
+            }
+            if (g.length >= 2) groups.push(g);   // 2 ô cũng đủ khoanh vùng (1 ô có thể bị loá/mất)
+        }
+        return groups.map(g => {
+            const sz = g.reduce((s, c) => s + c.size, 0) / g.length;
+            const m = sz * 1.3;                  // nới ra cho đủ cả mép ngoài mã QR
+            let x1 = Math.min.apply(null, g.map(c => c.cx)) - m;
+            let x2 = Math.max.apply(null, g.map(c => c.cx)) + m;
+            let y1 = Math.min.apply(null, g.map(c => c.cy)) - m;
+            let y2 = Math.max.apply(null, g.map(c => c.cy)) + m;
+            // Mã QR vốn vuông; nếu chỉ thấy 2 ô thì vùng bị dẹt -> ép về hình vuông
+            const side = Math.max(x2 - x1, y2 - y1);
+            const ccx = (x1 + x2) / 2, ccy = (y1 + y2) / 2;
+            x1 = ccx - side / 2; x2 = ccx + side / 2; y1 = ccy - side / 2; y2 = ccy + side / 2;
+            const X = Math.max(0, Math.round(x1)), Y = Math.max(0, Math.round(y1));
+            return { x: X, y: Y, w: Math.round(Math.min(imgW, x2)) - X, h: Math.round(Math.min(imgH, y2)) - Y, n: g.length };
+        }).filter(r => r.w > 24 && r.h > 24 && r.x + r.w <= imgW && r.y + r.h <= imgH)
+          .sort((a, b) => b.n - a.n);          // nhóm đủ 3 ô được ưu tiên trước
+    }
+
+    // Dò ô định vị bằng OpenCV: tìm contour lồng nhau ĐỦ 3 LỚP, vuông, đồng tâm
+    function findFinderCandidates(gray) {
+        const LOC = 640;                                  // dò trên ảnh nhỏ -> cực nhanh
+        const base = Math.max(gray.cols, gray.rows);
+        const k = Math.min(1, LOC / base);
+        let small = new cv.Mat(), bin = new cv.Mat();
+        let contours = new cv.MatVector(), hier = new cv.Mat();
+        let cands = [];
+        try {
+            if (k < 1) cv.resize(gray, small, new cv.Size(Math.round(gray.cols * k), Math.round(gray.rows * k)), 0, 0, cv.INTER_AREA);
+            else gray.copyTo(small);
+            cv.threshold(small, bin, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+            cv.findContours(bin, contours, hier, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+            const total = small.cols * small.rows;
+            const n = contours.size();
+            for (let i = 0; i < n; i++) {
+                const child = hier.data32S[i * 4 + 2];
+                if (child < 0) continue;
+                const grand = hier.data32S[child * 4 + 2];
+                if (grand < 0) continue;                  // phải lồng đủ 3 lớp: đen > trắng > đen
+                let c0 = contours.get(i); const r = cv.boundingRect(c0); c0.delete();
+                if (r.width < 7 || r.height < 7) continue;
+                const area = r.width * r.height;
+                if (area < total * 0.0003 || area > total * 0.25) continue;
+                const ar = r.width / r.height;
+                if (ar < 0.6 || ar > 1.7) continue;       // ô định vị là hình vuông
+                let c2 = contours.get(grand); const rg = cv.boundingRect(c2); c2.delete();
+                const sz = (r.width + r.height) / 2, gs = (rg.width + rg.height) / 2;
+                const ratio = sz / Math.max(gs, 1);
+                if (ratio < 1.6 || ratio > 4.5) continue; // ô ngoài 7 ô vuông / ô trong 3 ô vuông ≈ 2.3
+                const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+                const gx = rg.x + rg.width / 2, gy = rg.y + rg.height / 2;
+                if (Math.hypot(cx - gx, cy - gy) > sz * 0.3) continue;  // phải đồng tâm
+                cands.push({ cx: cx / k, cy: cy / k, size: sz / k });
+                if (cands.length >= 40) break;            // chặn trần, tránh ảnh nhiều chữ làm chậm
+            }
+        } catch (e) { cands = []; }
+        contours.delete(); hier.delete(); bin.delete(); small.delete();
+        return cands;
     }
 
     // cardMat (RGBA) -> { data, bounds theo toạ độ cardMat } | null. budgetMs = hạn giờ.
@@ -971,50 +1059,90 @@
 
         let gray = new cv.Mat();
         cv.cvtColor(cardMat, gray, cv.COLOR_RGBA2GRAY);
-        const base = Math.max(gray.cols, gray.rows);
 
-        // Bậc thang kích thước: chỉ thêm bậc thứ 2 khi thực sự có ích (tránh quét trùng)
-        let sides = [Math.min(base, 1100)];
-        if (base > 1300) sides.push(Math.min(base, 1800));      // ảnh to: soi kỹ hơn
-        else if (base < 950) sides.push(Math.round(base * 2));  // ảnh nhỏ: phóng to cho jsQR lấy mẫu tốt hơn
-
-        let tiers = [];
-        for (const sd of sides) { tiers.push({ side: sd, otsu: false }); tiers.push({ side: sd, otsu: true }); }
-
-        let found = null, msPerMP = 0;   // msPerMP: tốc độ THỰC TẾ của máy này, đo được sau bậc đầu
-        for (const t of tiers) {
-            const k = t.side / base;
-            // Ước lượng số điểm ảnh của bậc này -> biết trước có kịp giờ không mà bỏ, khỏi lố
-            const px = ((Math.round(gray.cols * k) + PAD * 2) * (Math.round(gray.rows * k) + PAD * 2)) / 1e6;
-            if (elapsed() > budgetMs) break;
-            if (msPerMP > 0 && elapsed() + msPerMP * px > budgetMs) break;
-            const tTier = now();
-            let work = new cv.Mat();
+        // Quét 1 Mat xám -> toạ độ theo chính Mat đó (đã gỡ viền PAD)
+        async function scanMat(m) {
+            let padded = new cv.Mat(), rgba = new cv.Mat();
+            let canvas = document.createElement('canvas');
+            let out = null;
             try {
-                if (Math.abs(k - 1) < 0.02) gray.copyTo(work);
-                else cv.resize(gray, work, new cv.Size(Math.round(gray.cols * k), Math.round(gray.rows * k)), 0, 0, k > 1 ? cv.INTER_CUBIC : cv.INTER_AREA);
-                if (t.otsu) { let b = new cv.Mat(); cv.threshold(work, b, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); work.delete(); work = b; }
-
-                let padded = new cv.Mat();
-                cv.copyMakeBorder(work, padded, PAD, PAD, PAD, PAD, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
-                let rgba = new cv.Mat();
+                cv.copyMakeBorder(m, padded, PAD, PAD, PAD, PAD, cv.BORDER_CONSTANT, new cv.Scalar(255, 255, 255, 255));
                 cv.cvtColor(padded, rgba, cv.COLOR_GRAY2RGBA);
-                let canvas = document.createElement('canvas');
                 canvas.width = rgba.cols; canvas.height = rgba.rows;
                 cv.imshow(canvas, rgba);
-                padded.delete(); rgba.delete();
-
                 const r = await scanOneCanvas(canvas);
-                if (r) {
-                    const kk = Math.abs(k - 1) < 0.02 ? 1 : k;   // gỡ phóng to/thu nhỏ và gỡ viền PAD
-                    found = { data: r.data, bounds: {
-                        minX: (r.bounds.minX - PAD) / kk, maxX: (r.bounds.maxX - PAD) / kk,
-                        minY: (r.bounds.minY - PAD) / kk, maxY: (r.bounds.maxY - PAD) / kk } };
-                }
-            } catch (e) { /* bậc này hỏng thì thử bậc kế */ }
-            work.delete();
-            if (px > 0.01) msPerMP = (now() - tTier) / px;   // học tốc độ máy để đoán bậc sau
-            if (found) break;
+                if (r) out = { data: r.data, bounds: {
+                    minX: r.bounds.minX - PAD, maxX: r.bounds.maxX - PAD,
+                    minY: r.bounds.minY - PAD, maxY: r.bounds.maxY - PAD } };
+            } catch (e) { out = null; }
+            padded.delete(); rgba.delete();
+            canvas.width = 1; canvas.height = 1;   // trả bộ nhớ ngay (iPhone rất khắt khe khoản này)
+            return out;
+        }
+
+        let found = null;
+
+        // ---- BẬC 0: khoanh vùng bằng 3 ô định vị rồi giải mã đúng vùng đó ----
+        try {
+            const rois = groupFinders(findFinderCandidates(gray), gray.cols, gray.rows).slice(0, 2);
+            for (const roi of rois) {
+                if (elapsed() > budgetMs) break;
+                let sub = gray.roi(new cv.Rect(roi.x, roi.y, roi.w, roi.h));
+                let scaled = new cv.Mat();
+                const sm = Math.max(sub.cols, sub.rows);
+                // Vùng nhỏ (ảnh chụp xa) -> phóng to cho jsQR đủ điểm ảnh mỗi ô.
+                // Vùng đã đủ nét -> giữ nguyên, phóng thêm chỉ tổ tốn thời gian.
+                const want = sm < 280 ? Math.min(sm * 2.5, 700) : (sm > 700 ? 700 : sm);
+                const kk = want / sm;
+                try {
+                    if (Math.abs(kk - 1) > 0.05) cv.resize(sub, scaled, new cv.Size(Math.max(1, Math.round(sub.cols * kk)), Math.max(1, Math.round(sub.rows * kk))), 0, 0, kk > 1 ? cv.INTER_CUBIC : cv.INTER_AREA);
+                    else sub.copyTo(scaled);
+                    const r = await scanMat(scaled);
+                    if (r) {
+                        const q = Math.abs(kk - 1) > 0.05 ? kk : 1;
+                        found = { data: r.data, bounds: {
+                            minX: r.bounds.minX / q + roi.x, maxX: r.bounds.maxX / q + roi.x,
+                            minY: r.bounds.minY / q + roi.y, maxY: r.bounds.maxY / q + roi.y } };
+                    }
+                } catch (e) { /* vùng hỏng thì thử vùng kế */ }
+                sub.delete(); scaled.delete();
+                if (found) break;
+            }
+        } catch (e) { /* dò ô định vị hỏng -> vẫn còn các bậc quét toàn ảnh bên dưới */ }
+
+        // ---- BẬC 1+: quét toàn ảnh (dự phòng khi không khoanh được vùng) ----
+        if (!found) {
+            const base = Math.max(gray.cols, gray.rows);
+            let sides = [Math.min(base, 1100)];
+            if (base > 1300) sides.push(Math.min(base, 1800));
+            else if (base < 950) sides.push(Math.round(base * 2));
+            let tiers = [];
+            for (const sd of sides) { tiers.push({ side: sd, otsu: false }); tiers.push({ side: sd, otsu: true }); }
+
+            let msPerMP = 0;   // tốc độ THỰC TẾ của máy này, đo được sau bậc đầu
+            for (const t of tiers) {
+                const k = t.side / base;
+                const px = ((Math.round(gray.cols * k) + PAD * 2) * (Math.round(gray.rows * k) + PAD * 2)) / 1e6;
+                if (elapsed() > budgetMs) break;
+                if (msPerMP > 0 && elapsed() + msPerMP * px > budgetMs) break;  // đoán trước, khỏi lố giờ
+                const tTier = now();
+                let work = new cv.Mat();
+                try {
+                    if (Math.abs(k - 1) < 0.02) gray.copyTo(work);
+                    else cv.resize(gray, work, new cv.Size(Math.round(gray.cols * k), Math.round(gray.rows * k)), 0, 0, k > 1 ? cv.INTER_CUBIC : cv.INTER_AREA);
+                    if (t.otsu) { let b = new cv.Mat(); cv.threshold(work, b, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); work.delete(); work = b; }
+                    const r = await scanMat(work);
+                    if (r) {
+                        const kk = Math.abs(k - 1) < 0.02 ? 1 : k;
+                        found = { data: r.data, bounds: {
+                            minX: r.bounds.minX / kk, maxX: r.bounds.maxX / kk,
+                            minY: r.bounds.minY / kk, maxY: r.bounds.maxY / kk } };
+                    }
+                } catch (e) { /* bậc này hỏng thì thử bậc kế */ }
+                work.delete();
+                if (px > 0.01) msPerMP = (now() - tTier) / px;
+                if (found) break;
+            }
         }
 
         gray.delete();
@@ -1115,10 +1243,11 @@
             try {
                 let hiRes = await warpFromOriginal(doc);
                 if (hiRes && hiRes.cols > 0 && hiRes.rows > 0) {
-                    // 1800px là quá đủ cho QR (bản cũ để 2600px -> chậm gấp ~2 lần mà không đọc thêm được gì)
+                    // Nhờ khoanh vùng bằng ô định vị, quét ở độ nét cao giờ rất rẻ -> để 2400px
+                    // cho ảnh chụp xa có thêm điểm ảnh trên mỗi ô mã QR (dò vùng vẫn chạy ở 640px)
                     let maxSide = Math.max(hiRes.cols, hiRes.rows);
-                    if (maxSide > 1800) {
-                        let s2 = 1800 / maxSide;
+                    if (maxSide > 2400) {
+                        let s2 = 2400 / maxSide;
                         let capped = new cv.Mat();
                         cv.resize(hiRes, capped, new cv.Size(Math.round(hiRes.cols * s2), Math.round(hiRes.rows * s2)), 0, 0, cv.INTER_AREA);
                         hiRes.delete(); hiRes = capped;
@@ -1257,6 +1386,122 @@
         c.getContext('2d').drawImage(v,0,0); c.toBlob(b => { let file = new File([b], "webcam_"+Date.now()+".jpg", {type:"image/jpeg"}); loadFiles([file]); closeWebcamModal(); }, 'image/jpeg', 1.0);
     }
 
+    // ================= TẢI TỆP VỀ MÁY (xử lý riêng cho iPhone/iPad) =================
+    function isIOS() {
+        const ua = navigator.userAgent || '';
+        // iPadOS 13 trở lên tự khai là máy Mac. Nếu chỉ dò chữ "iPad" thì iPad sẽ lọt sang
+        // nhánh máy tính và tải hỏng -> phải dò thêm màn hình cảm ứng.
+        return /iPad|iPhone|iPod/.test(ua) ||
+               (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    }
+
+    // Trả bộ nhớ canvas NGAY sau khi dùng. iPhone giới hạn tổng dung lượng canvas của cả trang;
+    // mỗi trang A4 300dpi là 2480x3508 ≈ 35MB, để dồn vài trang là Safari đá văng trang web.
+    function freeCanvas(c) { try { c.width = 1; c.height = 1; } catch (e) {} }
+
+    function canvasToBlob(canvas, q) {
+        return new Promise(function (res) {
+            if (canvas.toBlob) canvas.toBlob(function (b) { res(b); }, 'image/jpeg', q || 0.95);
+            else {
+                const d = canvas.toDataURL('image/jpeg', q || 0.95), bin = atob(d.split(',')[1]);
+                const arr = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                res(new Blob([arr], { type: 'image/jpeg' }));
+            }
+        });
+    }
+
+    // Hiện nút để NGƯỜI DÙNG BẤM rồi mới lưu/chia sẻ.
+    // Bắt buộc phải vậy: iOS chỉ cho mở bảng chia sẻ ngay trong cú chạm của người dùng,
+    // mà lúc tạo xong tệp thì cú chạm ban đầu đã hết hiệu lực từ lâu.
+    function deliverFiles(items, statusEl, doneMsg) {
+        items = (items || []).filter(function (f) { return f && f.blob; });
+        if (!items.length) { statusEl.innerText = 'Không có tệp nào để lưu.'; return; }
+
+        const urls = items.map(function (f) { return URL.createObjectURL(f.blob); });
+        const totalMB = items.reduce(function (s, f) { return s + f.blob.size; }, 0) / 1048576;
+        const nhieu = items.length > 1;
+        const laAnh = items[0].name.toLowerCase().indexOf('.jpg') > -1;
+
+        // Máy có gửi tệp qua app khác được không? (điện thoại thường có, máy tính thường không)
+        let shareFiles = null;
+        try {
+            const test = items.map(function (f) {
+                return new File([f.blob], f.name, { type: f.blob.type || 'application/octet-stream' });
+            });
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: test })) shareFiles = test;
+        } catch (e) { shareFiles = null; }
+
+        statusEl.innerHTML = '';
+        statusEl.style.color = '#0d7a54';
+        const box = document.createElement('div');
+        box.style.cssText = 'display:flex; flex-direction:column; gap:10px; align-items:center;';
+
+        const t = document.createElement('div');
+        t.style.cssText = 'font-weight:800;';
+        t.textContent = '✅ ' + doneMsg + ' (' + totalMB.toFixed(1) + ' MB)';
+        box.appendChild(t);
+
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; gap:10px; flex-wrap:wrap; justify-content:center; width:100%;';
+
+        async function doShare() {
+            try { await navigator.share({ files: shareFiles, title: 'Hồ sơ scan' }); }
+            catch (e) { if (e && e.name !== 'AbortError') alert('Không mở được bảng chia sẻ: ' + e.message); }
+        }
+        async function doDownload() {
+            for (let i = 0; i < items.length; i++) {
+                const a = document.createElement('a');
+                a.href = urls[i]; a.download = items[i].name;
+                document.body.appendChild(a); a.click(); a.remove();
+                if (i < items.length - 1) await new Promise(function (r) { setTimeout(r, 350); });
+            }
+        }
+
+        if (shareFiles) {
+            const sBtn = document.createElement('button');
+            sBtn.className = 'btn btn-success btn-lg';
+            sBtn.style.flex = '1 1 220px';
+            sBtn.textContent = nhieu
+                ? ('📤 CHIA SẺ ' + items.length + (laAnh ? ' ẢNH' : ' TỆP'))
+                : ('📤 CHIA SẺ ' + (laAnh ? 'ẢNH' : 'PDF') + ' QUA APP');
+            sBtn.onclick = doShare;
+            row.appendChild(sBtn);
+        }
+
+        const dBtn = document.createElement('button');
+        dBtn.className = shareFiles ? 'btn btn-ghost btn-lg' : 'btn btn-success btn-lg';
+        dBtn.style.flex = '1 1 180px';
+        dBtn.textContent = '📥 TẢI VỀ MÁY';
+        dBtn.onclick = doDownload;
+        row.appendChild(dBtn);
+        box.appendChild(row);
+
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size:12px; color:#6f7889; font-weight:600; text-align:center;';
+        if (shareFiles && isIOS()) note.textContent = 'Bấm "Chia sẻ" để gửi qua Zalo/Email, hoặc chọn "Lưu vào Tệp" để cất vào máy.';
+        else if (shareFiles) note.textContent = 'Bấm "Chia sẻ" để gửi thẳng sang ứng dụng khác.';
+        if (note.textContent) box.appendChild(note);
+
+        // Đường dẫn mở trực tiếp - lối thoát khi cả hai nút bị trình duyệt chặn
+        const alt = document.createElement('div');
+        alt.style.cssText = 'display:flex; gap:12px; flex-wrap:wrap; justify-content:center;';
+        items.forEach(function (f, i) {
+            const a = document.createElement('a');
+            a.href = urls[i]; a.target = '_blank'; a.rel = 'noopener';
+            a.style.cssText = 'font-size:12px; color:#8a0c25; font-weight:700; text-decoration:underline;';
+            a.textContent = nhieu ? ('Mở tệp ' + (i + 1)) : 'Mở xem trước';
+            alt.appendChild(a);
+        });
+        box.appendChild(alt);
+        statusEl.appendChild(box);
+
+        // Dọn bộ nhớ sau 5 phút (bản cũ không bao giờ thu hồi -> rò rỉ bộ nhớ)
+        setTimeout(function () {
+            urls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} });
+        }, 300000);
+    }
+
     function exportStandardPDF() {
         if(exportOrder.length === 0) return alert("Vui lòng chọn ít nhất 1 ảnh để xuất!");
         
@@ -1277,7 +1522,7 @@
 
         Promise.all(docsToExport.map(doc => new Promise(res => { let img = new Image(); img.onload = () => res(img); img.src = doc.croppedUrl; }))).then(async loadedImages => {
             let totalPages = Math.ceil(loadedImages.length / mode);
-            let pdf = null;
+            let pdf = null, jpgFiles = [];
 
             for (let page = 0; page < totalPages; page++) {
                 let imgs = loadedImages.slice(page * mode, (page + 1) * mode); let isLandscape = (mode === 1 && imgs[0].width > imgs[0].height);
@@ -1300,17 +1545,18 @@
                     let pdfW = pdf.internal.pageSize.getWidth(); let pdfH = pdf.internal.pageSize.getHeight(); 
                     pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfW, pdfH);
                 } else {
-                    let link = document.createElement('a'); link.download = `Hoso_Trang_${page + 1}_${Date.now()}.jpg`; link.href = canvas.toDataURL('image/jpeg', 0.95); link.click(); await new Promise(r => setTimeout(r, 400));
+                    // Gom lại rồi lưu MỘT LƯỢT. Bản cũ bấm tải từng ảnh trong vòng lặp ->
+                    // iPhone chặn hết từ ảnh thứ 2, nên chỉ tải được đúng 1 ảnh.
+                    jpgFiles.push({ blob: await canvasToBlob(canvas, 0.95), name: `Hoso_Trang_${page + 1}.jpg` });
                 }
+                freeCanvas(canvas);   // trả bộ nhớ ngay, nếu không iPhone sẽ tự đóng trang
             }
-            if (exportFormat === 'pdf') { 
-                let blob = pdf.output('blob'); let blobUrl = URL.createObjectURL(blob); let filename = `HoSo_Scan_${Date.now()}.pdf`;
-                if(/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
-                    document.getElementById('status').innerHTML = `<span style="color:green;">Tạo PDF hoàn tất!</span><br><a href="${blobUrl}" target="_blank" download="${filename}" style="display:inline-block; margin-top:10px; background:#198754; color:white; padding:10px 20px; text-decoration:none; border-radius:8px; font-weight:bold;">📥 BẤM ĐÂY ĐỂ MỞ/LƯU TỆP</a>`;
-                } else {
-                    pdf.save(filename); document.getElementById('status').innerText = "Xuất hồ sơ thành công!";
-                }
-            } else { document.getElementById('status').innerText = "Hoàn tất lưu các file ảnh!"; }
+            if (exportFormat === 'pdf') {
+                deliverFiles([{ blob: pdf.output('blob'), name: `HoSo_Scan_${Date.now()}.pdf` }],
+                             document.getElementById('status'), 'Tạo PDF hoàn tất!');
+            } else {
+                deliverFiles(jpgFiles, document.getElementById('status'), `Đã tạo ${jpgFiles.length} ảnh!`);
+            }
         });
     }
 
@@ -1390,6 +1636,51 @@
         pageLine.innerHTML = `<span>Hết trang ${boardPages}</span>`; container.appendChild(pageLine);
     }
 
+    // Xuất bản ghép tay: chọn PDF hay ảnh JPG
+    async function exportLayoutFile() {
+        const sel = document.getElementById('layoutFormatSelect');
+        if (sel && sel.value === 'jpg') return exportLayoutImages();
+        return exportCustomPDF();
+    }
+
+    // Mỗi trang A4 ghép tay -> 1 ảnh JPG 300dpi
+    async function exportLayoutImages() {
+        const PAGE_W = 794, PAGE_H = 1123;
+        const SCALE = 2480 / PAGE_W;          // 794px trên màn hình -> 2480px = khổ A4 300dpi
+        const items = document.querySelectorAll('.draggable-item');
+        const statusEl = document.getElementById('statusLayout');
+        if (!items.length) return alert('Chưa có ảnh nào trên trang để xuất!');
+        statusEl.style.color = '#dc3545';
+        statusEl.innerText = 'Đang tạo ảnh, xin vui lòng đợi...';
+
+        // Chờ mọi ảnh nạp xong, nếu không sẽ vẽ ra trang trắng
+        await Promise.all(Array.prototype.map.call(items, function (it) {
+            const im = it.querySelector('img');
+            if (!im || im.complete) return Promise.resolve();
+            return new Promise(function (r) { im.onload = im.onerror = r; });
+        }));
+
+        const files = [];
+        for (let page = 0; page < boardPages; page++) {
+            const c = document.createElement('canvas');
+            c.width = Math.round(PAGE_W * SCALE); c.height = Math.round(PAGE_H * SCALE);
+            const x = c.getContext('2d');
+            x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height);
+            const y0 = page * PAGE_H, y1 = (page + 1) * PAGE_H;
+            Array.prototype.forEach.call(items, function (it) {
+                const top = it.offsetTop, left = it.offsetLeft, w = it.offsetWidth, h = it.offsetHeight;
+                if (top + h / 2 >= y0 && top + h / 2 < y1) {          // cùng quy tắc với bản PDF
+                    const im = it.querySelector('img');
+                    try { x.drawImage(im, left * SCALE, (top - y0) * SCALE, w * SCALE, h * SCALE); } catch (e) {}
+                }
+            });
+            files.push({ blob: await canvasToBlob(c, 0.95), name: 'HoSo_BanGhep_Trang_' + (page + 1) + '.jpg' });
+            freeCanvas(c);                                            // trả bộ nhớ ngay (iPhone)
+            statusEl.innerText = 'Đang tạo ảnh... (' + (page + 1) + '/' + boardPages + ')';
+        }
+        deliverFiles(files, statusEl, 'Đã tạo ' + files.length + ' ảnh!');
+    }
+
     async function exportCustomPDF() {
         let jsPDFClass = null;
         if (window.jspdf && window.jspdf.jsPDF) jsPDFClass = window.jspdf.jsPDF;
@@ -1409,12 +1700,8 @@
             });
         }
         
-        let blob = pdf.output('blob'); let blobUrl = URL.createObjectURL(blob); let filename = `HoSo_BanGhep_${Date.now()}.pdf`;
-        if(/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
-            document.getElementById('statusLayout').innerHTML = `<span style="color:green;">Tạo PDF hoàn tất!</span><br><a href="${blobUrl}" target="_blank" download="${filename}" style="display:inline-block; margin-top:10px; background:#198754; color:white; padding:10px 20px; text-decoration:none; border-radius:8px; font-weight:bold;">📥 BẤM ĐÂY ĐỂ MỞ/LƯU TỆP NÀY</a>`;
-        } else {
-            pdf.save(filename); document.getElementById('statusLayout').innerText = `Hoàn tất lưu PDF!`;
-        }
+        deliverFiles([{ blob: pdf.output('blob'), name: `HoSo_BanGhep_${Date.now()}.pdf` }],
+                     document.getElementById('statusLayout'), 'Tạo PDF bản ghép hoàn tất!');
     }
 </script>
 </body>
