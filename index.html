@@ -189,9 +189,11 @@
     .stage:has(canvas[width="0"])::before{ opacity:1; }
     .stage canvas{
       position:relative; z-index:1; display:block; margin:auto;
-      max-width:100%; background:transparent; border-radius:4px; touch-action:none;
+      max-width:100%; max-height:56vh;              /* vừa màn hình, khỏi phải cuộn */
+      background:transparent; border-radius:4px; touch-action:none;
     }
     .stage-out{ min-height:210px; }
+    .stage-out canvas{ max-height:44vh; }
     .canvas-edit{ cursor:crosshair; }
 
     /* ---------- QR RESULT ---------- */
@@ -327,8 +329,10 @@
       .card-body{ padding:13px; gap:12px; }
       .card-head{ padding:11px 13px; }
       .head-note{ display:none; }
-      .stage{ padding:10px; min-height:200px; }
-      .stage-out{ min-height:170px; }
+      .stage{ padding:8px; min-height:170px; }
+      .stage-out{ min-height:150px; }
+      .stage canvas{ max-height:42vh; }             /* điện thoại: khung nhỏ lại cho dễ thao tác */
+      .stage-out canvas{ max-height:34vh; }
       select, textarea{ font-size:16px; }   /* chặn iOS tự phóng to */
       .toolbar{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
       .toolbar select{ grid-column:1 / -1; }
@@ -341,6 +345,208 @@
       .credit{ margin-top:14px; padding:12px; }
     }
 
+/* ===== CSS của phần QUÉT QR — chỉ có hiệu lực bên trong #qrScanUI ===== */
+#qrScanUI{ display:none; }
+#qrScanUI.on{ display:block; }
+#qrScanUI .sqr-back{
+  position:sticky; top:0; z-index:300; display:flex; align-items:center; gap:10px;
+  padding:10px max(14px, env(safe-area-inset-left));
+  background:#0c4526; box-shadow:0 2px 12px rgba(0,0,0,.28);
+}
+#qrScanUI .sqr-back .btn{
+  background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.55);
+  color:#fff; font-weight:800; border-radius:11px; padding:10px 16px; font-size:14px;
+}
+#qrScanUI .sqr-back .btn:hover{ background:rgba(255,255,255,.3); }
+#qrScanUI .sqr-back .sqr-hint{ color:rgba(255,255,255,.78); font-size:12px; font-weight:600; }
+#qrScanUI{
+  --bg:#eef1f6;
+  --surface:#ffffff;
+  --ink:#131a24;
+  --ink-2:#5a6674;
+  --ink-3:#8a94a1;
+  --line:#dfe4ec;
+  --brand:#125c34;
+  --brand-2:#0c4526;
+  --brand-soft:#e4f1e8;
+  --agri:#8a0c25;
+  --ok:#1a8f4c;
+  --ok-soft:#e3f6ea;
+  --warn:#b06000;
+  --warn-soft:#fdf0dd;
+  --bad:#c5221f;
+  --bad-soft:#fce8e6;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(19,26,36,.06), 0 8px 24px rgba(19,26,36,.07);
+  --mono:ui-monospace,"SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+}
+#qrScanUI *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+#qrScanUI{margin:0}
+#qrScanUI{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;
+  background:var(--bg);color:var(--ink);
+  font-size:15px;line-height:1.5;
+  padding:0 0 40px;
+}
+#qrScanUI .wrap{max-width:640px;margin:auto;padding:0 14px}
+#qrScanUI /* ---------- App bar ---------- */
+.appbar{
+  position:sticky;top:0;z-index:30;color:#fff;
+  background:linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+  padding:12px 14px calc(12px + env(safe-area-inset-top,0)) 14px;
+  padding-top:calc(12px + env(safe-area-inset-top,0));
+  box-shadow:0 2px 10px rgba(12,69,38,.30);
+}
+#qrScanUI .appbar-inner{max-width:640px;margin:auto;display:flex;align-items:center;gap:10px}
+#qrScanUI .appbar h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px;flex:1}
+#qrScanUI .appbar .ver{font-size:11px;background:rgba(255,255,255,.2);padding:3px 8px;border-radius:20px;font-weight:600}
+#qrScanUI .engine-tag{font-size:11px;opacity:.85;margin-top:2px;font-weight:500}
+#qrScanUI /* ---------- Controls ---------- */
+.panel{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-top:14px}
+#qrScanUI .row{display:flex;gap:10px;align-items:center}
+#qrScanUI .row + .row{margin-top:10px}
+#qrScanUI label.lbl{font-size:12px;font-weight:650;color:var(--ink-2);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px}
+#qrScanUI select, #qrScanUI input[type=range]{width:100%}
+#qrScanUI input[type=range]{accent-color:var(--brand);height:26px}
+#qrScanUI select{
+  padding:11px 12px;border-radius:10px;border:1px solid var(--line);
+  font-size:15px;background:#fff;color:var(--ink);font-weight:500;appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' fill='none' stroke='%235a6674' stroke-width='1.6' stroke-linecap='round'/></svg>");
+  background-repeat:no-repeat;background-position:right 12px center;padding-right:34px;
+}
+#qrScanUI select:focus-visible, #qrScanUI button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+#qrScanUI .col{flex:1;min-width:0}
+#qrScanUI .hint{font-size:12.5px;color:var(--ink-3);margin-top:6px;line-height:1.45}
+#qrScanUI .pdet{padding:0}
+#qrScanUI .pdet summary{
+  padding:14px;cursor:pointer;font-size:14px;font-weight:650;color:var(--ink-2);
+  list-style:none;display:flex;align-items:center;gap:8px;
+}
+#qrScanUI .pdet summary::-webkit-details-marker{display:none}
+#qrScanUI .pdet summary::before{content:"⚙";font-size:15px;color:var(--brand)}
+#qrScanUI .pdet summary::after{content:"▾";margin-left:auto;color:var(--ink-3)}
+#qrScanUI .pdet[open] summary::after{content:"▴"}
+#qrScanUI .pdet[open] summary{border-bottom:1px solid var(--line)}
+#qrScanUI .pdet > div{padding:0 14px 14px}
+#qrScanUI .chipbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+#qrScanUI .chip{
+  border:1px solid var(--line);background:#fff;color:var(--ink-2);
+  padding:8px 12px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;transition:.15s;
+}
+#qrScanUI .chip:active{transform:scale(.96)}
+#qrScanUI .chip.on{background:var(--brand);border-color:var(--brand);color:#fff}
+#qrScanUI .chip[hidden]{display:none}
+#qrScanUI /* ---------- Camera ---------- */
+.stage{position:relative;margin-top:12px;border-radius:var(--radius);overflow:hidden;background:#080b0f;box-shadow:var(--shadow);height:min(44vh,380px)}
+#qrScanUI #video{width:100%;height:100%;display:block;object-fit:cover;background:#080b0f}
+#qrScanUI #overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#qrScanUI .camoff{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;
+  justify-content:center;gap:6px;background:#0d1117;color:#8a94a1;text-align:center;padding:20px}
+#qrScanUI .stage.off .camoff{display:flex}
+#qrScanUI .stage.off #overlay{display:none}
+#qrScanUI .camoff-i{font-size:34px;color:#3b4654;line-height:1}
+#qrScanUI .camoff b{color:#c7cfda;font-size:16px}
+#qrScanUI .camoff span{font-size:13px;max-width:240px;line-height:1.45}
+#qrScanUI .status{
+  position:absolute;left:0;right:0;bottom:0;padding:10px 12px;
+  background:linear-gradient(transparent,rgba(0,0,0,.68));
+  color:#fff;font-size:13px;font-weight:500;display:flex;justify-content:space-between;gap:10px;
+}
+#qrScanUI .status .perf{font-family:var(--mono);font-size:11px;opacity:.7}
+#qrScanUI #scan-indicator{transition:.2s;border-radius:6px;padding:2px 6px;margin:-2px -6px}
+#qrScanUI #scan-indicator.hit{background:#26d07c;color:#06331d;font-weight:700}
+#qrScanUI /* ---------- Result ---------- */
+.result{margin-top:14px;display:none;scroll-margin-top:82px}
+#qrScanUI .result.show{display:block;animation: sqr-pop .18s ease-out}
+@keyframes sqr-pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){
+#qrScanUI .result.show{animation:none}
+}
+#qrScanUI .card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+#qrScanUI .card-head{padding:13px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+#qrScanUI .badge{font-size:12px;font-weight:700;padding:5px 11px;border-radius:8px;background:var(--brand-soft);color:var(--brand);letter-spacing:.2px}
+#qrScanUI .badge.agri{background:#fbe9ed;color:var(--agri)}
+#qrScanUI .badge.ok{background:var(--ok-soft);color:var(--ok)}
+#qrScanUI .badge.plain{background:#eef1f6;color:var(--ink-2)}
+#qrScanUI .card-head .time{margin-left:auto;font-size:12px;color:var(--ink-3);font-family:var(--mono)}
+#qrScanUI .fmt{font-size:11px;font-weight:700;padding:4px 8px;border-radius:6px;background:#eef1f6;
+  color:var(--ink-2);font-family:var(--mono);letter-spacing:.3px}
+#qrScanUI .fields{padding:4px 0}
+#qrScanUI .f{display:flex;gap:12px;padding:11px 14px;border-bottom:1px solid #f0f3f7;align-items:flex-start}
+#qrScanUI .f:last-child{border-bottom:none}
+#qrScanUI .f-k{flex:0 0 118px;font-size:12.5px;color:var(--ink-2);font-weight:600;padding-top:2px}
+#qrScanUI .f-v{flex:1;min-width:0;font-size:15.5px;font-weight:600;word-break:break-word}
+#qrScanUI .f-v.num{font-family:var(--mono);font-size:16px;letter-spacing:.4px}
+#qrScanUI .f-v.big{font-size:18px}
+#qrScanUI .f-note{display:block;font-size:12.5px;font-weight:500;color:var(--ink-3);margin-top:2px}
+#qrScanUI .f-cp{
+  flex:0 0 auto;border:none;background:#f2f5f9;color:var(--ink-2);
+  width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:14px;line-height:1;
+}
+#qrScanUI .f-cp:active{background:var(--brand);color:#fff}
+#qrScanUI .f.sub{padding-top:5px;padding-bottom:5px;border-bottom:none}
+#qrScanUI .f.sub .f-k{font-size:12px;color:var(--ink-3);font-weight:500;padding-left:10px;position:relative}
+#qrScanUI .f.sub .f-k::before{content:"└";position:absolute;left:0;color:var(--line)}
+#qrScanUI .f.sub .f-v{font-size:14px;font-weight:500;color:var(--ink-2)}
+#qrScanUI .pill{display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:6px;margin-left:6px;vertical-align:middle}
+#qrScanUI .pill.ok{background:var(--ok-soft);color:var(--ok)}
+#qrScanUI .pill.warn{background:var(--warn-soft);color:var(--warn)}
+#qrScanUI .pill.bad{background:var(--bad-soft);color:var(--bad)}
+#qrScanUI .raw{padding:0 14px 14px}
+#qrScanUI .raw details summary{cursor:pointer;font-size:13px;color:var(--ink-2);font-weight:600;padding:8px 0}
+#qrScanUI .raw pre{
+  margin:0;background:#f6f8fb;border:1px solid var(--line);border-radius:10px;padding:11px;
+  font-family:var(--mono);font-size:12.5px;white-space:pre-wrap;word-break:break-all;color:var(--ink-2);
+}
+#qrScanUI .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px;background:#f8fafc;border-top:1px solid var(--line)}
+#qrScanUI .btn{
+  border:none;padding:13px 10px;border-radius:11px;cursor:pointer;
+  font-size:14.5px;font-weight:650;transition:.15s;font-family:inherit;
+}
+#qrScanUI .btn:active{transform:scale(.97)}
+#qrScanUI .btn-primary{background:var(--brand);color:#fff}
+#qrScanUI .btn-ghost{background:var(--brand-soft);color:var(--brand)}
+#qrScanUI .btn-amber{background:#fff3e0;color:#b06000}
+#qrScanUI .btn-action{background:var(--brand);color:#fff;font-size:16px;padding:15px 10px}
+#qrScanUI #bankpick{border-top:1px solid var(--line);background:#f8fafc;padding:12px 14px}
+#qrScanUI .bp-note{font-size:12.5px;color:var(--ink-2);line-height:1.5;margin-bottom:10px;
+  background:var(--warn-soft);border-left:3px solid var(--warn);padding:9px 11px;border-radius:8px}
+#qrScanUI .bp-head{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+  color:var(--ink-3);margin:10px 0 6px}
+#qrScanUI .bp-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+#qrScanUI .bp-head{grid-column:1/-1}
+#qrScanUI .bp{display:block;text-align:left;border:1px solid var(--line);background:#fff;border-radius:10px;
+  padding:10px 11px;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;
+  font-family:inherit;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#qrScanUI .bp:active{background:var(--brand-soft)}
+#qrScanUI .bp.fill{border-color:var(--ok);background:var(--ok-soft)}
+#qrScanUI .bp small{display:block;font-size:10.5px;font-weight:700;color:var(--ok);margin-top:2px}
+#qrScanUI .btn-wide{grid-column:1 / -1}
+#qrScanUI /* ---------- History ---------- */
+.hist{margin-top:14px}
+#qrScanUI .hist-head{display:flex;align-items:center;gap:10px;padding:0 4px 8px}
+#qrScanUI .hist-head h2{font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.5px;color:var(--ink-2);flex:1}
+#qrScanUI .hist-head button{border:none;background:none;color:var(--brand);font-size:13px;font-weight:650;cursor:pointer;font-family:inherit}
+#qrScanUI .hist-item{
+  background:#fff;border-radius:11px;padding:11px 13px;margin-bottom:8px;box-shadow:0 1px 2px rgba(19,26,36,.06);
+  display:flex;gap:10px;align-items:center;cursor:pointer;border-left:3px solid var(--brand);
+}
+#qrScanUI .hist-item .t{flex:1;min-width:0}
+#qrScanUI .hist-item .t b{display:block;font-size:14px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#qrScanUI .hist-item .t span{font-size:12px;color:var(--ink-3)}
+#qrScanUI .hist-item .n{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+#qrScanUI .tip{
+  background:var(--brand-soft);color:#0b4527;padding:12px 14px;border-radius:var(--radius);
+  border-left:4px solid var(--brand);margin-top:14px;font-size:13.5px;line-height:1.55;
+}
+#qrScanUI .tip b{font-weight:700}
+#qrScanUI .toast{
+  position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(80px);
+  background:var(--ink);color:#fff;padding:11px 18px;border-radius:24px;font-size:14px;font-weight:600;
+  z-index:100;opacity:0;transition:.22s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.25);
+}
+#qrScanUI .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
     </style>
 
     <script>
@@ -411,6 +617,7 @@
             <label for="fileInput" class="btn btn-onbrand" title="Tải ảnh có sẵn trong máy">📁 Chọn ảnh có sẵn</label>
             <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
             <button id="cameraBtn" class="btn btn-onbrand-solid" onclick="handleCameraBtn()" disabled>📸 Chụp ảnh trực tiếp</button>
+            <button id="qrScanBtn" class="btn btn-onbrand" onclick="openQRScan()" title="Chỉ đọc mã QR, không cần cắt ảnh">🔎 Quét QR</button>
         </div>
     </header>
 
@@ -509,6 +716,7 @@
                             <option value="1">1 ảnh / trang</option>
                             <option value="2" selected>2 ảnh / trang (CCCD)</option>
                             <option value="3">3 ảnh / trang</option>
+                            <option value="4">4 ảnh / trang</option>
                         </select>
                     </label>
                     <label class="field">
@@ -553,6 +761,127 @@
     <div id="layoutWorkspace"><div id="boardOuter"><div id="boardContainer"></div></div></div>
 </div>
 
+
+<div id="qrScanUI">
+<div class="sqr-back">
+  <button class="btn" onclick="closeQRScan()">🔙 Quay lại Scanner</button>
+  <span class="sqr-hint">Chế độ đọc mã nhanh — không cắt ảnh, không xuất file</span>
+</div>
+
+
+<div class="appbar">
+  <div class="appbar-inner">
+    <div style="flex:1">
+      <h1>Quét QR CCCD &amp; VietQR</h1>
+      <div class="engine-tag" id="engine-tag">Đang khởi động…</div>
+    </div>
+    <span class="ver">v2.7</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="stage">
+    <video id="video" playsinline autoplay muted></video>
+    <canvas id="overlay"></canvas>
+    <div class="camoff" id="camoff">
+      <div class="camoff-i">◉</div>
+      <b>Camera đang tắt</b>
+      <span>Không quét và không giữ camera — đỡ tốn pin</span>
+    </div>
+    <div class="status">
+      <span id="scan-indicator">Đang khởi động…</span>
+      <span class="perf" id="perf"></span>
+    </div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="card">
+      <div class="card-head">
+        <span class="badge" id="r-badge">Dữ liệu</span><span class="fmt" id="r-fmt" hidden></span>
+        <span class="time" id="r-time"></span>
+      </div>
+      <div class="fields" id="r-fields"></div>
+      <div class="raw">
+        <details>
+          <summary>Xem dữ liệu gốc</summary>
+          <pre id="r-raw"></pre>
+        </details>
+      </div>
+      <div id="bankpick" hidden>
+        <div class="bp-note">
+          Bấm vào app ngân hàng <b>bạn đang dùng để chuyển tiền</b>. Đường dẫn đi qua
+          dịch vụ chuyển hướng của vietqr.io nên cần có mạng, và số tài khoản người nhận
+          sẽ được gửi qua dịch vụ đó.
+        </div>
+        <div class="bp-grid" id="bp-grid"></div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-action btn-wide" id="btn-action" hidden></button>
+        <button class="btn btn-ghost" id="btn-copy-all">Chép toàn bộ</button>
+        <button class="btn btn-ghost" id="btn-copy-tsv">Chép cho Excel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <label class="lbl" for="roi-slider">Vùng quét <span id="roi-val" style="float:right;font-family:var(--mono);color:var(--brand)">55%</span></label>
+    <input type="range" id="roi-slider" min="25" max="100" step="5" value="55">
+    <div class="hint">Máy quét liên tục, giơ mã lên là đọc, không phải bấm gì. Cùng một mã để yên trước ống kính thì chỉ đọc một lần; đưa ra rồi giơ lại là đọc lại. Nút <b>Tắt camera</b> nhả hẳn phần cứng cho đỡ tốn pin.</div>
+
+    <div id="zoom-box" style="display:none;margin-top:14px">
+      <label class="lbl" for="zoom-slider">Phóng ống kính <span id="zoom-val" style="float:right;font-family:var(--mono);color:var(--brand)">1.0×</span></label>
+      <input type="range" id="zoom-slider" min="1" max="1" step="0.1" value="1">
+    </div>
+
+    <div class="chipbar">
+      <button class="chip" id="chip-torch" hidden>Bật đèn</button>
+      <button class="chip" id="chip-focus" hidden>Lấy nét lại</button>
+      <button class="chip" id="chip-cam">Tắt camera</button>
+      <button class="chip on" id="chip-sound">Âm báo</button>
+    </div>
+  </div>
+
+  <details class="panel pdet">
+    <summary>Camera và độ phân giải</summary>
+    <div style="padding-top:12px">
+      <label class="lbl" for="camera-select">Camera</label>
+      <select id="camera-select"><option value="">Đang yêu cầu quyền camera…</option></select>
+
+      <label class="lbl" for="quality-select" style="margin-top:12px">Độ phân giải</label>
+      <select id="quality-select">
+        <option value="1920">1920px — nhẹ máy</option>
+        <option value="2560" selected>2560px — khuyến nghị cho CCCD</option>
+        <option value="3840">3840px — mã rất nhỏ</option>
+      </select>
+      <div class="hint">Dưới 1920px thì mã QR trên CCCD tụt xuống dưới ngưỡng đọc được.</div>
+
+      <div id="focus-box" style="display:none;margin-top:14px">
+        <label class="lbl" for="focus-slider">Nét gần (macro) <span id="focus-val" style="float:right;font-family:var(--mono);color:var(--brand)">auto</span></label>
+        <input type="range" id="focus-slider" min="0" max="1" step="0.01" value="0">
+      </div>
+    </div>
+  </details>
+
+  <div class="tip">
+    <b>Mã QR trên CCCD rất nhỏ</b> — mỗi ô của mã chỉ vài điểm ảnh. Giữ thẻ cách ống kính 12–18&nbsp;cm cho máy bắt nét, rồi kéo <b>Phóng ống kính</b> đến khi mã <b>lấp gần đầy ô vuông sáng</b>. Đó là yếu tố quyết định đọc được hay không. Với <b>mã vạch ngang</b> (vé máy bay, mã sản phẩm) thì không cần vào ô vuông — cứ để mã trải hết bề ngang khung hình.
+  </div>
+
+  <div class="hist" id="hist" style="display:none">
+    <div class="hist-head">
+      <h2>Phiên làm việc</h2>
+      <button id="btn-export">Xuất CSV</button>
+      <button id="btn-clear" style="color:var(--bad)">Xoá</button>
+    </div>
+    <div id="hist-list"></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+
+</div>
 <div class="modal" id="webcamModal">
     <div class="modal-content">
         <h3 class="modal-title">📷 Camera máy tính</h3>
@@ -583,6 +912,24 @@
     let canvasInput = document.getElementById('canvasInput'), ctxInput = canvasInput.getContext('2d');
     let canvasOutput = document.getElementById('canvasOutput');
     let scaleRatio = 1, draggingPoint = null, layoutScale = 1;
+
+
+    // ===== CHUYỂN QUA LẠI GIỮA SCANNER VÀ CHẾ ĐỘ QUÉT QR TRỰC TIẾP =====
+    function openQRScan() {
+        document.getElementById('mainUI').style.display = 'none';
+        document.getElementById('layoutUI').style.display = 'none';
+        const v = document.getElementById('qrScanUI');
+        v.classList.add('on');
+        window.scrollTo(0, 0);
+        // Camera chỉ được mở tại đây, không mở lúc tải trang
+        if (window.__qrBoot) window.__qrBoot();
+    }
+    function closeQRScan() {
+        if (window.__qrStop) window.__qrStop();   // nhả camera, tắt đèn báo, đỡ hao pin
+        document.getElementById('qrScanUI').classList.remove('on');
+        document.getElementById('mainUI').style.display = 'block';
+        window.scrollTo(0, 0);
+    }
 
     function handleCameraBtn() {
         if(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) { document.getElementById('cameraInput').click(); } 
@@ -665,7 +1012,14 @@
 
     function selectDoc(idx) {
         activeIndex = idx; let doc = documents[idx];
-        scaleRatio = Math.min(800 / doc.w, 1);
+        // Bản vẽ chỉnh góc chỉ cần nét vừa đủ so với chỗ hiển thị thật.
+        // Bản cũ luôn dựng 800px rồi thu nhỏ hiển thị -> điện thoại vẽ thừa, kéo bị giật.
+        const stageEl = canvasInput.parentElement;
+        const availW = Math.max(240, (stageEl ? stageEl.clientWidth : 800) - 28);
+        const phone = window.innerWidth < 768;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const target = Math.min(doc.w, Math.round(availW * dpr), phone ? 760 : 1000);
+        scaleRatio = Math.min(target / doc.w, 1);
         canvasInput.width = doc.w * scaleRatio; canvasInput.height = doc.h * scaleRatio;
         
         document.getElementById('cropModeSelect').value = doc.mode || 'warp';
@@ -818,9 +1172,31 @@
         } doc.mode = 'warp'; document.getElementById('cropModeSelect').value = 'warp'; drawEditor();
     }
 
+    // Ảnh nền đã thu nhỏ sẵn, dùng lại cho mọi khung hình khi kéo góc.
+    // Đây là chỗ gây giật: bản cũ thu nhỏ ảnh 1600px xuống mỗi lần vẽ, mỗi lần nhích ngón tay.
+    let editorBase = null, editorBaseKey = '';
+    function getEditorBase(doc) {
+        const key = doc.id + ':' + canvasInput.width + 'x' + canvasInput.height;
+        if (editorBaseKey === key && editorBase) return editorBase;
+        if (!editorBase) editorBase = document.createElement('canvas');
+        editorBase.width = canvasInput.width; editorBase.height = canvasInput.height;
+        try { editorBase.getContext('2d').drawImage(doc.img, 0, 0, editorBase.width, editorBase.height); }
+        catch (e) { return null; }
+        editorBaseKey = key;
+        return editorBase;
+    }
+    let drawPending = false;
+    function requestDraw() {                       // gộp nhiều lần kéo vào 1 khung hình
+        if (drawPending) return;
+        drawPending = true;
+        requestAnimationFrame(function () { drawPending = false; drawEditor(); });
+    }
     function drawEditor() {
         if(activeIndex === -1) return; let doc = documents[activeIndex];
-        ctxInput.clearRect(0,0, canvasInput.width, canvasInput.height); ctxInput.drawImage(doc.img, 0,0, canvasInput.width, canvasInput.height);
+        ctxInput.clearRect(0,0, canvasInput.width, canvasInput.height);
+        const base = getEditorBase(doc);
+        if (base) ctxInput.drawImage(base, 0, 0);
+        else ctxInput.drawImage(doc.img, 0,0, canvasInput.width, canvasInput.height);
         let dP = doc.pts.map(p => ({ x: p.x * scaleRatio, y: p.y * scaleRatio }));
         if (dP.length < 4) return; // Ảnh QR trích xuất không có 4 góc -> chỉ hiện ảnh, không vẽ khung
         
@@ -871,7 +1247,7 @@
             doc.pts[p1].x = Math.max(0, Math.min(doc.pts[p1].x + dx, maxW)); doc.pts[p1].y = Math.max(0, Math.min(doc.pts[p1].y + dy, maxH));
             doc.pts[p2].x = Math.max(0, Math.min(doc.pts[p2].x + dx, maxW)); doc.pts[p2].y = Math.max(0, Math.min(doc.pts[p2].y + dy, maxH));
             draggingPoint.lastX = curX; draggingPoint.lastY = curY;
-        } drawEditor(); 
+        } requestDraw(); 
     });
     window.addEventListener('touchmove', e=>{ 
         if(!draggingPoint||activeIndex===-1) return; e.preventDefault(); 
@@ -886,7 +1262,7 @@
             doc.pts[p1].x = Math.max(0, Math.min(doc.pts[p1].x + dx, maxW)); doc.pts[p1].y = Math.max(0, Math.min(doc.pts[p1].y + dy, maxH));
             doc.pts[p2].x = Math.max(0, Math.min(doc.pts[p2].x + dx, maxW)); doc.pts[p2].y = Math.max(0, Math.min(doc.pts[p2].y + dy, maxH));
             draggingPoint.lastX = curX; draggingPoint.lastY = curY;
-        } drawEditor(); 
+        } requestDraw(); 
     }, {passive:false});
     
     window.addEventListener('mouseup', ()=>draggingPoint=null); window.addEventListener('touchend', ()=>draggingPoint=null);
@@ -940,7 +1316,7 @@
     }
 
     // Quét 1 canvas -> { data, bounds } theo toạ độ của chính canvas đó, hoặc null
-    async function scanOneCanvas(canvas) {
+    async function scanOneCanvas(canvas, inv) {
         const bd = await getBarcodeDetector();
         if (bd) {
             try {
@@ -952,12 +1328,13 @@
                     else { const b = res[0].boundingBox; xs = [b.x, b.x + b.width]; ys = [b.y, b.y + b.height]; }
                     return { data: res[0].rawValue, bounds: { minX: Math.min.apply(null, xs), maxX: Math.max.apply(null, xs), minY: Math.min.apply(null, ys), maxY: Math.max.apply(null, ys) } };
                 }
-                return null;
+                // KHÔNG dừng ở đây. Bộ giải mã của trình duyệt nhanh nhưng thua jsQR ở
+                // ảnh mờ / nghiêng / nền hoa văn -> nó không thấy thì vẫn phải để jsQR thử.
             } catch (e) { /* lỗi thì rơi xuống jsQR */ }
         }
         if (typeof jsQR === 'undefined') return null;
         const d = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(d.data, d.width, d.height, { inversionAttempts: 'dontInvert' });
+        const code = jsQR(d.data, d.width, d.height, { inversionAttempts: inv || 'dontInvert' });
         if (!code) return null;
         const L = code.location;
         const xs = [L.topLeftCorner.x, L.topRightCorner.x, L.bottomRightCorner.x, L.bottomLeftCorner.x];
@@ -1048,19 +1425,22 @@
         return cands;
     }
 
-    // cardMat (RGBA) -> { data, bounds theo toạ độ cardMat } | null. budgetMs = hạn giờ.
-    async function decodeQRFromMat(cardMat, budgetMs) {
+    // cardMat (RGBA) -> { data, bounds theo toạ độ cardMat } | null.
+    // budgetMs = hạn giờ CHỈ tính việc quét (không tính thời gian nạp/nắn ảnh).
+    // hard = true: quét kỹ, thử cả bản đảo màu + nhị phân thích ứng + nhiều cỡ (dùng cho nút "Quét kỹ").
+    async function decodeQRFromMat(cardMat, budgetMs, hard) {
         if (!cardMat || cardMat.cols === 0) return null;
-        budgetMs = budgetMs || 1200;
+        budgetMs = budgetMs || 1400;
+        const INV = hard ? 'attemptBoth' : 'dontInvert';
         const now = () => ((performance && performance.now) ? performance.now() : Date.now());
         const t0 = now();
         const elapsed = () => now() - t0;
         const PAD = 24;
+        let tries = 0;                 // LUÔN cho quét ít nhất 1 lần, dù hết giờ
 
         let gray = new cv.Mat();
         cv.cvtColor(cardMat, gray, cv.COLOR_RGBA2GRAY);
 
-        // Quét 1 Mat xám -> toạ độ theo chính Mat đó (đã gỡ viền PAD)
         async function scanMat(m) {
             let padded = new cv.Mat(), rgba = new cv.Mat();
             let canvas = document.createElement('canvas');
@@ -1070,7 +1450,8 @@
                 cv.cvtColor(padded, rgba, cv.COLOR_GRAY2RGBA);
                 canvas.width = rgba.cols; canvas.height = rgba.rows;
                 cv.imshow(canvas, rgba);
-                const r = await scanOneCanvas(canvas);
+                tries++;
+                const r = await scanOneCanvas(canvas, INV);
                 if (r) out = { data: r.data, bounds: {
                     minX: r.bounds.minX - PAD, maxX: r.bounds.maxX - PAD,
                     minY: r.bounds.minY - PAD, maxY: r.bounds.maxY - PAD } };
@@ -1084,9 +1465,9 @@
 
         // ---- BẬC 0: khoanh vùng bằng 3 ô định vị rồi giải mã đúng vùng đó ----
         try {
-            const rois = groupFinders(findFinderCandidates(gray), gray.cols, gray.rows).slice(0, 2);
+            const rois = groupFinders(findFinderCandidates(gray), gray.cols, gray.rows).slice(0, hard ? 4 : 2);
             for (const roi of rois) {
-                if (elapsed() > budgetMs) break;
+                if (tries > 0 && elapsed() > budgetMs) break;
                 let sub = gray.roi(new cv.Rect(roi.x, roi.y, roi.w, roi.h));
                 let scaled = new cv.Mat();
                 const sm = Math.max(sub.cols, sub.rows);
@@ -1113,24 +1494,37 @@
         // ---- BẬC 1+: quét toàn ảnh (dự phòng khi không khoanh được vùng) ----
         if (!found) {
             const base = Math.max(gray.cols, gray.rows);
-            let sides = [Math.min(base, 1100)];
-            if (base > 1300) sides.push(Math.min(base, 1800));
-            else if (base < 950) sides.push(Math.round(base * 2));
+            let sides;
+            if (hard) {
+                sides = [Math.min(base, 1200), Math.min(base, 1800), Math.min(base, 2600)];
+                if (base < 1000) sides.push(Math.round(base * 2));
+            } else {
+                sides = [Math.min(base, 1100)];
+                if (base > 1300) sides.push(Math.min(base, 1800));
+                else if (base < 950) sides.push(Math.round(base * 2));
+            }
+            sides = sides.filter((v, i, a) => a.indexOf(v) === i);   // bỏ cỡ trùng
+
             let tiers = [];
-            for (const sd of sides) { tiers.push({ side: sd, otsu: false }); tiers.push({ side: sd, otsu: true }); }
+            for (const sd of sides) {
+                tiers.push({ side: sd, mode: 'gray' });
+                tiers.push({ side: sd, mode: 'otsu' });
+                if (hard) tiers.push({ side: sd, mode: 'adapt' });   // nền hoa văn / ánh sáng lệch
+            }
 
             let msPerMP = 0;   // tốc độ THỰC TẾ của máy này, đo được sau bậc đầu
             for (const t of tiers) {
                 const k = t.side / base;
                 const px = ((Math.round(gray.cols * k) + PAD * 2) * (Math.round(gray.rows * k) + PAD * 2)) / 1e6;
-                if (elapsed() > budgetMs) break;
-                if (msPerMP > 0 && elapsed() + msPerMP * px > budgetMs) break;  // đoán trước, khỏi lố giờ
+                if (tries > 0 && elapsed() > budgetMs) break;
+                if (tries > 0 && msPerMP > 0 && elapsed() + msPerMP * px > budgetMs) break;
                 const tTier = now();
                 let work = new cv.Mat();
                 try {
                     if (Math.abs(k - 1) < 0.02) gray.copyTo(work);
                     else cv.resize(gray, work, new cv.Size(Math.round(gray.cols * k), Math.round(gray.rows * k)), 0, 0, k > 1 ? cv.INTER_CUBIC : cv.INTER_AREA);
-                    if (t.otsu) { let b = new cv.Mat(); cv.threshold(work, b, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); work.delete(); work = b; }
+                    if (t.mode === 'otsu') { let b = new cv.Mat(); cv.threshold(work, b, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU); work.delete(); work = b; }
+                    else if (t.mode === 'adapt') { let b = new cv.Mat(); cv.adaptiveThreshold(work, b, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 31, 10); work.delete(); work = b; }
                     const r = await scanMat(work);
                     if (r) {
                         const kk = Math.abs(k - 1) < 0.02 ? 1 : k;
@@ -1235,16 +1629,14 @@
             doc.rawCropped = tCanvas.toDataURL('image/jpeg', 1.0); doc.rot = 0;
             srcMat.delete(); dstMat.delete();
 
-            // (2) QUÉT QR trên bản NẮN PHẲNG — có HẠN GIỜ chung, thấy là dừng
+            // (2) QUÉT QR trên bản NẮN PHẲNG
+            // LỖI CŨ: hạn giờ bấm từ TRƯỚC khi nạp ảnh gốc. Nạp ảnh 12MP từ base64 + cv.imread
+            // ngốn hết giờ, nên tới lúc quét thì hết hạn -> báo "không thấy QR" dù chưa quét lần nào.
+            // Giờ mỗi lượt quét có hạn giờ RIÊNG, tính từ đúng lúc bắt đầu quét.
             let codeText = null, qrBounds = null, qrSourceCanvas = null;
-            const QR_BUDGET = 1200;  // ms: quá hạn thì kết luận "không thấy QR", không bắt người dùng chờ
-            const qrT0 = (performance && performance.now) ? performance.now() : Date.now();
-            const qrLeft = () => QR_BUDGET - (((performance && performance.now) ? performance.now() : Date.now()) - qrT0);
             try {
                 let hiRes = await warpFromOriginal(doc);
                 if (hiRes && hiRes.cols > 0 && hiRes.rows > 0) {
-                    // Nhờ khoanh vùng bằng ô định vị, quét ở độ nét cao giờ rất rẻ -> để 2400px
-                    // cho ảnh chụp xa có thêm điểm ảnh trên mỗi ô mã QR (dò vùng vẫn chạy ở 640px)
                     let maxSide = Math.max(hiRes.cols, hiRes.rows);
                     if (maxSide > 2400) {
                         let s2 = 2400 / maxSide;
@@ -1252,7 +1644,7 @@
                         cv.resize(hiRes, capped, new cv.Size(Math.round(hiRes.cols * s2), Math.round(hiRes.rows * s2)), 0, 0, cv.INTER_AREA);
                         hiRes.delete(); hiRes = capped;
                     }
-                    let r = await decodeQRFromMat(hiRes, qrLeft());
+                    let r = await decodeQRFromMat(hiRes, 1400);
                     if (r) {
                         codeText = r.data; qrBounds = r.bounds;
                         let hc = document.createElement('canvas'); hc.width = hiRes.cols; hc.height = hiRes.rows;
@@ -1262,12 +1654,13 @@
                 }
             } catch (e) { console.warn('hi-res QR', e); }
 
-            // (3) DỰ PHÒNG (chỉ khi CÒN GIỜ): quét toàn ảnh gốc, phòng khi QR nằm ngoài vùng cắt
-            if (!codeText && doc.origDataUrl && qrLeft() > 250) {
+            // (3) DỰ PHÒNG: quét toàn ảnh gốc. Luôn chạy khi lượt trên không ra
+            // (trước đây bị chặn bởi hạn giờ đã cạn nên gần như không bao giờ chạy).
+            if (!codeText && doc.origDataUrl) {
                 try {
-                    let fo = await loadOriginalMatScaled(doc, 1400);
+                    let fo = await loadOriginalMatScaled(doc, 1600);
                     if (fo) {
-                        let r = await decodeQRFromMat(fo.mat, qrLeft());
+                        let r = await decodeQRFromMat(fo.mat, 900);
                         if (r) { codeText = r.data; qrBounds = r.bounds; qrSourceCanvas = fo.canvas; }
                         fo.mat.delete();
                     }
@@ -1275,22 +1668,8 @@
             }
 
             // (4) Tạo text CCCD + ảnh QR trích xuất riêng
-            if (codeText) {
-                doc.qrText = parseQRData(codeText);
-                if (qrBounds && qrSourceCanvas) {
-                    let cp = 20;
-                    let minX = Math.max(0, Math.floor(qrBounds.minX) - cp);
-                    let minY = Math.max(0, Math.floor(qrBounds.minY) - cp);
-                    let maxX = Math.min(qrSourceCanvas.width, Math.ceil(qrBounds.maxX) + cp);
-                    let maxY = Math.min(qrSourceCanvas.height, Math.ceil(qrBounds.maxY) + cp);
-                    if (maxX - minX > 0 && maxY - minY > 0) {
-                        let qImg = qrSourceCanvas.getContext('2d').getImageData(minX, minY, maxX - minX, maxY - minY);
-                        createQRDashboardImage(doc, qImg);
-                    }
-                }
-            } else {
-                doc.qrText = null;
-            }
+            if (codeText) applyQRResult(doc, codeText, qrBounds, qrSourceCanvas);
+            else doc.qrText = null;
 
             // (5) Hoàn tất
             document.getElementById('colorFilterSelect').disabled = false;
@@ -1298,10 +1677,101 @@
             document.getElementById('rotRBtn').disabled = false;
             if (!exportOrder.includes(doc.id)) exportOrder.push(doc.id);
             applyFilter();
-            statusEl.innerText = codeText ? "✅ Cắt & đọc mã QR thành công!" : "✅ Cắt thành công (ảnh này không thấy mã QR).";
-            statusEl.style.color = "green";
+            if (codeText) { statusEl.innerText = "✅ Cắt & đọc mã QR thành công!"; statusEl.style.color = "green"; }
+            else showRescanButton();
             setTimeout(() => document.getElementById('canvasOutput').scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
         }, 50);
+    }
+
+    // Áp kết quả QR vào hồ sơ + tách ảnh QR ra thành thẻ riêng (dùng chung cho quét thường & quét kỹ)
+    function applyQRResult(doc, codeText, qrBounds, qrSourceCanvas) {
+        doc.qrText = parseQRData(codeText);
+        if (qrBounds && qrSourceCanvas) {
+            const cp = 20;
+            const minX = Math.max(0, Math.floor(qrBounds.minX) - cp);
+            const minY = Math.max(0, Math.floor(qrBounds.minY) - cp);
+            const maxX = Math.min(qrSourceCanvas.width, Math.ceil(qrBounds.maxX) + cp);
+            const maxY = Math.min(qrSourceCanvas.height, Math.ceil(qrBounds.maxY) + cp);
+            if (maxX - minX > 0 && maxY - minY > 0) {
+                const qImg = qrSourceCanvas.getContext('2d').getImageData(minX, minY, maxX - minX, maxY - minY);
+                createQRDashboardImage(doc, qImg);
+            }
+        }
+        document.getElementById('qrResultGroup').style.display = 'flex';
+        document.getElementById('qrTextBox').value = doc.qrText;
+    }
+
+    // Không thấy QR -> mời người dùng quét kỹ, thay vì bắt cắt lại từ đầu
+    function showRescanButton() {
+        const statusEl = document.getElementById('status');
+        statusEl.innerHTML = '';
+        statusEl.style.color = '#8a5a06';
+        const box = document.createElement('div');
+        box.style.cssText = 'display:flex; flex-direction:column; gap:8px; align-items:center;';
+        const t = document.createElement('div');
+        t.style.fontWeight = '800';
+        t.textContent = '✅ Cắt thành công — nhưng chưa đọc được mã QR.';
+        box.appendChild(t);
+        const b = document.createElement('button');
+        b.className = 'btn btn-primary';
+        b.textContent = '🔍 QUÉT KỸ HƠN (chậm hơn nhưng cố hết sức)';
+        b.onclick = function () { b.disabled = true; rescanQRHard(); };
+        box.appendChild(b);
+        statusEl.appendChild(box);
+    }
+
+    // Quét kỹ: độ nét cao hơn, thử cả bản đảo màu và nhị phân thích ứng, không giục giờ
+    async function rescanQRHard() {
+        if (activeIndex === -1) return;
+        const doc = documents[activeIndex];
+        const statusEl = document.getElementById('status');
+        statusEl.innerHTML = '';
+        statusEl.style.color = 'orange';
+        statusEl.innerText = '🔍 Đang quét kỹ, có thể mất vài giây...';
+        await new Promise(function (r) { setTimeout(r, 60); });
+
+        let codeText = null, qrBounds = null, qrSourceCanvas = null;
+        try {
+            let hiRes = await warpFromOriginal(doc);
+            if (hiRes && hiRes.cols > 0 && hiRes.rows > 0) {
+                const ms = Math.max(hiRes.cols, hiRes.rows);
+                if (ms > 3000) {
+                    const s2 = 3000 / ms, cap = new cv.Mat();
+                    cv.resize(hiRes, cap, new cv.Size(Math.round(hiRes.cols * s2), Math.round(hiRes.rows * s2)), 0, 0, cv.INTER_AREA);
+                    hiRes.delete(); hiRes = cap;
+                }
+                const r = await decodeQRFromMat(hiRes, 20000, true);
+                if (r) {
+                    codeText = r.data; qrBounds = r.bounds;
+                    const hc = document.createElement('canvas'); hc.width = hiRes.cols; hc.height = hiRes.rows;
+                    cv.imshow(hc, hiRes); qrSourceCanvas = hc;
+                }
+                hiRes.delete();
+            }
+        } catch (e) { console.warn('rescan hi-res', e); }
+
+        if (!codeText && doc.origDataUrl) {
+            try {
+                const fo = await loadOriginalMatScaled(doc, 2400);
+                if (fo) {
+                    const r = await decodeQRFromMat(fo.mat, 20000, true);
+                    if (r) { codeText = r.data; qrBounds = r.bounds; qrSourceCanvas = fo.canvas; }
+                    fo.mat.delete();
+                }
+            } catch (e) { console.warn('rescan fallback', e); }
+        }
+
+        if (codeText) {
+            applyQRResult(doc, codeText, qrBounds, qrSourceCanvas);
+            statusEl.innerHTML = '';
+            statusEl.style.color = 'green';
+            statusEl.innerText = '✅ Quét kỹ thành công — đã đọc được mã QR!';
+            renderGallery();
+        } else {
+            statusEl.innerHTML = '';
+            statusEl.style.color = '#b3271e';
+            statusEl.innerText = '❌ Vẫn không đọc được mã QR. Thử chụp lại gần hơn, đủ sáng, không loá vào mã.';
+        }
     }
 
     function rotateImg(deg) { if(activeIndex!==-1 && documents[activeIndex].rawCropped){ documents[activeIndex].rot = (documents[activeIndex].rot + deg + 360)%360; applyFilter(); } }
@@ -1703,6 +2173,1333 @@
         deliverFiles([{ blob: pdf.output('blob'), name: `HoSo_BanGhep_${Date.now()}.pdf` }],
                      document.getElementById('statusLayout'), 'Tạo PDF bản ghép hoàn tất!');
     }
+</script>
+<script>
+/* ================= PHẦN QUÉT QR TRỰC TIẾP (gộp từ ScanQR) =================
+   Bọc kín trong hàm riêng: mọi biến/hàm của nó nằm gọn bên trong,
+   không thể đụng tên với phần Scanner. Chỉ 3 cầu nối __qrBoot/__qrResume/__qrStop
+   được đưa ra ngoài. */
+(function(){
+
+"use strict";
+
+/* ==================================================================
+   0. TIỆN ÍCH
+   ================================================================== */
+const $ = id => document.getElementById(id);
+const video = $("video");
+const overlay = $("overlay");
+const octx = overlay.getContext("2d");
+const cameraSelect = $("camera-select");
+const scanIndicator = $("scan-indicator");
+const perfEl = $("perf");
+
+let toastTimer = null;
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove("show"), 1600);
+}
+async function copy(text, label){
+  try{
+    await navigator.clipboard.writeText(text);
+  }catch(_){
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); }catch(e){}
+    ta.remove();
+  }
+  toast("Đã chép " + (label || "dữ liệu"));
+}
+const pad2 = n => String(n).padStart(2,"0");
+function nowStr(){ const d=new Date(); return pad2(d.getHours())+":"+pad2(d.getMinutes())+":"+pad2(d.getSeconds()); }
+
+/* ==================================================================
+   1. ENGINE QUÉT — 2 LÀN CHẠY SONG SONG
+   Làn A: BarcodeDetector gốc, gọi không chặn (fire-and-forget).
+          Trên nhiều máy Android nó đi qua Google Play Services và mất
+          hàng trăm ms tới vài giây mỗi khung. Await nó giữa vòng lặp là
+          treo luôn cả jsQR — đó chính là lỗi 0 fps.
+   Làn B: jsQR chạy đồng bộ, nhịp đều, luôn giữ vòng lặp sống.
+   Vùng đọc luôn VUÔNG vì mã QR vuông; crop chữ nhật làm mã bị thu nhỏ oan.
+   ================================================================== */
+
+const WORK = document.createElement("canvas");
+const WCTX = WORK.getContext("2d", { willReadFrequently:true });
+const stage = document.querySelector("#qrScanUI .stage");
+const NCAN = document.createElement("canvas");   // khung riêng cho bộ giải mã gốc
+const NCTX = NCAN.getContext("2d");
+
+let roi = 0.55;                                  // cạnh ô quét / cạnh ngắn vùng đang hiện
+const PASSES = [
+  { mul:1.00, target:640 },
+  { mul:0.66, target:560 },
+  { mul:1.00, target:640 },
+  { full:true, target:660 },
+  { mul:1.00, target:640 },
+  { full:true, target:600, invert:true }
+];
+let passIdx = 0;
+
+let detector = null;
+let nativeBusy = false, nativeSlow = 0, nativeErr = 0, nativeMs = 0;
+let nativeFormats = [], nativeFull = false;
+let hasJsQR = (typeof jsQR === "function");
+
+let currentStream = null;
+let track = null;
+let scanActive = false;
+let lastRaw = "";
+let armed = true, noCode = 0;   /* armed=false: chờ mã rời khung rồi mới nhận lại chính nó */
+
+let frames = 0, fpsT0 = performance.now(), lastMs = 0;
+
+function markEngine(t){ $("engine-tag").textContent = "Bộ giải mã: " + t; }
+
+async function initDetector(){
+  let name = hasJsQR ? "jsQR" : "—";
+  if ("BarcodeDetector" in window){
+    try{
+      const fmts = await window.BarcodeDetector.getSupportedFormats();
+      if (fmts.length){
+        /* Bật HẾT định dạng máy hỗ trợ, không bó lại mỗi qr_code.
+           Chrome Android đọc được cả PDF417 (vé máy bay), Code128, EAN, DataMatrix, Aztec…
+           jsQR thì chỉ biết mã QR, nên các loại kia hoàn toàn trông vào lớp này. */
+        detector = new window.BarcodeDetector({ formats: fmts });
+        nativeFormats = fmts;
+        name = "Native (" + fmts.length + " định dạng)" + (hasJsQR ? " + jsQR" : "");
+      }
+    }catch(e){ detector = null; }
+  }
+  markEngine(detector ? name : (hasJsQR ? "jsQR — chỉ đọc mã QR, dùng Chrome để đọc thêm PDF417/EAN/Code128" : "—"));
+  if (!detector && !hasJsQR){
+    scanIndicator.textContent = "Thiếu jsQR.min.js — đặt file cạnh index.html";
+  }
+}
+
+function sizeOverlay(){
+  const r = video.getBoundingClientRect();
+  if (!r.width || !r.height) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+  if (overlay.width !== w || overlay.height !== h){ overlay.width = w; overlay.height = h; }
+}
+window.addEventListener("resize", sizeOverlay);
+window.addEventListener("orientationchange", () => setTimeout(sizeOverlay, 250));
+/* video chưa có kích thước thật lúc loadedmetadata trên vài trình duyệt */
+video.addEventListener("resize", sizeOverlay);
+if (window.ResizeObserver) new ResizeObserver(sizeOverlay).observe(video);
+
+/* Video dùng object-fit:cover — không viền đen, nhưng có phần khung hình bị cắt.
+   view() cho biết phần nào đang thật sự hiện trên màn hình, tính theo toạ độ video.
+   Chỉ quét trong phần đó: thấy gì quét nấy, không đọc trộm vùng ngoài màn hình. */
+function view(){
+  const cw = overlay.width, ch = overlay.height;
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!cw || !ch || !vw || !vh) return null;
+  const s = Math.max(cw/vw, ch/vh);
+  const visW = Math.min(vw, cw/s), visH = Math.min(vh, ch/s);
+  return { s, ox:(cw - vw*s)/2, oy:(ch - vh*s)/2, vw, vh,
+           vx:(vw - visW)/2, vy:(vh - visH)/2, visW, visH };
+}
+
+/* Ô quét hình vuông, theo toạ độ video */
+function roiRect(mul){
+  const f = view(); if (!f) return null;
+  const k = Math.max(0.15, Math.min(1, roi * (mul || 1)));
+  const side = Math.min(f.visW, f.visH) * k;
+  return { x: f.vx + (f.visW - side)/2, y: f.vy + (f.visH - side)/2, w: side, h: side, f };
+}
+
+function paint(corners){
+  const r = roiRect(1); if (!r) return;
+  const f = r.f, W = overlay.width, H = overlay.height;
+  octx.clearRect(0,0,W,H);
+
+  const bx = r.x*f.s + f.ox, by = r.y*f.s + f.oy, bw = r.w*f.s, bh = r.h*f.s;
+
+  octx.fillStyle = "rgba(0,0,0,.30)";
+  octx.fillRect(0,0,W,by);
+  octx.fillRect(0,by+bh,W,H-(by+bh));
+  octx.fillRect(0,by,bx,bh);
+  octx.fillRect(bx+bw,by,W-(bx+bw),bh);
+
+  const c = bw*0.20;
+  octx.strokeStyle = "rgba(255,255,255,.92)";
+  octx.lineWidth = Math.max(3, W/150);
+  octx.lineCap = "round";
+  const corner = (cx,cy,dx,dy)=>{
+    octx.beginPath();
+    octx.moveTo(cx+dx*c, cy); octx.lineTo(cx, cy); octx.lineTo(cx, cy+dy*c);
+    octx.stroke();
+  };
+  corner(bx,by,1,1); corner(bx+bw,by,-1,1); corner(bx+bw,by+bh,-1,-1); corner(bx,by+bh,1,-1);
+
+  if (corners && corners.length === 4){
+    octx.beginPath();
+    corners.forEach((p,i)=>{
+      const x = p.x*f.s + f.ox, y = p.y*f.s + f.oy;
+      i ? octx.lineTo(x,y) : octx.moveTo(x,y);
+    });
+    octx.closePath();
+    octx.lineWidth = Math.max(4, W/110);
+    octx.strokeStyle = "#26d07c";   /* sáng hơn màu thương hiệu để nổi trên nền video */
+    octx.stroke();
+    octx.fillStyle = "rgba(38,208,124,.20)";
+    octx.fill();
+  }
+}
+
+/* jsQR ném TypeError trong locate() với một số khung hình nhiễu.
+   Không bọc lại thì đúng một khung xấu là vòng quét chết hẳn, không báo gì. */
+let jsqrErr = 0;
+function safeJsQR(data, w, h, inv){
+  try{
+    return jsQR(data, w, h, { inversionAttempts: inv });
+  }catch(e){
+    if (++jsqrErr % 50 === 1) console.warn("jsQR lỗi khung hình:", e.message);
+    return null;
+  }
+}
+
+/* Một lượt jsQR. p.full = cả vùng đang hiện, còn lại = ô vuông giữa khung. */
+function jsPass(p){
+  const f = view(); if (!f) return null;
+  let sx, sy, sw, sh;
+  if (p.full){ sx=f.vx; sy=f.vy; sw=f.visW; sh=f.visH; }
+  else {
+    const r = roiRect(p.mul); if (!r) return null;
+    sx=r.x; sy=r.y; sw=r.w; sh=r.h;
+  }
+  sx=Math.round(sx); sy=Math.round(sy); sw=Math.round(sw); sh=Math.round(sh);
+  if (sw < 8 || sh < 8) return null;
+
+  const k = Math.min(1, p.target / Math.max(sw,sh));
+  const dw = Math.max(1, Math.round(sw*k)), dh = Math.max(1, Math.round(sh*k));
+  if (WORK.width !== dw || WORK.height !== dh){ WORK.width = dw; WORK.height = dh; }
+  WCTX.drawImage(video, sx,sy,sw,sh, 0,0,dw,dh);
+  const img = WCTX.getImageData(0,0,dw,dh);
+
+  const code = safeJsQR(img.data, dw, dh, p.invert ? "onlyInvert" : "dontInvert");
+  if (!code) return null;
+
+  const back = pt => ({ x: sx + pt.x/k, y: sy + pt.y/k });
+  const L = code.location;
+  return {
+    data: code.data,
+    corners: [back(L.topLeftCorner), back(L.topRightCorner), back(L.bottomRightCorner), back(L.bottomLeftCorner)]
+  };
+}
+
+/* Gọi bộ giải mã gốc rồi đi tiếp ngay, không chờ. Chỉ cho 1 lệnh chạy cùng lúc.
+   Đưa ô vuông đã thu nhỏ thay vì cả khung 1080×1920 — nhanh hơn nhiều. */
+function nativeTry(){
+  if (!detector || nativeBusy) return;
+
+  /* Xen kẽ 2 kiểu lấy hình:
+     - ô vuông giữa khung: hợp mã QR nhỏ
+     - cả vùng đang hiện: BẮT BUỘC cho mã vạch ngang dài như PDF417 của vé máy bay,
+       vì ô vuông sẽ cắt cụt hai đầu mã. */
+  nativeFull = !nativeFull;
+  let rx, ry, rw, rh, target;
+  if (nativeFull){
+    const f = view(); if (!f) return;
+    rx=f.vx; ry=f.vy; rw=f.visW; rh=f.visH; target = 900;   // vạch PDF417 rất mảnh
+  } else {
+    const r = roiRect(1); if (!r) return;
+    rx=r.x; ry=r.y; rw=r.w; rh=r.h; target = 720;
+  }
+  const k = Math.min(1, target / Math.max(rw, rh));
+  const dw = Math.max(1, Math.round(rw*k)), dh = Math.max(1, Math.round(rh*k));
+  if (dw < 8 || dh < 8) return;
+  if (NCAN.width !== dw || NCAN.height !== dh){ NCAN.width = dw; NCAN.height = dh; }
+  NCTX.drawImage(video, Math.round(rx),Math.round(ry),Math.round(rw),Math.round(rh), 0,0,dw,dh);
+
+  nativeBusy = true;
+  const t0 = performance.now();
+
+  detector.detect(NCAN).then(codes => {
+    nativeBusy = false;
+    nativeMs = performance.now() - t0;
+    nativeSlow = nativeMs > 350 ? nativeSlow+1 : 0;
+    if (nativeSlow >= 4 && hasJsQR){
+      detector = null;
+      markEngine("jsQR (đã tắt bộ giải mã gốc vì máy chạy chậm)");
+      return;
+    }
+    if (!codes || !codes.length || !scanActive) return;
+    const c = codes[0];
+    handleHit({
+      data: c.rawValue,
+      fmt: c.format || "",
+      corners: (c.cornerPoints || []).map(pt => ({ x: rx + pt.x/k, y: ry + pt.y/k }))
+    });
+  }).catch(() => {
+    nativeBusy = false;
+    if (++nativeErr > 5 && hasJsQR){ detector = null; markEngine("jsQR"); }
+  });
+}
+
+function handleHit(hit){
+  if (!hit || !hit.data || !scanActive) return;
+  noCode = 0;
+  paint(hit.corners && hit.corners.length === 4 ? hit.corners : null);
+  /* Mã khác thì đọc ngay. Đúng mã vừa đọc thì chờ nó rời khỏi khung đã —
+     giơ lên lại là đọc lại, nhưng để yên trước ống kính thì không đọc lặp. */
+  if (!armed && hit.data === lastRaw) return;
+  armed = false;
+  lastRaw = hit.data;
+  onFound(hit.data, hit.fmt || "qr_code");
+}
+
+/* Vòng lặp đồng bộ hoàn toàn — không await bất cứ thứ gì */
+function tick(){
+  /* Camera đã nhả thì thoát hẳn, KHÔNG lên lịch lại.
+     Nếu vẫn schedule() thì requestAnimationFrame quay 60 lần/giây làm việc rỗng,
+     đánh thức CPU liên tục — đúng thứ mà nút Tắt camera muốn tránh.
+     Mọi đường bật lại đều đi qua onMeta() nên vòng lặp tự sống lại. */
+  if (!currentStream) return;
+  if (!scanActive || video.readyState < 2){ schedule(); return; }
+  const t0 = performance.now();
+
+  nativeTry();                       // làn A, chạy nền
+
+  let hit = null;                    // làn B
+  if (hasJsQR){
+    let n = 0;
+    while (!hit && n < 2 && performance.now() - t0 < 34){
+      try{ hit = jsPass(PASSES[passIdx++ % PASSES.length]); }
+      catch(e){ hit = null; }
+      n++;
+    }
+  }
+
+  lastMs = performance.now() - t0;
+  frames++;
+  const el = performance.now() - fpsT0;
+  if (el > 700){
+    perfEl.textContent = Math.round(frames*1000/el) + " fps · " + lastMs.toFixed(0) + " ms"
+      + (detector && nativeMs ? " · gốc " + nativeMs.toFixed(0) + "ms" : "");
+    frames = 0; fpsT0 = performance.now();
+  }
+
+  if (hit){ handleHit(hit); }
+  else {
+    paint(null);
+    if (++noCode >= 4) armed = true;   // mã đã rời khung
+  }
+  schedule();
+}
+
+/* Chỉ cho phép đúng 1 vòng lặp sống tại một thời điểm.
+   Firefox Android có requestVideoFrameCallback nhưng nhiều lúc không bắn callback,
+   làm vòng lặp đứng hẳn. Watchdog 400ms phát hiện rồi rơi về rAF vĩnh viễn. */
+let pending = false, watchdog = null;
+let useRVFC = typeof video.requestVideoFrameCallback === "function";
+function schedule(){
+  if (pending) return;
+  pending = true;
+  const run = () => {
+    if (!pending) return;
+    pending = false;
+    if (watchdog){ clearTimeout(watchdog); watchdog = null; }
+    tick();
+  };
+  if (useRVFC){
+    video.requestVideoFrameCallback(run);
+    watchdog = setTimeout(() => { if (pending){ useRVFC = false; run(); } }, 400);
+  } else {
+    requestAnimationFrame(run);
+  }
+}
+
+
+/* ==================================================================
+   2. CAMERA
+   ⚠ getCameras() giữ nguyên 100% logic liệt kê / ưu tiên camera như bản cũ.
+   ================================================================== */
+function startCamera(deviceId = null){
+  if (camOff) return Promise.resolve();
+  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+  scanActive = false;
+
+  const RES = parseInt($("quality-select").value, 10) || 1920;
+  const base = { width:{ideal:RES}, height:{ideal:Math.round(RES*9/16)}, frameRate:{ideal:30} };
+  const constraints = { video: deviceId ? Object.assign({deviceId:{exact:deviceId}}, base)
+                                        : Object.assign({facingMode:"environment"}, base) };
+
+  return navigator.mediaDevices.getUserMedia(constraints).then(async stream => {
+    currentStream = stream;
+    video.srcObject = stream;
+    video.setAttribute("playsinline", true);
+    await video.play().catch(()=>{});
+    scanIndicator.textContent = "Sẵn sàng — đưa mã vào khung";
+
+    track = stream.getVideoTracks()[0];
+    const caps = track.getCapabilities ? track.getCapabilities() : null;
+
+    if (caps && caps.focusMode){
+      const mode = caps.focusMode.includes("continuous") ? "continuous"
+                 : (caps.focusMode.includes("macro") ? "macro" : caps.focusMode[0]);
+      try{ await track.applyConstraints({ advanced:[{ focusMode: mode }] }); }catch(e){}
+    }
+    setupZoom(caps);
+    setupFocus(caps);
+    setupTorch(caps);
+
+    video.addEventListener("loadedmetadata", onMeta, { once:true });
+    if (video.videoWidth) onMeta();
+  }).catch(() => {
+    scanIndicator.textContent = "Không mở được camera. Kiểm tra quyền truy cập trong trình duyệt.";
+  });
+}
+
+function onMeta(){
+  sizeOverlay();
+  scanActive = true;
+  schedule();
+}
+
+let zoomTouched = false;
+function setupZoom(caps){
+  const box = $("zoom-box"), sl = $("zoom-slider"), val = $("zoom-val");
+  if (caps && caps.zoom){
+    box.style.display = "block";
+    sl.min = caps.zoom.min; sl.max = caps.zoom.max; sl.step = caps.zoom.step || 0.1;
+
+    /* Mã QR CCCD chỉ khoảng 2 điểm ảnh mỗi ô ở khoảng cách cầm tay — ngay ngưỡng chết.
+       Zoom 2× là cách rẻ nhất để gấp đôi số điểm ảnh trên mã, nên bật sẵn. */
+    let start = track.getSettings().zoom || caps.zoom.min;
+    if (!zoomTouched){
+      const want = Math.min(2, caps.zoom.max);
+      if (want > start){
+        start = want;
+        track.applyConstraints({ advanced:[{ zoom: want }] }).catch(()=>{});
+      }
+    }
+    sl.value = start;
+    val.textContent = (+start).toFixed(1) + "×";
+
+    sl.oninput = e => {
+      zoomTouched = true;
+      val.textContent = (+e.target.value).toFixed(1) + "×";
+      track.applyConstraints({ advanced:[{ zoom: parseFloat(e.target.value) }] }).catch(()=>{});
+    };
+  } else box.style.display = "none";
+}
+
+function setupFocus(caps){
+  const box = $("focus-box"), sl = $("focus-slider"), val = $("focus-val"), chip = $("chip-focus");
+  chip.hidden = !(caps && caps.focusMode);
+  chip.onclick = async () => {
+    try{
+      await track.applyConstraints({ advanced:[{ focusMode:"manual" }] });
+      await track.applyConstraints({ advanced:[{ focusMode:"continuous" }] });
+      toast("Đang lấy nét lại");
+    }catch(e){ toast("Máy không hỗ trợ ép lấy nét"); }
+  };
+  if (caps && caps.focusDistance){
+    box.style.display = "block";
+    sl.min = caps.focusDistance.min; sl.max = caps.focusDistance.max;
+    sl.step = caps.focusDistance.step || 0.01;
+    sl.value = caps.focusDistance.min;
+    sl.oninput = e => {
+      val.textContent = (+e.target.value).toFixed(2);
+      track.applyConstraints({ advanced:[{ focusMode:"manual", focusDistance: parseFloat(e.target.value) }] }).catch(()=>{});
+    };
+  } else box.style.display = "none";
+}
+
+function setupTorch(caps){
+  const chip = $("chip-torch");
+  if (caps && caps.torch){
+    chip.hidden = false; chip.classList.remove("on");
+    chip.onclick = async () => {
+      const on = !chip.classList.contains("on");
+      try{
+        await track.applyConstraints({ advanced:[{ torch:on }] });
+        chip.classList.toggle("on", on);
+        chip.textContent = on ? "Tắt đèn" : "Bật đèn";
+      }catch(e){ toast("Không bật được đèn"); }
+    };
+  } else chip.hidden = true;
+}
+
+async function getCameras(){
+  try{
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(device => device.kind === 'videoinput');
+    cameraSelect.innerHTML = "";
+
+    if (videoDevices.length > 0) {
+      const rearCams  = videoDevices.filter(d => d.label.toLowerCase().includes('back')  || d.label.toLowerCase().includes('environment'));
+      const frontCams = videoDevices.filter(d => d.label.toLowerCase().includes('front') || d.label.toLowerCase().includes('user'));
+      const otherCams = videoDevices.filter(d => !rearCams.includes(d) && !frontCams.includes(d));
+
+      const addOption = (device, labelPrefix) => {
+        const option = document.createElement("option");
+        option.value = device.deviceId;
+        option.text = `${labelPrefix}: ${device.label || ('Camera ' + (cameraSelect.length + 1))}`;
+        cameraSelect.appendChild(option);
+      };
+
+      rearCams.forEach(d => addOption(d, "Mặt sau"));
+      otherCams.forEach(d => addOption(d, "Camera"));
+      frontCams.forEach(d => addOption(d, "Mặt trước"));
+
+      if (rearCams.length > 0)        startCamera(rearCams[0].deviceId);
+      else if (otherCams.length > 0)  startCamera(otherCams[0].deviceId);
+      else                            startCamera(frontCams[0].deviceId);
+
+    } else {
+      cameraSelect.innerHTML = "<option>Không tìm thấy camera</option>";
+    }
+  }catch(err){ console.error("Lỗi:", err); }
+}
+
+cameraSelect.addEventListener("change", () => startCamera(cameraSelect.value));
+$("quality-select").addEventListener("change", () => startCamera(cameraSelect.value || null));
+
+/* ==================================================================
+   3. BỘ PHÂN TÍCH DỮ LIỆU
+   ================================================================== */
+
+/* --- 3.1 Danh sách BIN ngân hàng (Napas). Sửa/bổ sung tự do ở đây. --- */
+const BANKS = {
+  "970415":["VietinBank","Ngân hàng TMCP Công thương Việt Nam","ICB"],
+  "970436":["Vietcombank","Ngân hàng TMCP Ngoại Thương Việt Nam","VCB"],
+  "970418":["BIDV","Ngân hàng TMCP Đầu tư và Phát triển Việt Nam","BIDV"],
+  "970405":["Agribank","Ngân hàng Nông nghiệp và Phát triển Nông thôn Việt Nam","VBA"],
+  "970448":["OCB","Ngân hàng TMCP Phương Đông","OCB"],
+  "970422":["MBBank","Ngân hàng TMCP Quân đội","MB"],
+  "970407":["Techcombank","Ngân hàng TMCP Kỹ thương Việt Nam","TCB"],
+  "970416":["ACB","Ngân hàng TMCP Á Châu","ACB"],
+  "970432":["VPBank","Ngân hàng TMCP Việt Nam Thịnh Vượng","VPB"],
+  "970423":["TPBank","Ngân hàng TMCP Tiên Phong","TPB"],
+  "970403":["Sacombank","Ngân hàng TMCP Sài Gòn Thương Tín","STB"],
+  "970437":["HDBank","Ngân hàng TMCP Phát triển Thành phố Hồ Chí Minh","HDB"],
+  "970454":["BVBank (Bản Việt)","Ngân hàng TMCP Bản Việt","VCCB"],
+  "970429":["SCB","Ngân hàng TMCP Sài Gòn","SCB"],
+  "970441":["VIB","Ngân hàng TMCP Quốc tế Việt Nam","VIB"],
+  "970443":["SHB","Ngân hàng TMCP Sài Gòn - Hà Nội","SHB"],
+  "970431":["Eximbank","Ngân hàng TMCP Xuất Nhập khẩu Việt Nam","EIB"],
+  "970426":["MSB","Ngân hàng TMCP Hàng Hải Việt Nam","MSB"],
+  "546034":["CAKE","Ngân hàng số CAKE by VPBank","CAKE"],
+  "546035":["Ubank","Ngân hàng số Ubank by VPBank","Ubank"],
+  "971005":["ViettelMoney","Tổng Công ty Dịch vụ số Viettel","VTLMONEY"],
+  "963388":["Timo","Ngân hàng số Timo by Ban Viet Bank","TIMO"],
+  "971011":["VNPTMoney","VNPT Money","VNPTMONEY"],
+  "970400":["SaigonBank","Ngân hàng TMCP Sài Gòn Công Thương","SGICB"],
+  "970409":["BacABank","Ngân hàng TMCP Bắc Á","BAB"],
+  "971025":["MoMo","CTCP Dịch Vụ Di Động Trực Tuyến","momo"],
+  "971133":["PVcomBank Pay","Ngân hàng TMCP Đại Chúng Việt Nam - Ngân hàng số","PVDB"],
+  "970412":["PVcomBank","Ngân hàng TMCP Đại Chúng Việt Nam","PVCB"],
+  "970414":["MBV","Ngân hàng TNHH MTV Việt Nam Hiện Đại (trước là OceanBank)","MBV"],
+  "970419":["NCB","Ngân hàng TMCP Quốc Dân","NCB"],
+  "970424":["ShinhanBank","Ngân hàng TNHH MTV Shinhan Việt Nam","SHBVN"],
+  "970425":["ABBANK","Ngân hàng TMCP An Bình","ABB"],
+  "970427":["VietABank","Ngân hàng TMCP Việt Á","VAB"],
+  "970428":["NamABank","Ngân hàng TMCP Nam Á","NAB"],
+  "970430":["PGBank","Ngân hàng TMCP Thịnh vượng và Phát triển","PGB"],
+  "970433":["VietBank","Ngân hàng TMCP Việt Nam Thương Tín","VIETBANK"],
+  "970438":["BaoVietBank","Ngân hàng TMCP Bảo Việt","BVB"],
+  "970440":["SeABank","Ngân hàng TMCP Đông Nam Á","SEAB"],
+  "970446":["COOPBANK","Ngân hàng Hợp tác xã Việt Nam","COOPBANK"],
+  "970449":["LPBank","Ngân hàng TMCP Lộc Phát Việt Nam","LPB"],
+  "970452":["KienLongBank","Ngân hàng TMCP Kiên Long","KLB"],
+  "668888":["KBank","Ngân hàng Đại chúng TNHH Kasikornbank","KBank"],
+  "977777":["MAFC","Công ty Tài chính TNHH MTV Mirae Asset Việt Nam","MAFC"],
+  "970442":["HongLeong","Ngân hàng TNHH MTV Hong Leong Việt Nam","HLBVN"],
+  "970467":["KEBHanaHN","Ngân hàng KEB Hana - Chi nhánh Hà Nội","KEBHANAHN"],
+  "970466":["KEBHanaHCM","Ngân hàng KEB Hana - Chi nhánh TP. Hồ Chí Minh","KEBHANAHCM"],
+  "533948":["Citibank","Ngân hàng Citibank N.A. - Chi nhánh Hà Nội","CITIBANK"],
+  "970444":["CBBank","Ngân hàng Thương mại TNHH MTV Xây dựng Việt Nam","CBB"],
+  "422589":["CIMB","Ngân hàng TNHH MTV CIMB Việt Nam","CIMB"],
+  "796500":["DBSBank","DBS Bank Ltd - Chi nhánh TP. Hồ Chí Minh","DBS"],
+  "970406":["Vikki","Ngân hàng TNHH MTV Số Vikki (trước là DongA Bank)","Vikki"],
+  "999888":["VBSP","Ngân hàng Chính sách Xã hội","VBSP"],
+  "970408":["GPBank","Ngân hàng Thương mại TNHH MTV Dầu Khí Toàn Cầu","GPB"],
+  "970463":["KookminHCM","Ngân hàng Kookmin - Chi nhánh TP. Hồ Chí Minh","KBHCM"],
+  "970462":["KookminHN","Ngân hàng Kookmin - Chi nhánh Hà Nội","KBHN"],
+  "970457":["Woori","Ngân hàng TNHH MTV Woori Việt Nam","WVN"],
+  "970421":["VRB","Ngân hàng Liên doanh Việt - Nga","VRB"],
+  "458761":["HSBC","Ngân hàng TNHH MTV HSBC Việt Nam","HSBC"],
+  "970455":["IBKHN","Ngân hàng Công nghiệp Hàn Quốc - CN Hà Nội","IBK-HN"],
+  "970456":["IBKHCM","Ngân hàng Công nghiệp Hàn Quốc - CN TP. Hồ Chí Minh","IBK-HCM"],
+  "970434":["IndovinaBank","Ngân hàng TNHH Indovina","IVB"],
+  "970458":["UnitedOverseas","Ngân hàng United Overseas - CN TP. Hồ Chí Minh","UOB"],
+  "801011":["Nonghyup","Ngân hàng Nonghyup - Chi nhánh Hà Nội","NHB-HN"],
+  "970410":["StandardChartered","Ngân hàng TNHH MTV Standard Chartered Việt Nam","SCVN"],
+  "970439":["PublicBank","Ngân hàng TNHH MTV Public Việt Nam","PBVN"],
+};
+const BANK_APPS = [
+  ["mb","MB Bank",1],
+  ["icb","VietinBank iPay",1],
+  ["bidv","BIDV SmartBanking",1],
+  ["acb","ACB One",1],
+  ["ocb","OCB OMNI",1],
+  ["vcb","Vietcombank",0],
+  ["vba","Agribank E-Mobile Banking",0],
+  ["tcb","Techcombank Mobile",0],
+  ["vpb","VPBank NEO",0],
+  ["cake","CAKE by VPBank",0],
+  ["tpb","TPBank Mobile",0],
+  ["lpb","Liên Việt 24h",0],
+  ["timo","Timo Digital Bank",0],
+  ["hdb","HDBank",0],
+  ["vib-2","MyVIB 2.0",0],
+  ["vib","MyVIB",0],
+  ["shb","SHB Mobile Banking",0],
+  ["seab","SeAMobile",0],
+  ["shbvn","Shinhan Bank SOL",0],
+  ["scb","SCB Mobile Banking",0],
+  ["nab","Nam A Bank",0],
+  ["abb","AB Ditizen",0],
+  ["eib","Eximbank Mobile",0],
+  ["coopbank","Co-opBank Mobile",0],
+  ["pvcb","PV Mobile Banking",0],
+  ["klb","KienlongBank Plus",0],
+  ["ncb","NCB iziMobile",0],
+  ["bvb","BAOVIET Smart",0],
+  ["vab","VietABank EzMobile",0],
+  ["vietbank","Vietbank Digital",0],
+  ["sgicb","SAIGONBANK Smart",0],
+  ["wvn","Woori WON",0],
+  ["oceanbank","OceanBank",0],
+  ["pbvn","PB engage VN",0],
+  ["cimb","OCTO by CIMB",0],
+];
+
+/* --- 3.2 EMVCo TLV (VietQR / VNPAY) --- */
+function tlv(s){
+  const o = {}; let i = 0;
+  while (i + 4 <= s.length){
+    const tag = s.substr(i,2);
+    const len = parseInt(s.substr(i+2,2),10);
+    if (!/^\d{2}$/.test(tag) || isNaN(len) || len < 0) break;
+    o[tag] = s.substr(i+4,len);
+    i += 4 + len;
+  }
+  return o;
+}
+function crc16(s){
+  let crc = 0xFFFF;
+  for (let i=0;i<s.length;i++){
+    crc ^= s.charCodeAt(i) << 8;
+    for (let j=0;j<8;j++) crc = (crc & 0x8000) ? ((crc<<1)^0x1021)&0xFFFF : (crc<<1)&0xFFFF;
+  }
+  return crc.toString(16).toUpperCase().padStart(4,"0");
+}
+const SERVICE = {
+  "QRIBFTTA":"Chuyển khoản đến số tài khoản",
+  "QRIBFTTC":"Chuyển khoản đến số thẻ",
+  "QRPUSH":"Thanh toán tại đơn vị chấp nhận thẻ"
+};
+
+function parseEMV(raw){
+  if (!/^000201/.test(raw)) return null;
+  const idx = raw.lastIndexOf("6304");
+  if (idx < 0) return null;
+  const root = tlv(raw);
+  if (!root["00"]) return null;
+
+  const f = [];
+  const crcGiven = raw.slice(idx+4, idx+8).toUpperCase();
+  const crcCalc  = crc16(raw.slice(0, idx+4));
+  const crcOk    = crcGiven === crcCalc;
+
+  /* tìm template chứa GUID VietQR */
+  let bank=null, acc=null, svc=null, guid=null;
+  for (let t=26; t<=51; t++){
+    const key = String(t).padStart(2,"0");
+    if (!root[key]) continue;
+    const m = tlv(root[key]);
+    guid = m["00"] || guid;
+    if (m["01"] && /^A000000727$/i.test(m["00"]||"")){
+      const b = tlv(m["01"]);
+      bank = b["00"] || null;
+      acc  = b["01"] || null;
+      svc  = m["02"] || null;
+      break;
+    }
+    if (!acc && m["01"]) acc = m["01"];
+  }
+
+  const isVietQR = !!bank;
+  const bankInfo = bank ? (BANKS[bank] || null) : null;
+
+  if (isVietQR){
+    f.push({k:"Ngân hàng thụ hưởng",
+            v: bankInfo ? bankInfo[0] : ("BIN " + bank),
+            note: bankInfo ? bankInfo[1] + " · BIN " + bank : "Chưa có trong danh mục BIN",
+            big:true, copy: bankInfo ? bankInfo[0] : bank});
+    if (acc) f.push({k:"Số tài khoản", v:acc, num:true, big:true, copy:acc});
+  }
+  if (root["59"]) f.push({k:"Chủ tài khoản", v:root["59"], big:true, copy:root["59"]});
+  if (root["60"]) f.push({k:"Tỉnh/Thành phố", v:root["60"]});
+
+  if (root["54"]){
+    const n = parseFloat(root["54"]);
+    const cur = root["53"] === "704" ? "VND" : (root["53"] || "");
+    f.push({k:"Số tiền", v: (isNaN(n)?root["54"]:n.toLocaleString("vi-VN")) + " " + cur, num:true, big:true, copy:root["54"]});
+  } else {
+    f.push({k:"Số tiền", v:"Người chuyển tự nhập", note:"Mã tĩnh, không gắn số tiền"});
+  }
+
+  if (root["62"]){
+    const a = tlv(root["62"]);
+    if (a["08"]) f.push({k:"Nội dung CK", v:a["08"], copy:a["08"]});
+    if (a["01"]) f.push({k:"Số hoá đơn", v:a["01"], copy:a["01"]});
+    if (a["05"]) f.push({k:"Mã tham chiếu", v:a["05"], copy:a["05"]});
+    if (a["07"]) f.push({k:"Mã điểm bán", v:a["07"], copy:a["07"]});
+  }
+
+  if (svc) f.push({k:"Loại giao dịch", v: SERVICE[svc] || svc, note: svc});
+  f.push({k:"Kiểu mã", v: root["01"] === "12" ? "Mã động (một lần)" : "Mã tĩnh (dùng lại)"});
+  f.push({k:"Kiểm tra CRC", v: crcOk ? "Hợp lệ" : "SAI — mã có thể bị chỉnh sửa",
+          pill: crcOk ? "ok" : "bad", pillText: crcOk ? "OK" : "Cảnh báo"});
+
+  const isAgri = bank === "970405";
+  const noiDung = root["62"] ? (tlv(root["62"])["08"] || "") : "";
+  return {
+    type: isVietQR ? "vietqr" : "emv",
+    badge: isVietQR ? "VietQR · Chuyển khoản" : "Mã thanh toán EMV",
+    badgeClass: isAgri ? "agri" : "",
+    title: (root["59"] || "Mã thanh toán"),
+    fields: f,
+    pay: (isVietQR && acc && bankInfo) ? {
+      acc: acc, code: bankInfo[2], bank: bankInfo[0],
+      name: root["59"] || "", amount: root["54"] || "", note: noiDung
+    } : null,
+    action: (isVietQR && acc) ? { label:"Mở app ngân hàng để chuyển", picker:true } : null
+  };
+}
+
+/* --- 3.3 CCCD / Căn cước --- */
+function fmtDate(s){
+  if (!/^\d{8}$/.test(s)) return s;
+  return s.slice(0,2) + "/" + s.slice(2,4) + "/" + s.slice(4);
+}
+function toDate(s){
+  if (!/^\d{8}$/.test(s)) return null;
+  const dd = +s.slice(0,2), mm = +s.slice(2,4), yy = +s.slice(4);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yy < 1900 || yy > 2100) return null;
+  const d = new Date(yy, mm-1, dd);
+  return (d.getDate() === dd && d.getMonth() === mm-1) ? d : null;
+}
+function ageOf(d){
+  const t = new Date(); let a = t.getFullYear()-d.getFullYear();
+  const m = t.getMonth()-d.getMonth();
+  if (m < 0 || (m===0 && t.getDate()<d.getDate())) a--;
+  return a;
+}
+/* Luật Căn cước 2023: đổi thẻ khi đủ 14 / 25 / 40 / 60 tuổi.
+   Thẻ cấp trong 2 năm trước mốc thì dùng tiếp đến mốc kế. Từ đủ 60 tuổi: vô thời hạn. */
+function cccdExpiry(dob, issue){
+  if (!dob || !issue) return null;
+  const at = y => new Date(dob.getFullYear()+y, dob.getMonth(), dob.getDate());
+  const M = [14,25,40,60];
+  if (issue >= at(60)) return { forever:true };
+  for (let i=0;i<M.length;i++){
+    const m = at(M[i]);
+    if (m > issue){
+      const early = new Date(m.getFullYear()-2, m.getMonth(), m.getDate());
+      if (issue >= early){
+        if (M[i] === 60) return { forever:true };
+        return { date: at(M[i+1]) };
+      }
+      return { date: m };
+    }
+  }
+  return { forever:true };
+}
+function splitAddr(addr){
+  const p = addr.split(",").map(s=>s.trim()).filter(Boolean);
+  if (p.length < 2) return null;
+  const out = { tinh: p.pop() };
+  const XA    = /^(xã|phường|thị trấn|p\.|x\.|tt\.)\s/i;
+  const HUYEN = /^(huyện|quận|thị xã|thành phố|tp\.|tx\.|h\.|q\.)\s/i;
+
+  const xaIdx = p.findIndex(s => XA.test(s));
+  const hIdx  = p.findIndex(s => HUYEN.test(s));
+
+  if (xaIdx >= 0){
+    out.xa = p[xaIdx];
+    const after = p.slice(xaIdx+1); if (after.length) out.huyen = after.join(", ");
+    const before = p.slice(0, xaIdx); if (before.length) out.chitiet = before.join(", ");
+  } else if (hIdx >= 0){
+    out.huyen = p[hIdx];
+    const before = p.slice(0, hIdx);
+    if (before.length) out.xa = before.pop();
+    if (before.length) out.chitiet = before.join(", ");
+  } else {
+    const c = p.slice();
+    if (c.length) out.huyen = c.pop();
+    if (c.length) out.xa = c.pop();
+    if (c.length) out.chitiet = c.join(", ");
+    if (!out.xa && out.huyen){ out.xa = out.huyen; delete out.huyen; }  // địa giới 2 cấp
+  }
+  return out;
+}
+
+function parseCCCD(raw){
+  if (raw.indexOf("|") < 0) return null;
+  const p = raw.split("|").map(s => (s||"").trim());
+  if (p.length < 6) return null;
+  if (!/^\d{9,12}$/.test(p[0])) return null;
+
+  /* Neo vào 2 trường ngày ddmmyyyy (ngày sinh + ngày cấp).
+     Cách này không lệch khi mã có dấu | thừa hoặc trường rỗng. */
+  const dIdx = [];
+  for (let i=1;i<p.length;i++) if (toDate(p[i])) dIdx.push(i);
+
+  let id = p[0], old = "", name = "", dobS = "", sex = "", addr = "", issS = "", extra = "";
+  if (dIdx.length >= 2){
+    const a = dIdx[0], b = dIdx[dIdx.length-1];
+    dobS = p[a]; issS = p[b];
+    name = a >= 1 ? (p[a-1] || "") : "";
+    old  = p.slice(1, Math.max(1, a-1)).filter(Boolean).join(" ");
+    sex  = p[a+1] || "";
+    addr = p.slice(a+2, b).filter(Boolean).join(", ");
+    extra = p.slice(b+1).filter(Boolean).join(" | ");
+  } else {
+    old = p[1]||""; name = p[2]||""; dobS = p[3]||"";
+    sex = p[4]||""; addr = p[5]||""; issS = p[6]||"";
+    extra = p.slice(7).filter(Boolean).join(" | ");
+  }
+  if (!name) return null;
+
+  const dob = toDate(dobS), iss = toDate(issS);
+  const f = [];
+
+  f.push({k:"Số định danh", v:id, num:true, big:true, copy:id});
+  if (old) f.push({k:"Số CMND cũ", v:old, num:true, copy:old});
+  f.push({k:"Họ và tên", v:name, big:true, copy:name});
+  f.push({k:"Ngày sinh", v:fmtDate(dobS), num:true,
+          note: dob ? (ageOf(dob) + " tuổi") : "", copy:fmtDate(dobS)});
+  f.push({k:"Giới tính", v:sex});
+
+  f.push({k:"Nơi thường trú", v:addr, copy:addr});
+  const a = addr ? splitAddr(addr) : null;
+  if (a){
+    if (a.chitiet) f.push({k:"Số nhà / thôn", v:a.chitiet, sub:true});
+    if (a.xa)      f.push({k:"Xã / Phường",   v:a.xa,      sub:true});
+    if (a.huyen)   f.push({k:"Quận / Huyện",  v:a.huyen,   sub:true});
+    if (a.tinh)    f.push({k:"Tỉnh / TP",     v:a.tinh,    sub:true, copy:a.tinh});
+  }
+
+  f.push({k:"Ngày cấp", v:fmtDate(issS), num:true, copy:fmtDate(issS)});
+
+  const ex = cccdExpiry(dob, iss);
+  if (ex){
+    if (ex.forever){
+      f.push({k:"Hạn sử dụng", v:"Không thời hạn", pill:"ok", pillText:"Còn hiệu lực",
+              note:"Cấp từ khi đủ 60 tuổi"});
+    } else {
+      const left = Math.floor((ex.date - new Date())/86400000);
+      const s = pad2(ex.date.getDate())+"/"+pad2(ex.date.getMonth()+1)+"/"+ex.date.getFullYear();
+      f.push({
+        k:"Hạn sử dụng", v:s, num:true,
+        pill: left < 0 ? "bad" : (left < 90 ? "warn" : "ok"),
+        pillText: left < 0 ? "HẾT HẠN" : (left < 90 ? "Sắp hết hạn" : "Còn hiệu lực"),
+        note: left < 0 ? ("Đã quá hạn " + Math.abs(left) + " ngày")
+                       : ("Còn " + left + " ngày · tính theo mốc đổi thẻ 14/25/40/60 tuổi")
+      });
+    }
+  }
+  if (extra) f.push({k:"Trường bổ sung", v:extra, copy:extra});
+
+  return { type:"cccd", badge:"CCCD / Căn cước", badgeClass:"agri", title:name, fields:f };
+}
+
+/* --- 3.4 Các loại khác --- */
+function parseWifi(raw){
+  if (!/^WIFI:/i.test(raw)) return null;
+  const g = k => { const m = raw.match(new RegExp(k+":((?:[^;\\\\]|\\\\.)*)")); return m ? m[1].replace(/\\(.)/g,"$1") : ""; };
+  const ssid = g("S"), pass = g("P"), sec = g("T");
+  const f = [];
+  if (ssid) f.push({k:"Tên mạng (SSID)", v:ssid, big:true, copy:ssid});
+  if (pass) f.push({k:"Mật khẩu", v:pass, num:true, big:true, copy:pass});
+  if (sec)  f.push({k:"Bảo mật", v:sec === "nopass" ? "Mạng mở, không mật khẩu" : sec});
+  if (g("H") === "true") f.push({k:"Mạng ẩn", v:"Có — phải nhập tay tên mạng"});
+  f.push({k:"Cách dùng",
+          v: pass ? "Chép mật khẩu rồi vào Cài đặt Wi-Fi của máy để kết nối"
+                  : "Mạng không mật khẩu — vào Cài đặt Wi-Fi chọn đúng tên mạng là vào được",
+          note:"Trang web không được phép tự kết nối Wi-Fi — đây là giới hạn bảo mật của mọi trình duyệt, không phải lỗi ứng dụng."});
+  return { type:"wifi", badge:"Wi-Fi", badgeClass:"plain", title:ssid, fields:f,
+           action: pass ? {label:"Chép mật khẩu Wi-Fi", copy:pass, name:"mật khẩu"} : null };
+}
+function parseContact(raw){
+  if (/^BEGIN:VCARD/i.test(raw)){
+    const f = [], get = t => { const m = raw.match(new RegExp("^"+t+"[^:]*:(.*)$","im")); return m?m[1].trim():""; };
+    const map = [["FN","Họ và tên"],["TEL","Điện thoại"],["EMAIL","Email"],["ORG","Đơn vị"],["TITLE","Chức danh"],["ADR","Địa chỉ"]];
+    map.forEach(([t,label])=>{ const v=get(t); if(v) f.push({k:label, v:v.replace(/;+/g,", ").replace(/(^,\s*|,\s*$)/g,""), copy:v}); });
+    return f.length ? { type:"vcard", badge:"Danh thiếp", badgeClass:"plain", title:get("FN"), fields:f } : null;
+  }
+  if (/^MECARD:/i.test(raw)){
+    const f = [], g = k => { const m = raw.match(new RegExp(k+":([^;]*)")); return m?m[1]:""; };
+    if (g("N")) f.push({k:"Họ và tên", v:g("N"), big:true, copy:g("N")});
+    if (g("TEL")) f.push({k:"Điện thoại", v:g("TEL"), num:true, copy:g("TEL")});
+    if (g("EMAIL")) f.push({k:"Email", v:g("EMAIL"), copy:g("EMAIL")});
+    return { type:"mecard", badge:"Danh thiếp", badgeClass:"plain", title:g("N"), fields:f };
+  }
+  return null;
+}
+function parseSimple(raw){
+  let m;
+  if ((m = raw.match(/^tel:(.+)$/i)))
+    return { type:"tel", badge:"Số điện thoại", badgeClass:"plain", title:m[1],
+             fields:[{k:"Số điện thoại", v:m[1], num:true, big:true, copy:m[1]}],
+             action:{label:"Gọi số này", open:"tel:"+m[1]} };
+  if ((m = raw.match(/^smsto:([^:]+):?([\s\S]*)$/i)))
+    return { type:"sms", badge:"Tin nhắn", badgeClass:"plain", title:m[1],
+             fields:[{k:"Gửi tới", v:m[1], num:true, copy:m[1]},
+                     {k:"Nội dung", v:m[2]||"(trống)", copy:m[2]||undefined}],
+             action:{label:"Soạn tin nhắn", open:"sms:"+m[1]} };
+  if ((m = raw.match(/^mailto:([^?]+)/i)))
+    return { type:"mail", badge:"Email", badgeClass:"plain", title:m[1],
+             fields:[{k:"Địa chỉ email", v:m[1], big:true, copy:m[1]}],
+             action:{label:"Soạn email", open:raw} };
+  if ((m = raw.match(/^geo:([\d.\-]+),([\d.\-]+)/i)))
+    return { type:"geo", badge:"Toạ độ", badgeClass:"plain", title:m[1]+", "+m[2],
+             fields:[{k:"Vĩ độ", v:m[1], num:true},{k:"Kinh độ", v:m[2], num:true},
+                     {k:"Toạ độ", v:m[1]+","+m[2], copy:m[1]+","+m[2]}],
+             action:{label:"Mở bản đồ", open:"https://www.google.com/maps?q="+m[1]+","+m[2]} };
+  if (/^https?:\/\//i.test(raw)){
+    let host = raw, path = "";
+    try{ const u = new URL(raw); host = u.hostname; path = u.pathname + u.search; }catch(e){}
+    return { type:"url", badge:"Liên kết", badgeClass:"", title:host, link:raw,
+             fields:[{k:"Trang", v:host, big:true, copy:host},
+                     (path && path !== "/" ? {k:"Đường dẫn", v:path, sub:true} : null),
+                     {k:"Địa chỉ đầy đủ", v:raw, copy:raw, link:raw}].filter(Boolean),
+             action:{label:"Mở liên kết", open:raw} };
+  }
+  return null;
+}
+/* Dữ liệu ngăn cách bằng | nhưng không phải CCCD — vẫn tách thành từng dòng cho dễ đọc */
+function parsePipe(raw){
+  if (raw.indexOf("|") < 0) return null;
+  const parts = raw.split("|").map(s => s.trim());
+  if (parts.filter(Boolean).length < 2) return null;
+  const f = parts.map((v,i) => {
+    const row = { k: "Phần " + (i+1), v: v || "(trống)" };
+    if (v){
+      row.copy = v;
+      if (toDate(v)){ row.v = fmtDate(v); row.note = "ngày tháng"; row.num = true; }
+      else if (/^\d{6,}$/.test(v)){ row.num = true; }
+    }
+    return row;
+  });
+  return { type:"pipe", badge:"Dữ liệu tách bằng dấu |", badgeClass:"plain",
+           title: parts.find(Boolean) || "", fields:f };
+}
+
+function parseText(raw){
+  const f = [];
+  const t = raw.trim();
+  /* JSON */
+  if (/^[\[{]/.test(t)){
+    try{
+      const o = JSON.parse(t);
+      Object.keys(o).slice(0,20).forEach(k=>{
+        const v = typeof o[k]==="object" ? JSON.stringify(o[k]) : String(o[k]);
+        f.push({k:k, v:v, copy:v});
+      });
+      if (f.length) return { type:"json", badge:"Dữ liệu JSON", badgeClass:"plain", title:"JSON", fields:f };
+    }catch(e){}
+  }
+  /* các dòng dạng Nhãn: giá trị */
+  const lines = t.split(/\r?\n/).filter(Boolean);
+  if (lines.length > 1 && lines.filter(l=>/^[^:]{1,30}:/.test(l)).length >= Math.ceil(lines.length*0.6)){
+    lines.slice(0,25).forEach(l=>{
+      const i = l.indexOf(":");
+      f.push({k:l.slice(0,i).trim(), v:l.slice(i+1).trim(), copy:l.slice(i+1).trim()});
+    });
+    return { type:"kv", badge:"Văn bản có cấu trúc", badgeClass:"plain", title:lines[0], fields:f };
+  }
+  /* text thường */
+  return { type:"text", badge:"Văn bản", badgeClass:"plain", title:t.slice(0,40),
+           fields:[{k:"Nội dung", v:t, copy:t, pre:true},
+                   {k:"Độ dài", v:t.length + " ký tự", sub:true}] };
+}
+
+/* Thẻ lên máy bay IATA BCBP (Resolution 792). Các trường bắt buộc có vị trí cố định:
+   1 mã định dạng · 2 số chặng · 3-22 tên · 23 vé điện tử · 24-30 mã đặt chỗ
+   31-33 đi · 34-36 đến · 37-39 hãng · 40-44 số hiệu · 45-47 ngày Julian
+   48 hạng · 49-52 ghế · 53-57 số thứ tự · 58 trạng thái */
+const CABIN = {
+  F:"Hạng nhất", A:"Hạng nhất", P:"Hạng nhất",
+  J:"Thương gia", C:"Thương gia", D:"Thương gia", I:"Thương gia", Z:"Thương gia",
+  W:"Phổ thông đặc biệt",
+  Y:"Phổ thông", B:"Phổ thông", H:"Phổ thông", K:"Phổ thông", L:"Phổ thông",
+  M:"Phổ thông", N:"Phổ thông", Q:"Phổ thông", S:"Phổ thông", T:"Phổ thông",
+  V:"Phổ thông", X:"Phổ thông", G:"Phổ thông", U:"Phổ thông", E:"Phổ thông", R:"Phổ thông"
+};
+function julianToDate(n){
+  if (!(n >= 1 && n <= 366)) return null;
+  const now = new Date();
+  const mk = y => new Date(y, 0, n);
+  let d = mk(now.getFullYear());
+  /* Năm không nằm trong nhóm trường bắt buộc. Vé thường cho ngày gần hiện tại,
+     nên nếu lệch quá nửa năm về quá khứ thì đoán là năm sau. */
+  if ((now - d) / 86400000 > 183) d = mk(now.getFullYear() + 1);
+  return d;
+}
+function parseBoardingPass(raw){
+  if (!/^M[1-4]/.test(raw) || raw.length < 58) return null;
+  const at = (pos, len) => raw.substr(pos - 1, len);
+  const name = at(3, 20).trim();
+  if (!/^[A-Z]/i.test(name)) return null;
+  const et = at(23, 1);
+  if (et !== "E" && et !== " ") return null;
+
+  const strip0 = v => v.replace(/^0+(?=.)/, "");
+  const pnr = at(24, 7).trim(), from = at(31, 3).trim(), to = at(34, 3).trim();
+  const carrier = at(37, 3).trim(), flight = strip0(at(40, 5).trim());
+  const jul = parseInt(at(45, 3), 10), cabin = at(48, 1);
+  const seat = strip0(at(49, 4).trim()), seq = strip0(at(53, 5).trim());
+
+  const f = [];
+  const nm = name.split("/");
+  f.push({ k:"Hành khách", v: (nm[1] ? nm[1].trim() + " " + nm[0].trim() : name),
+           big:true, copy:name, note: nm.length > 1 ? "họ: " + nm[0].trim() : "" });
+  f.push({ k:"Chặng bay", v: from + " → " + to, big:true, num:true, copy: from + to });
+  if (carrier || flight)
+    f.push({ k:"Chuyến bay", v: (carrier + " " + flight).trim(), num:true, big:true,
+             copy:(carrier + flight).trim() });
+  const d = julianToDate(jul);
+  if (d) f.push({ k:"Ngày bay", v: pad2(d.getDate()) + "/" + pad2(d.getMonth()+1) + "/" + d.getFullYear(),
+                  num:true, note:"ngày thứ " + jul + " trong năm — mã không chứa năm, đây là suy đoán" });
+  if (seat)  f.push({ k:"Chỗ ngồi", v:seat, num:true, big:true, copy:seat });
+  if (cabin && cabin !== " ")
+    f.push({ k:"Hạng ghế", v: CABIN[cabin.toUpperCase()] || "Không rõ", note:"mã hạng: " + cabin });
+  if (pnr) f.push({ k:"Mã đặt chỗ (PNR)", v:pnr, num:true, copy:pnr,
+                    note:"Đây là trường nhạy cảm nhất — tra được cả hành trình và thông tin liên hệ. Đừng chia sẻ ảnh thẻ lên mạng." });
+  if (seq) f.push({ k:"Số thứ tự check-in", v:seq, num:true });
+  const legs = +raw[1];
+  if (legs > 1) f.push({ k:"Số chặng trong mã", v:legs + " chặng",
+                         note:"Chỉ hiển thị chặng đầu; các chặng sau nằm trong dữ liệu gốc." });
+  return { type:"bcbp", badge:"Thẻ lên máy bay", badgeClass:"", title:name, fields:f };
+}
+
+/* Mã sản phẩm 1D: EAN/UPC/ITF — chỉ là dãy số, không có cấu trúc để bóc */
+const FMT_NAME = {
+  qr_code:"QR", pdf417:"PDF417", aztec:"Aztec", data_matrix:"DataMatrix",
+  code_128:"Code 128", code_39:"Code 39", code_93:"Code 93", codabar:"Codabar",
+  itf:"ITF", ean_13:"EAN-13", ean_8:"EAN-8", upc_a:"UPC-A", upc_e:"UPC-E"
+};
+const EAN_CC = { "893":"Việt Nam", "884":"Campuchia", "885":"Thái Lan", "888":"Singapore",
+  "890":"Ấn Độ", "899":"Indonesia", "955":"Malaysia", "690":"Trung Quốc", "691":"Trung Quốc",
+  "692":"Trung Quốc", "693":"Trung Quốc", "694":"Trung Quốc", "695":"Trung Quốc",
+  "880":"Hàn Quốc", "471":"Đài Loan", "489":"Hồng Kông", "00":"Mỹ / Canada", "45":"Nhật Bản", "49":"Nhật Bản" };
+function parseProduct(raw, fmt){
+  if (!/^(ean_13|ean_8|upc_a|upc_e|itf)$/.test(fmt || "")) return null;
+  if (!/^\d+$/.test(raw)) return null;
+  const f = [{ k:"Mã sản phẩm", v:raw, num:true, big:true, copy:raw }];
+  const cc = EAN_CC[raw.slice(0,3)] || EAN_CC[raw.slice(0,2)];
+  if (cc) f.push({ k:"Nơi cấp mã", v:cc, note:"theo đầu số GS1 — là nơi doanh nghiệp đăng ký mã, không chắc là nơi sản xuất" });
+  f.push({ k:"Loại mã", v:FMT_NAME[fmt] || fmt });
+  return { type:"product", badge:"Mã sản phẩm", badgeClass:"plain", title:raw, fields:f };
+}
+
+function parseQR(raw, fmt){
+  return parseBoardingPass(raw) || parseProduct(raw, fmt) ||
+         parseCCCD(raw) || parseEMV(raw) || parseWifi(raw) ||
+         parseContact(raw) || parseSimple(raw) || parsePipe(raw) || parseText(raw);
+}
+
+/* ==================================================================
+   4. HIỂN THỊ
+   ================================================================== */
+let current = null;
+const scanLog = [];   /* không đặt tên "history" để tránh che window.history */
+
+function beep(){
+  if (!$("chip-sound").classList.contains("on")) return;
+  try{
+    const C = window.AudioContext || window.webkitAudioContext;
+    const ctx = new C(); const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine"; o.frequency.value = 1180;
+    g.gain.setValueAtTime(.001, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(.18, ctx.currentTime+.01);
+    g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime+.13);
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime+.14);
+    setTimeout(()=>ctx.close().catch(()=>{}), 400);
+  }catch(e){}
+  if (navigator.vibrate) navigator.vibrate(55);
+}
+
+function onFound(raw, fmt){
+  const parsed = parseQR(raw, fmt);
+  parsed.fmt = fmt || "qr_code";
+  parsed.raw = raw;
+  parsed.at = nowStr();
+  current = parsed;
+  render(parsed);
+  beep();
+
+  scanLog.unshift(parsed);
+  if (scanLog.length > 40) scanLog.length = 40;
+  renderHistory();
+
+  /* Không dừng quét. Giơ mã lên là đọc, không phải bấm gì.
+     Cổng "mã đã rời khung" lo phần không đọc lặp khi thẻ nằm yên. */
+  flash(parsed.title || parsed.badge);
+}
+
+function flash(text){
+  scanIndicator.textContent = "✓ " + String(text).slice(0, 34);
+  scanIndicator.classList.add("hit");
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => {
+    scanIndicator.classList.remove("hit");
+    scanIndicator.textContent = camOff ? "Camera đã tắt" : "Sẵn sàng — đưa mã vào khung";
+  }, 2200);
+}
+
+function render(p){
+  $("r-badge").textContent = p.badge;
+  $("r-badge").className = "badge " + (p.badgeClass || "");
+  const fe = $("r-fmt");
+  if (p.fmt && p.fmt !== "qr_code"){ fe.hidden = false; fe.textContent = FMT_NAME[p.fmt] || p.fmt; }
+  else fe.hidden = true;
+  $("r-time").textContent = p.at;
+  $("r-raw").textContent = p.raw;
+
+  const box = $("r-fields");
+  box.textContent = "";
+  p.fields.forEach(f => {
+    const row = document.createElement("div");
+    row.className = "f" + (f.sub ? " sub" : "");
+
+    const k = document.createElement("div");
+    k.className = "f-k"; k.textContent = f.k;
+
+    const v = document.createElement("div");
+    v.className = "f-v" + (f.num ? " num" : "") + (f.big ? " big" : "");
+    if (f.link){
+      const a = document.createElement("a");
+      a.href = f.link; a.target = "_blank"; a.rel = "noopener noreferrer";
+      a.textContent = f.v; a.style.color = "var(--brand)";
+      v.appendChild(a);
+    } else {
+      v.appendChild(document.createTextNode(f.v));
+    }
+    if (f.pill){
+      const s = document.createElement("span");
+      s.className = "pill " + f.pill; s.textContent = f.pillText || "";
+      v.appendChild(s);
+    }
+    if (f.note){
+      const n = document.createElement("span");
+      n.className = "f-note"; n.textContent = f.note;
+      v.appendChild(n);
+    }
+
+    row.appendChild(k); row.appendChild(v);
+    if (f.copy){
+      const b = document.createElement("button");
+      b.className = "f-cp"; b.type = "button"; b.title = "Chép " + f.k;
+      b.textContent = "⧉";
+      b.onclick = () => copy(f.copy, f.k.toLowerCase());
+      row.appendChild(b);
+    }
+    box.appendChild(row);
+  });
+
+  const ab = $("btn-action"), bp = $("bankpick");
+  bp.hidden = true;
+  if (p.action){
+    ab.hidden = false;
+    ab.textContent = p.action.label;
+    ab.onclick = () => {
+      if (p.action.open) window.open(p.action.open, "_blank", "noopener");
+      else if (p.action.copy) copy(p.action.copy, p.action.name || "");
+      else if (p.action.picker){
+        bp.hidden = !bp.hidden;
+        if (!bp.hidden){ buildBankPicker(p.pay); bp.scrollIntoView({behavior:"smooth", block:"nearest"}); }
+      }
+    };
+  } else {
+    ab.hidden = true; ab.onclick = null;
+  }
+
+  $("result").classList.add("show");
+}
+
+/* Danh sách app ngân hàng để chuyển tiền.
+   Chỉ 5 app được ghi nhận điền sẵn thông tin; số còn lại chỉ mở app lên,
+   vẫn phải tự nhập tay. Deeplink điền sẵn xuyên ngân hàng chưa thành chuẩn ở VN. */
+function buildBankPicker(pay){
+  const g = $("bp-grid");
+  g.textContent = "";
+  if (!pay){ g.textContent = "Mã này không có số tài khoản để chuyển."; return; }
+
+  const q = new URLSearchParams();
+  q.set("ba", pay.acc + "@" + pay.code);
+  if (pay.amount) q.set("am", pay.amount);
+  if (pay.note)   q.set("tn", pay.note);
+  if (pay.name)   q.set("bn", pay.name);
+
+  const section = (text) => {
+    const h = document.createElement("div");
+    h.className = "bp-head"; h.textContent = text; g.appendChild(h);
+  };
+  const add = ([id, name, fill]) => {
+    const a = document.createElement("a");
+    a.className = "bp" + (fill ? " fill" : "");
+    a.href = "https://dl.vietqr.io/pay?app=" + id + "&" + q.toString();
+    a.target = "_blank"; a.rel = "noopener noreferrer";
+    a.appendChild(document.createTextNode(name));
+    if (fill){ const s = document.createElement("small"); s.textContent = "ĐIỀN SẴN"; a.appendChild(s); }
+    g.appendChild(a);
+  };
+
+  section("Điền sẵn số tài khoản và số tiền");
+  BANK_APPS.filter(a => a[2]).forEach(add);
+  section("Chỉ mở app, phải tự nhập");
+  BANK_APPS.filter(a => !a[2]).forEach(add);
+}
+
+function plainOf(p){
+  return p.fields.filter(f=>!f.sub).map(f => f.k + ": " + f.v).join("\n");
+}
+function tsvOf(p){
+  const a = p.fields.filter(f=>!f.sub);
+  return a.map(f=>f.k).join("\t") + "\n" + a.map(f=>String(f.v).replace(/\t/g," ")).join("\t");
+}
+
+$("btn-copy-all").onclick = () => current && copy(plainOf(current), "toàn bộ");
+$("btn-copy-tsv").onclick = () => current && copy(tsvOf(current), "dạng bảng");
+
+function renderHistory(){
+  const list = $("hist-list");
+  $("hist").style.display = scanLog.length ? "block" : "none";
+  list.textContent = "";
+  scanLog.forEach((p,i) => {
+    const d = document.createElement("div");
+    d.className = "hist-item";
+    if (p.badgeClass === "agri") d.style.borderLeftColor = "var(--agri)";
+    const t = document.createElement("div"); t.className = "t";
+    const b = document.createElement("b"); b.textContent = p.title || p.badge;
+    const s = document.createElement("span"); s.textContent = p.badge + " · " + p.at;
+    t.appendChild(b); t.appendChild(s);
+    const n = document.createElement("span"); n.className = "n"; n.textContent = "#" + (scanLog.length-i);
+    d.appendChild(t); d.appendChild(n);
+    d.onclick = () => { current = p; render(p); };
+    list.appendChild(d);
+  });
+}
+
+$("btn-clear").onclick = () => { scanLog.length = 0; renderHistory(); toast("Đã xoá phiên"); };
+$("btn-export").onclick = () => {
+  if (!scanLog.length) return;
+  const keys = [];
+  scanLog.forEach(p => p.fields.filter(f=>!f.sub).forEach(f => { if (!keys.includes(f.k)) keys.push(f.k); }));
+  const esc = s => '"' + String(s == null ? "" : s).replace(/"/g,'""') + '"';
+  const rows = [["Thời điểm","Loại"].concat(keys).map(esc).join(",")];
+  scanLog.slice().reverse().forEach(p => {
+    const m = {}; p.fields.filter(f=>!f.sub).forEach(f => m[f.k] = f.v);
+    rows.push([p.at, p.badge].concat(keys.map(k => m[k] || "")).map(esc).join(","));
+  });
+  const blob = new Blob(["\uFEFF" + rows.join("\r\n")], { type:"text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "QR_" + new Date().toISOString().slice(0,10) + ".csv";
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+};
+
+/* Tắt camera = nhả hẳn phần cứng bằng track.stop().
+   Chỉ đặt cờ dừng quét thì trình duyệt vẫn giữ camera, đèn báo vẫn sáng, vẫn ăn pin. */
+let camOff = false, autoOff = false, flashTimer = null;
+
+function stopCamera(msg){
+  clearTimeout(flashTimer);
+  scanIndicator.classList.remove("hit");
+  if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+  currentStream = null; track = null;
+  try{ video.srcObject = null; }catch(e){}
+  scanActive = false;
+  if (overlay.width) octx.clearRect(0, 0, overlay.width, overlay.height);
+  $("zoom-box").style.display = "none";
+  $("focus-box").style.display = "none";
+  $("chip-torch").hidden = true;
+  $("chip-focus").hidden = true;
+  $("chip-torch").classList.remove("on");
+  stage.classList.add("off");
+  perfEl.textContent = "";
+  scanIndicator.textContent = msg;
+}
+
+function resumeCamera(msg){
+  clearTimeout(flashTimer);
+  scanIndicator.classList.remove("hit");
+  stage.classList.remove("off");
+  scanIndicator.textContent = msg;
+  pending = false;
+  /* Bật lại camera là hành động rõ ràng của người dùng — mở lại cổng chống trùng,
+     nếu không thì mã đang nằm sẵn trước ống kính sẽ không được đọc. */
+  armed = true; noCode = 0;
+  startCamera(cameraSelect.value || null);
+}
+
+$("chip-cam").onclick = e => {
+  camOff = !camOff;
+  e.currentTarget.classList.toggle("on", camOff);
+  e.currentTarget.textContent = camOff ? "Bật camera" : "Tắt camera";
+  if (camOff) stopCamera("Camera đã tắt — bấm “Bật camera” để quét tiếp");
+  else resumeCamera("Đang bật camera…");
+};
+$("chip-sound").onclick = e => e.currentTarget.classList.toggle("on");
+$("roi-slider").oninput = e => {
+  roi = parseInt(e.target.value,10)/100;
+  $("roi-val").textContent = e.target.value + "%";
+  paint(null);
+};
+
+/* ==================================================================
+   5. KHỞI ĐỘNG
+   ================================================================== */
+/* GHÉP APP: không tự xin quyền camera lúc tải trang nữa.
+   Chỉ chạy khi người dùng bấm nút "Quét QR" -> mở Scanner bình thường không bị hỏi camera. */
+let qrBooted = false;
+window.__qrBoot = async function(){
+  if (qrBooted) { window.__qrResume(); return; }
+  qrBooted = true;
+  await initDetector();
+  try{
+    const s = await navigator.mediaDevices.getUserMedia({ video:true });
+    s.getTracks().forEach(t=>t.stop());
+    getCameras();
+  }catch(err){
+    scanIndicator.textContent = "Trình duyệt chặn camera. Cấp quyền rồi tải lại trang.";
+  }
+};
+window.__qrResume = function(){
+  try{ if (!camOff && !currentStream) startCamera(cameraSelect.value || null); }catch(e){}
+};
+window.__qrStop = function(){
+  try{ if (currentStream) stopCamera("Đã tắt camera khi thoát chế độ quét"); }catch(e){}
+};
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden){
+    /* Ẩn tab mà vẫn giữ stream là camera chạy ngầm, đèn báo sáng, hao pin. Nhả hẳn. */
+    if (!camOff && currentStream){
+      autoOff = true;
+      stopCamera("Đã nhả camera khi rời ứng dụng");
+    }
+  } else if (autoOff && !camOff){
+    autoOff = false;
+    resumeCamera("Đang bật lại camera…");
+  }
+});
+
+})();
 </script>
 </body>
 </html>
