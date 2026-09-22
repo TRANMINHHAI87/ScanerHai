@@ -547,12 +547,66 @@
   z-index:100;opacity:0;transition:.22s;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.25);
 }
 #qrScanUI .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ===== Thanh trên của phần quét: nút Quay lại nằm TRONG thanh xanh (trước đây 2 thanh đè nhau) ===== */
+#qrScanUI .sqr-back-btn{
+  flex:none; border:1px solid rgba(255,255,255,.55); background:rgba(255,255,255,.16); color:#fff;
+  font:inherit; font-weight:800; font-size:13.5px; border-radius:10px; padding:8px 11px; cursor:pointer; white-space:nowrap;
+}
+#qrScanUI .sqr-back-btn:active{ background:rgba(255,255,255,.34); }
+
+/* ===== Kết quả CCCD: số không bao giờ bị bẻ đôi =====
+   Chỉ tắt phép "bẻ giữa chữ": dãy số không có chỗ ngắt nên luôn nằm trọn 1 dòng,
+   còn nhãn "Còn hiệu lực" và dòng ghi chú vẫn xuống dòng bình thường. */
+#qrScanUI .f-v.num{ word-break:normal; overflow-wrap:normal; }
+/* Thuộc tính hidden bị luật .btn của Scanner (display:inline-flex) đè mất -> nút trống lộ ra */
+#qrScanUI [hidden]{ display:none !important; }
+#qrScanUI .f-note{ font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; letter-spacing:0; }
+
+/* ===== Lịch sử: nút xoá từng dòng + nhãn trùng ===== */
+#qrScanUI .hist-del{
+  flex:none; border:none; background:#f2f5f9; color:var(--ink-3); width:30px; height:30px;
+  border-radius:8px; font:inherit; font-size:13px; font-weight:700; cursor:pointer;
+}
+#qrScanUI .hist-del:hover, #qrScanUI .hist-del:active{ background:var(--bad-soft); color:var(--bad); }
+#qrScanUI .hist-item .t .hist-dup{
+  display:inline-block; margin-left:6px; padding:0 6px; border-radius:6px; font-size:10.5px; font-weight:700;
+  background:var(--warn-soft); color:var(--warn); vertical-align:1px;
+}
+
+/* ===== Điện thoại: chữ vừa phải, dòng sát lại ===== */
+@media (max-width:560px){
+  #qrScanUI .appbar h1{ font-size:15px; }
+  #qrScanUI .engine-tag{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #qrScanUI .f{ gap:8px; padding:7px 12px; }
+  #qrScanUI .f-k{ flex:0 0 96px; font-size:11.5px; line-height:1.35; padding-top:3px; }
+  #qrScanUI .f-v{ font-size:14.5px; line-height:1.4; }
+  /* số co nhẹ theo bề ngang: màn hẹp / chữ hệ thống phóng to vẫn nằm trọn 1 dòng */
+  #qrScanUI .f-v.num{ font-size:clamp(13px, 3.9vw, 15px); letter-spacing:0; }
+  #qrScanUI .f-v.big{ font-size:15.5px; }
+  #qrScanUI .f-v.num.big{ font-size:clamp(13px, 4vw, 15.5px); }
+  #qrScanUI .f-note{ font-size:11.5px; line-height:1.35; }
+  #qrScanUI .f-cp{ width:28px; height:28px; border-radius:8px; font-size:12px; }
+  #qrScanUI .f.sub{ padding-top:2px; padding-bottom:2px; }
+  #qrScanUI .f.sub .f-k{ font-size:11px; }
+  #qrScanUI .f.sub .f-v{ font-size:13px; }
+  #qrScanUI .hist-item{ padding:8px 10px; }
+  /* tiêu đề 1 dòng riêng, các nút xuống dòng dưới — không còn bị bóp/đẩy ra ngoài mép */
+  #qrScanUI .hist-head{ flex-wrap:wrap; row-gap:2px; column-gap:16px; }
+  #qrScanUI .hist-head h2{ flex:1 1 100%; }
+}
     </style>
 
     <script>
         let cvReady = false, qrReady = false, pdfReady = false;
 
         function checkSystemInit() {
+            // opencv.js bản mới (4.9+) trả về Promise thay vì đối tượng cv: app cũ sẽ treo mãi ở
+            // "Đang khởi động". Mở Promise ra một lần là chạy được cả bản cũ lẫn bản mới.
+            if (typeof cv !== 'undefined' && cv && typeof cv.then === 'function' && typeof cv.imread === 'undefined' && !window.__cvUnwrap) {
+                window.__cvUnwrap = true;
+                cv.then(function (mod) { window.cv = mod; });
+            }
             let statusEl = document.getElementById('status');
             if (typeof cv !== 'undefined' && typeof cv.imread !== 'undefined') cvReady = true;
             if (typeof jsQR !== 'undefined') qrReady = true;
@@ -763,15 +817,12 @@
 
 
 <div id="qrScanUI">
-<div class="sqr-back">
-  <button class="btn" onclick="closeQRScan()">🔙 Quay lại Scanner</button>
-  <span class="sqr-hint">Chế độ đọc mã nhanh — không cắt ảnh, không xuất file</span>
-</div>
 
 
 <div class="appbar">
   <div class="appbar-inner">
-    <div style="flex:1">
+    <button class="sqr-back-btn" type="button" onclick="closeQRScan()" title="Quay lại Scanner">🔙 Scanner</button>
+    <div style="flex:1;min-width:0">
       <h1>Quét QR CCCD &amp; VietQR</h1>
       <div class="engine-tag" id="engine-tag">Đang khởi động…</div>
     </div>
@@ -870,8 +921,9 @@
   <div class="hist" id="hist" style="display:none">
     <div class="hist-head">
       <h2>Phiên làm việc</h2>
+      <button id="btn-dedupe" style="display:none">Lọc trùng</button>
       <button id="btn-export">Xuất CSV</button>
-      <button id="btn-clear" style="color:var(--bad)">Xoá</button>
+      <button id="btn-clear" style="color:var(--bad)">Xoá hết</button>
     </div>
     <div id="hist-list"></div>
   </div>
@@ -1342,7 +1394,8 @@
         return { data: code.data, bounds: { minX: Math.min.apply(null, xs), maxX: Math.max.apply(null, xs), minY: Math.min.apply(null, ys), maxY: Math.max.apply(null, ys) } };
     }
 
-    // Gom các ô định vị cùng cỡ & gần nhau thành vùng chứa 1 mã QR
+    // Gom các ô định vị cùng cỡ & gần nhau thành vùng chứa 1 mã QR.
+    // Trả kèm mod = cỡ 1 ô mã (ô định vị rộng đúng 7 ô mã) -> để chỉnh cỡ ảnh cho chuẩn.
     function groupFinders(cands, imgW, imgH) {
         let used = new Array(cands.length).fill(false), groups = [];
         for (let i = 0; i < cands.length; i++) {
@@ -1370,65 +1423,103 @@
         return groups.map(g => {
             const sz = g.reduce((s, c) => s + c.size, 0) / g.length;
             const m = sz * 1.3;                  // nới ra cho đủ cả mép ngoài mã QR
-            let x1 = Math.min.apply(null, g.map(c => c.cx)) - m;
-            let x2 = Math.max.apply(null, g.map(c => c.cx)) + m;
-            let y1 = Math.min.apply(null, g.map(c => c.cy)) - m;
-            let y2 = Math.max.apply(null, g.map(c => c.cy)) + m;
-            // Mã QR vốn vuông; nếu chỉ thấy 2 ô thì vùng bị dẹt -> ép về hình vuông
-            const side = Math.max(x2 - x1, y2 - y1);
-            const ccx = (x1 + x2) / 2, ccy = (y1 + y2) / 2;
-            x1 = ccx - side / 2; x2 = ccx + side / 2; y1 = ccy - side / 2; y2 = ccy + side / 2;
+            const xs = g.map(c => c.cx), ys = g.map(c => c.cy);
+            let x1, x2, y1, y2;
+            if (g.length === 2) {
+                // Chỉ thấy 2 ô định vị: mã nằm LỆCH về một phía đường nối 2 ô, không biết phía nào.
+                // Bản cũ canh giữa 2 ô -> cắt cụt nửa mã (đúng lỗi ở bản photo mặt sau). Giờ phủ cả 2 phía.
+                const d = Math.hypot(xs[1] - xs[0], ys[1] - ys[0]);
+                const mx = (xs[0] + xs[1]) / 2, my = (ys[0] + ys[1]) / 2, half = d + m;
+                x1 = mx - half; x2 = mx + half; y1 = my - half; y2 = my + half;
+            } else {
+                x1 = Math.min.apply(null, xs) - m; x2 = Math.max.apply(null, xs) + m;
+                y1 = Math.min.apply(null, ys) - m; y2 = Math.max.apply(null, ys) + m;
+                const side = Math.max(x2 - x1, y2 - y1), ccx = (x1 + x2) / 2, ccy = (y1 + y2) / 2;
+                x1 = ccx - side / 2; x2 = ccx + side / 2; y1 = ccy - side / 2; y2 = ccy + side / 2;
+            }
             const X = Math.max(0, Math.round(x1)), Y = Math.max(0, Math.round(y1));
-            return { x: X, y: Y, w: Math.round(Math.min(imgW, x2)) - X, h: Math.round(Math.min(imgH, y2)) - Y, n: g.length };
+            return { x: X, y: Y, w: Math.round(Math.min(imgW, x2)) - X, h: Math.round(Math.min(imgH, y2)) - Y,
+                     n: g.length, mod: sz / 7 };
         }).filter(r => r.w > 24 && r.h > 24 && r.x + r.w <= imgW && r.y + r.h <= imgH)
           .sort((a, b) => b.n - a.n);          // nhóm đủ 3 ô được ưu tiên trước
     }
 
-    // Dò ô định vị bằng OpenCV: tìm contour lồng nhau ĐỦ 3 LỚP, vuông, đồng tâm
-    function findFinderCandidates(gray) {
-        const LOC = 640;                                  // dò trên ảnh nhỏ -> cực nhanh
+    // Dò ô định vị bằng OpenCV: contour lồng nhau ĐỦ 3 LỚP, vuông, đồng tâm.
+    // 2 kiểu nhị phân: Otsu (ảnh rõ) + thích ứng (BẢN PHOTO MỜ — Otsu làm mất sạch ô định vị).
+    // Nếu 2 lượt đó chưa gom đủ 3 ô, chạy thêm trên ảnh đã CO 3×3: ở bản photo, khối vuông giữa
+    // ô định vị cũng rỗng ruột và viền bị hở vài điểm ảnh -> ruột thông ra vòng trắng, mất 1 tầng
+    // lồng nhau. Co 3×3 làm nét đen dày thêm 1 điểm ảnh, bịt đúng các lỗ hở đó (kiểm trên khung
+    // camera thật: từ 1 ô lên đủ 3 ô) mà không lấp ruột, không xoá vòng trắng.
+    // loc = cỡ ảnh để dò (camera trực tiếp dùng 720 cho nhẹ máy, kiểm vẫn đủ 3 ô).
+    function findFinderCandidates(gray, loc) {
+        const LOC = loc || 1000;
         const base = Math.max(gray.cols, gray.rows);
         const k = Math.min(1, LOC / base);
-        let small = new cv.Mat(), bin = new cv.Mat();
-        let contours = new cv.MatVector(), hier = new cv.Mat();
+        let small = new cv.Mat(), eroded = null;
         let cands = [];
+        const dedupe = function (list) {
+            // vòng ngoài & vòng trong của CÙNG một ô định vị đều lọt tiêu chí -> chỉ giữ cái to nhất
+            const sorted = list.slice().sort((a, b) => b.size - a.size), uniq = [];
+            for (const c of sorted) {
+                if (uniq.every(u => Math.hypot(c.cx - u.cx, c.cy - u.cy) > 0.5 * u.size)) uniq.push(c);
+                if (uniq.length >= 40) break;
+            }
+            return uniq;
+        };
         try {
             if (k < 1) cv.resize(gray, small, new cv.Size(Math.round(gray.cols * k), Math.round(gray.rows * k)), 0, 0, cv.INTER_AREA);
             else gray.copyTo(small);
-            cv.threshold(small, bin, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-            cv.findContours(bin, contours, hier, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
             const total = small.cols * small.rows;
-            const n = contours.size();
-            for (let i = 0; i < n; i++) {
-                const child = hier.data32S[i * 4 + 2];
-                if (child < 0) continue;
-                const grand = hier.data32S[child * 4 + 2];
-                if (grand < 0) continue;                  // phải lồng đủ 3 lớp: đen > trắng > đen
-                let c0 = contours.get(i); const r = cv.boundingRect(c0); c0.delete();
-                if (r.width < 7 || r.height < 7) continue;
-                const area = r.width * r.height;
-                if (area < total * 0.0003 || area > total * 0.25) continue;
-                const ar = r.width / r.height;
-                if (ar < 0.6 || ar > 1.7) continue;       // ô định vị là hình vuông
-                let c2 = contours.get(grand); const rg = cv.boundingRect(c2); c2.delete();
-                const sz = (r.width + r.height) / 2, gs = (rg.width + rg.height) / 2;
-                const ratio = sz / Math.max(gs, 1);
-                if (ratio < 1.6 || ratio > 4.5) continue; // ô ngoài 7 ô vuông / ô trong 3 ô vuông ≈ 2.3
-                const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
-                const gx = rg.x + rg.width / 2, gy = rg.y + rg.height / 2;
-                if (Math.hypot(cx - gx, cy - gy) > sz * 0.3) continue;  // phải đồng tâm
-                cands.push({ cx: cx / k, cy: cy / k, size: sz / k });
-                if (cands.length >= 40) break;            // chặn trần, tránh ảnh nhiều chữ làm chậm
+            for (let pass = 0; pass < 4; pass++) {
+                if (pass === 2) {
+                    if (groupFinders(dedupe(cands), gray.cols, gray.rows).some(r => r.n >= 3)) break;   // đủ rồi, đỡ tốn
+                    eroded = new cv.Mat();
+                    let ker = cv.Mat.ones(3, 3, cv.CV_8U);
+                    cv.erode(small, eroded, ker);
+                    ker.delete();
+                }
+                const srcMat = pass < 2 ? small : eroded;
+                const grow = pass < 2 ? 0 : 2;           // ảnh co làm vùng đen to thêm 1px mỗi phía -> trừ lại
+                let bin = new cv.Mat(), contours = new cv.MatVector(), hier = new cv.Mat();
+                const start = cands.length;              // trần tính THEO LƯỢT: lượt sau không bị lượt trước chiếm chỗ
+                try {
+                    if (pass % 2 === 0) cv.threshold(srcMat, bin, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                    else cv.adaptiveThreshold(srcMat, bin, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 31, 10);
+                    cv.findContours(bin, contours, hier, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE);
+                    const n = contours.size();
+                    for (let i = 0; i < n && cands.length - start < 60; i++) {
+                        const child = hier.data32S[i * 4 + 2];
+                        if (child < 0) continue;
+                        const grand = hier.data32S[child * 4 + 2];
+                        if (grand < 0) continue;                  // phải lồng đủ 3 lớp: đen > trắng > đen
+                        let c0 = contours.get(i); const r = cv.boundingRect(c0); c0.delete();
+                        if (r.width < 7 || r.height < 7) continue;
+                        const area = r.width * r.height;
+                        if (area < total * 0.0002 || area > total * 0.25) continue;
+                        const ar = r.width / r.height;
+                        if (ar < 0.6 || ar > 1.7) continue;       // ô định vị là hình vuông
+                        let c2 = contours.get(grand); const rg = cv.boundingRect(c2); c2.delete();
+                        const sz = (r.width + r.height) / 2 - grow, gs = (rg.width + rg.height) / 2 - grow;
+                        const ratio = sz / Math.max(gs, 1);
+                        if (ratio < 1.6 || ratio > 4.5) continue; // ô ngoài 7 ô / ô trong 3 ô ≈ 2.3
+                        const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+                        const gx = rg.x + rg.width / 2, gy = rg.y + rg.height / 2;
+                        if (Math.hypot(cx - gx, cy - gy) > sz * 0.3) continue;  // phải đồng tâm
+                        cands.push({ cx: cx / k, cy: cy / k, size: sz / k });
+                    }
+                } catch (e) { /* kiểu nhị phân này hỏng thì còn kiểu kia */ }
+                bin.delete(); contours.delete(); hier.delete();
             }
         } catch (e) { cands = []; }
-        contours.delete(); hier.delete(); bin.delete(); small.delete();
-        return cands;
+        small.delete();
+        if (eroded) eroded.delete();
+        return dedupe(cands);
     }
 
     // cardMat (RGBA) -> { data, bounds theo toạ độ cardMat } | null.
     // budgetMs = hạn giờ CHỈ tính việc quét (không tính thời gian nạp/nắn ảnh).
-    // hard = true: quét kỹ, thử cả bản đảo màu + nhị phân thích ứng + nhiều cỡ (dùng cho nút "Quét kỹ").
-    async function decodeQRFromMat(cardMat, budgetMs, hard) {
+    // hard = true: quét kỹ (nút "Quét kỹ hơn"). roiOnly = true: chỉ quét vùng khoanh được (camera trực tiếp).
+    async function decodeQRFromMat(cardMat, budgetMs, hard, roiOnly) {
         if (!cardMat || cardMat.cols === 0) return null;
         budgetMs = budgetMs || 1400;
         const INV = hard ? 'attemptBoth' : 'dontInvert';
@@ -1463,36 +1554,84 @@
 
         let found = null;
 
-        // ---- BẬC 0: khoanh vùng bằng 3 ô định vị rồi giải mã đúng vùng đó ----
+        // ---- BẬC 0: khoanh vùng theo 3 ô định vị, rồi thử 5 công thức trên đúng vùng đó ----
+        // Cỡ ảnh được chỉnh theo CỠ Ô MÃ (suy từ ô định vị rộng 7 ô). Chọn bằng jsQR + OpenCV thật
+        // trên 2 bản photo CCCD mà Zalo đọc được còn app cũ thì không — chọn theo ĐỘ BỀN: cố tình
+        // xê dịch vùng khoanh ±15% và cỡ ô ±10%, công thức nào sống sót nhiều nhất mới được giữ:
+        //   xám nguyên   : mã in rõ (đa số thẻ thật)
+        //   thích ứng    : BẢN PHOTO MỜ, tương phản kém — chỉ cách này đọc được
+        //   lấp gốc      : BẢN PHOTO "RỖNG RUỘT" — máy photo chỉ tô đậm viền, ruột ô đen thành xám
+        //                  lốm đốm; jsQR lấy mẫu ở tâm ô nên tưởng là ô trắng. Phép mở hình thái
+        //                  (nhân 0.8 ô) lấp đầy ruột. Làm ở ĐÚNG độ nét gốc: đổi cỡ trước là mất tác dụng.
+        //   mờ x0.6 / x0.8: cũng cho rỗng ruột, khi ảnh không đủ nét cho cách trên — thu nhỏ + làm mờ
+        //                  để trộn viền với ruột rồi cắt ngưỡng.
+        // Ô mã còn dưới 4 điểm ảnh thì bỏ qua các công thức rỗng ruột cho đỡ tốn thời gian.
         try {
-            const rois = groupFinders(findFinderCandidates(gray), gray.cols, gray.rows).slice(0, hard ? 4 : 2);
+            const rois = groupFinders(findFinderCandidates(gray, roiOnly ? (typeof roiOnly === 'number' ? roiOnly : 720) : 1000), gray.cols, gray.rows).slice(0, hard ? 4 : 2);
+            lastQrRoiCount = rois.length;
+            // Camera trực tiếp: làn B đã quét ảnh xám mỗi khung rồi -> bỏ công thức xám cho nhanh
+            const RECIPES = roiOnly ? ['adapt', 'hollow10', 'blur06', 'blur08o'] : ['gray', 'adapt', 'hollow10', 'blur06', 'blur08o'];
             for (const roi of rois) {
-                if (tries > 0 && elapsed() > budgetMs) break;
+                if (found || (tries > 0 && elapsed() > budgetMs)) break;
                 let sub = gray.roi(new cv.Rect(roi.x, roi.y, roi.w, roi.h));
-                let scaled = new cv.Mat();
-                const sm = Math.max(sub.cols, sub.rows);
-                // Vùng nhỏ (ảnh chụp xa) -> phóng to cho jsQR đủ điểm ảnh mỗi ô.
-                // Vùng đã đủ nét -> giữ nguyên, phóng thêm chỉ tổ tốn thời gian.
-                const want = sm < 280 ? Math.min(sm * 2.5, 700) : (sm > 700 ? 700 : sm);
-                const kk = want / sm;
-                try {
-                    if (Math.abs(kk - 1) > 0.05) cv.resize(sub, scaled, new cv.Size(Math.max(1, Math.round(sub.cols * kk)), Math.max(1, Math.round(sub.rows * kk))), 0, 0, kk > 1 ? cv.INTER_CUBIC : cv.INTER_AREA);
-                    else sub.copyTo(scaled);
-                    const r = await scanMat(scaled);
-                    if (r) {
-                        const q = Math.abs(kk - 1) > 0.05 ? kk : 1;
-                        found = { data: r.data, bounds: {
-                            minX: r.bounds.minX / q + roi.x, maxX: r.bounds.maxX / q + roi.x,
-                            minY: r.bounds.minY / q + roi.y, maxY: r.bounds.maxY / q + roi.y } };
-                    }
-                } catch (e) { /* vùng hỏng thì thử vùng kế */ }
-                sub.delete(); scaled.delete();
-                if (found) break;
+                const mod = Math.max(0.5, roi.mod || 4);
+                for (const rc of RECIPES) {
+                    if (found || (tries > 0 && elapsed() > budgetMs)) break;
+                    let f;
+                    if (rc === 'gray') f = mod > 8 ? 8 / mod : 1;         // mã vốn đã nhỏ gọn -> để nguyên
+                    else if (rc === 'adapt') f = 8 / mod;
+                    else f = rc === 'hollow10' ? 1 : rc === 'blur06' ? 0.6 : 0.8;
+                    if (rc !== 'gray' && rc !== 'adapt' && mod * f < 4) continue;   // ô quá nhỏ: vô ích
+                    const side = Math.max(sub.cols, sub.rows) * f;
+                    if (side > 1600) f *= 1600 / side;                     // chặn trần cho khỏi chậm
+                    const T = mod * f;                                     // số điểm ảnh / ô sau khi đổi cỡ
+                    let work = new cv.Mat();
+                    try {
+                        if (Math.abs(f - 1) > 0.02) cv.resize(sub, work, new cv.Size(Math.max(1, Math.round(sub.cols * f)), Math.max(1, Math.round(sub.rows * f))), 0, 0, f < 1 ? cv.INTER_AREA : cv.INTER_CUBIC);
+                        else sub.copyTo(work);
+                        if (rc === 'adapt') {
+                            let b = new cv.Mat();
+                            cv.adaptiveThreshold(work, b, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 57, 8);  // khối ≈ 7 ô
+                            work.delete(); work = b;
+                        } else if (rc === 'blur06' || rc === 'blur08o') {
+                            let bl = new cv.Mat(), b = new cv.Mat();
+                            const sg = Math.max(0.8, T * 0.35);
+                            cv.GaussianBlur(work, bl, new cv.Size(0, 0), sg, sg);
+                            if (rc === 'blur08o') {
+                                cv.threshold(bl, b, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                            } else {
+                                // ngưỡng = điểm giữa phân vị 10% (ô đen) và 90% (nền trắng)
+                                const dd = bl.data, hist = new Uint32Array(256);
+                                for (let q = 0; q < dd.length; q++) hist[dd[q]]++;
+                                const pct = function (pp) { let acc = 0; const lim = dd.length * pp;
+                                    for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= lim) return v; } return 255; };
+                                cv.threshold(bl, b, (pct(0.10) + pct(0.90)) / 2, 255, cv.THRESH_BINARY);
+                            }
+                            bl.delete(); work.delete(); work = b;
+                        } else if (rc === 'hollow10') {
+                            const ks = Math.max(3, Math.round(T * 0.8));
+                            let ker = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(ks, ks));
+                            let op = new cv.Mat(), b = new cv.Mat();
+                            cv.morphologyEx(work, op, cv.MORPH_OPEN, ker);
+                            cv.threshold(op, b, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                            ker.delete(); op.delete(); work.delete(); work = b;
+                        }
+                        const r = await scanMat(work);
+                        if (r) {
+                            const q = Math.abs(f - 1) > 0.02 ? f : 1;
+                            found = { data: r.data, bounds: {
+                                minX: r.bounds.minX / q + roi.x, maxX: r.bounds.maxX / q + roi.x,
+                                minY: r.bounds.minY / q + roi.y, maxY: r.bounds.maxY / q + roi.y } };
+                        }
+                    } catch (e) { /* công thức này hỏng thì thử công thức kế */ }
+                    work.delete();
+                }
+                sub.delete();
             }
         } catch (e) { /* dò ô định vị hỏng -> vẫn còn các bậc quét toàn ảnh bên dưới */ }
 
         // ---- BẬC 1+: quét toàn ảnh (dự phòng khi không khoanh được vùng) ----
-        if (!found) {
+        if (!found && !roiOnly) {
             const base = Math.max(gray.cols, gray.rows);
             let sides;
             if (hard) {
@@ -1509,8 +1648,10 @@
             for (const sd of sides) {
                 tiers.push({ side: sd, mode: 'gray' });
                 tiers.push({ side: sd, mode: 'otsu' });
-                if (hard) tiers.push({ side: sd, mode: 'adapt' });   // nền hoa văn / ánh sáng lệch
+                if (hard) tiers.push({ side: sd, mode: 'adapt' });
             }
+            // Bản photo mờ: kiểm trên ảnh thật chỉ đọc được bằng nhị phân thích ứng ở cỡ lớn
+            if (!hard) tiers.push({ side: sides[sides.length - 1], mode: 'adapt' });
 
             let msPerMP = 0;   // tốc độ THỰC TẾ của máy này, đo được sau bậc đầu
             for (const t of tiers) {
@@ -1543,6 +1684,28 @@
         return found;
     }
 
+    // Cầu nối cho phần QUÉT CAMERA TRỰC TIẾP: mượn bộ khoanh vùng + 3 công thức ở trên.
+    // Trả Promise<{data,bounds}|null>, hoặc null ngay nếu đang bận / OpenCV chưa sẵn sàng.
+    let qrDeepBusy = false, lastQrRoiCount = 0, qrDeepLoc = 720;
+    window.__qrDeep = function (canvas) {
+        if (qrDeepBusy || !cvReady || typeof cv === 'undefined' || !cv.Mat) return null;
+        let src = null;
+        try { src = cv.imread(canvas); } catch (e) { return null; }
+        qrDeepBusy = true;
+        lastQrRoiCount = 0;
+        // 1.2 giây: đo trên khung camera thật, 450ms là không kịp tới công thức rỗng ruột
+        return decodeQRFromMat(src, 1200, false, qrDeepLoc)
+            .catch(function () { return null; })
+            .then(function (r) {
+                try { src.delete(); } catch (e) {}
+                qrDeepBusy = false;
+                // Không thấy ô định vị nào: lần sau đổi cỡ dò. 720 nhẹ máy, hợp khi soi gần;
+                // 1000 bắt được mã nhỏ khi cầm xa. Mỗi lần chỉ dò 1 cỡ nên không nặng thêm.
+                if (!r && !lastQrRoiCount) qrDeepLoc = qrDeepLoc === 720 ? 1000 : 720;
+                return r || { miss: true, located: lastQrRoiCount > 0 };
+            });
+    };
+
     // Nắn phẳng thẻ từ ẢNH GỐC ĐỘ PHÂN GIẢI CAO (không phải ảnh 1600px hiển thị) -> cho QR sắc nét nhất
     function warpFromOriginal(doc) {
         return new Promise((resolve) => {
@@ -1554,6 +1717,7 @@
                     oc.width = oImg.naturalWidth; oc.height = oImg.naturalHeight;
                     oc.getContext('2d').drawImage(oImg, 0, 0);
                     let oMat = cv.imread(oc);
+                    oc.width = 1; oc.height = 1;      // đã chép vào OpenCV -> trả ~48MB canvas ngay (iPhone)
                     let rx = oImg.naturalWidth / doc.w, ry = oImg.naturalHeight / doc.h; // tỉ lệ từ ảnh hiển thị -> ảnh gốc
                     let P = doc.pts.map(p => ({ x: p.x * rx, y: p.y * ry }));
                     let out = new cv.Mat();
@@ -1637,18 +1801,21 @@
             try {
                 let hiRes = await warpFromOriginal(doc);
                 if (hiRes && hiRes.cols > 0 && hiRes.rows > 0) {
+                    // Để gần như nguyên độ nét: bộ dò ô định vị tự thu về 1000px, chỉ vùng mã mới cắt
+                    // ở độ nét gốc -> ảnh to không làm chậm. Mà bản photo "rỗng ruột" chỉ đọc được ở độ
+                    // nét cao (kiểm trên ảnh thật: thu còn 1100px là mọi cách đều chịu).
                     let maxSide = Math.max(hiRes.cols, hiRes.rows);
-                    if (maxSide > 2400) {
-                        let s2 = 2400 / maxSide;
+                    if (maxSide > 4000) {
+                        let s2 = 4000 / maxSide;
                         let capped = new cv.Mat();
                         cv.resize(hiRes, capped, new cv.Size(Math.round(hiRes.cols * s2), Math.round(hiRes.rows * s2)), 0, 0, cv.INTER_AREA);
                         hiRes.delete(); hiRes = capped;
                     }
                     let r = await decodeQRFromMat(hiRes, 1400);
                     if (r) {
-                        codeText = r.data; qrBounds = r.bounds;
-                        let hc = document.createElement('canvas'); hc.width = hiRes.cols; hc.height = hiRes.rows;
-                        cv.imshow(hc, hiRes); qrSourceCanvas = hc;
+                        codeText = r.data;
+                        const qc = qrCropCanvas(hiRes, r.bounds);
+                        if (qc) { qrBounds = qc.bounds; qrSourceCanvas = qc.canvas; }
                     }
                     hiRes.delete();
                 }
@@ -1658,10 +1825,15 @@
             // (trước đây bị chặn bởi hạn giờ đã cạn nên gần như không bao giờ chạy).
             if (!codeText && doc.origDataUrl) {
                 try {
-                    let fo = await loadOriginalMatScaled(doc, 1600);
+                    let fo = await loadOriginalMatScaled(doc, 4000);
                     if (fo) {
+                        fo.canvas.width = 1; fo.canvas.height = 1;   // đã đọc vào OpenCV -> trả bộ nhớ canvas ngay
                         let r = await decodeQRFromMat(fo.mat, 900);
-                        if (r) { codeText = r.data; qrBounds = r.bounds; qrSourceCanvas = fo.canvas; }
+                        if (r) {
+                            codeText = r.data;
+                            const qc = qrCropCanvas(fo.mat, r.bounds);
+                            if (qc) { qrBounds = qc.bounds; qrSourceCanvas = qc.canvas; }
+                        }
                         fo.mat.delete();
                     }
                 } catch (e) { console.warn('fallback QR', e); }
@@ -1681,6 +1853,21 @@
             else showRescanButton();
             setTimeout(() => document.getElementById('canvasOutput').scrollIntoView({ behavior: 'smooth', block: 'center' }), 200);
         }, 50);
+    }
+
+    // Chỉ dựng canvas bao quanh mã QR để tách ảnh — không dựng cả tấm ảnh gốc 12MP (≈48MB,
+    // đúng loại thứ làm iPhone đóng trang). Trả kèm toạ độ đã dời theo khung cắt.
+    function qrCropCanvas(mat, b) {
+        if (!mat || !b) return null;
+        const cp = 40;
+        const x = Math.max(0, Math.floor(b.minX) - cp), y = Math.max(0, Math.floor(b.minY) - cp);
+        const x2 = Math.min(mat.cols, Math.ceil(b.maxX) + cp), y2 = Math.min(mat.rows, Math.ceil(b.maxY) + cp);
+        if (x2 - x < 4 || y2 - y < 4) return null;
+        let sub = mat.roi(new cv.Rect(x, y, x2 - x, y2 - y));
+        const c = document.createElement('canvas'); c.width = x2 - x; c.height = y2 - y;
+        try { cv.imshow(c, sub); } catch (e) { sub.delete(); return null; }
+        sub.delete();
+        return { canvas: c, bounds: { minX: b.minX - x, maxX: b.maxX - x, minY: b.minY - y, maxY: b.maxY - y } };
     }
 
     // Áp kết quả QR vào hồ sơ + tách ảnh QR ra thành thẻ riêng (dùng chung cho quét thường & quét kỹ)
@@ -1735,16 +1922,16 @@
             let hiRes = await warpFromOriginal(doc);
             if (hiRes && hiRes.cols > 0 && hiRes.rows > 0) {
                 const ms = Math.max(hiRes.cols, hiRes.rows);
-                if (ms > 3000) {
-                    const s2 = 3000 / ms, cap = new cv.Mat();
+                if (ms > 4000) {
+                    const s2 = 4000 / ms, cap = new cv.Mat();
                     cv.resize(hiRes, cap, new cv.Size(Math.round(hiRes.cols * s2), Math.round(hiRes.rows * s2)), 0, 0, cv.INTER_AREA);
                     hiRes.delete(); hiRes = cap;
                 }
                 const r = await decodeQRFromMat(hiRes, 20000, true);
                 if (r) {
-                    codeText = r.data; qrBounds = r.bounds;
-                    const hc = document.createElement('canvas'); hc.width = hiRes.cols; hc.height = hiRes.rows;
-                    cv.imshow(hc, hiRes); qrSourceCanvas = hc;
+                    codeText = r.data;
+                    const qc = qrCropCanvas(hiRes, r.bounds);
+                    if (qc) { qrBounds = qc.bounds; qrSourceCanvas = qc.canvas; }
                 }
                 hiRes.delete();
             }
@@ -1752,10 +1939,15 @@
 
         if (!codeText && doc.origDataUrl) {
             try {
-                const fo = await loadOriginalMatScaled(doc, 2400);
+                const fo = await loadOriginalMatScaled(doc, 4000);
                 if (fo) {
+                    fo.canvas.width = 1; fo.canvas.height = 1;
                     const r = await decodeQRFromMat(fo.mat, 20000, true);
-                    if (r) { codeText = r.data; qrBounds = r.bounds; qrSourceCanvas = fo.canvas; }
+                    if (r) {
+                        codeText = r.data;
+                        const qc = qrCropCanvas(fo.mat, r.bounds);
+                        if (qc) { qrBounds = qc.bounds; qrSourceCanvas = qc.canvas; }
+                    }
                     fo.mat.delete();
                 }
             } catch (e) { console.warn('rescan fallback', e); }
@@ -2442,6 +2634,43 @@ function nativeTry(){
   });
 }
 
+/* ===== Làn C (có từ khi gộp app) =====
+   jsQR trần hay bó tay với BẢN PHOTO: ô đen rỗng ruột, mã mờ nhạt. Firefox lại không có
+   bộ giải mã gốc (làn A), nên trên Firefox trước đây chỉ còn mỗi jsQR trần.
+   Scanner có sẵn bộ khoanh vùng theo 3 ô định vị + lấp ruột rỗng + nhị phân thích ứng (OpenCV).
+   Khi 2 làn nhanh trượt vài khung liền, cứ ~0.45 giây mượn bộ đó thử một lần.
+   Không thấy ô định vị nào thì nó dừng ngay (~vài chục ms) nên để yên máy cũng không nặng. */
+let deepAt = 0, deepBusy = false, deepGap = 450;
+const DCAN = document.createElement("canvas");
+const DCTX = DCAN.getContext("2d", { willReadFrequently: true });
+function deepTry(){
+  if (deepBusy || !scanActive || typeof window.__qrDeep !== "function") return;
+  const t = performance.now();
+  if (t - deepAt < deepGap) return;
+  const f = view(); if (!f) return;
+  deepAt = t;
+  const rx = f.vx, ry = f.vy, rw = f.visW, rh = f.visH;
+  /* Giữ gần nguyên độ nét khung hình: bản photo rỗng ruột thu nhỏ là mất thông tin */
+  const k = Math.min(1, 2000 / Math.max(rw, rh));
+  const dw = Math.max(1, Math.round(rw*k)), dh = Math.max(1, Math.round(rh*k));
+  if (dw < 40 || dh < 40) return;
+  if (DCAN.width !== dw || DCAN.height !== dh){ DCAN.width = dw; DCAN.height = dh; }
+  DCTX.drawImage(video, Math.round(rx),Math.round(ry),Math.round(rw),Math.round(rh), 0,0,dw,dh);
+  const pr = window.__qrDeep(DCAN);
+  if (!pr) return;
+  deepBusy = true;
+  pr.then(r => {
+    deepBusy = false;
+    /* Thấy ô định vị mà chưa đọc ra -> có mã khó trong khung, thử lại sớm (0.45s).
+       Không thấy gì -> giãn ra 0.9s cho đỡ nóng máy, tốn pin. */
+    deepGap = (r && r.miss && !r.located) ? 900 : 450;
+    if (!r || !r.data || !scanActive) return;
+    const b = r.bounds, X = v => rx + v/k, Y = v => ry + v/k;
+    handleHit({ data: r.data, fmt: "qr_code",
+      corners: [{x:X(b.minX),y:Y(b.minY)},{x:X(b.maxX),y:Y(b.minY)},{x:X(b.maxX),y:Y(b.maxY)},{x:X(b.minX),y:Y(b.maxY)}] });
+  }, () => { deepBusy = false; });
+}
+
 function handleHit(hit){
   if (!hit || !hit.data || !scanActive) return;
   noCode = 0;
@@ -2489,6 +2718,7 @@ function tick(){
   else {
     paint(null);
     if (++noCode >= 4) armed = true;   // mã đã rời khung
+    if (noCode >= 3) deepTry();         // làn C: 2 làn nhanh trượt mấy khung liền
   }
   schedule();
 }
@@ -3379,6 +3609,19 @@ function renderHistory(){
   const list = $("hist-list");
   $("hist").style.display = scanLog.length ? "block" : "none";
   list.textContent = "";
+  /* scanLog xếp MỚI NHẤT trước. Lần quét SỚM NHẤT của mỗi mã là bản gốc,
+     các lần sau là quét lại -> gắn nhãn "trùng" để dễ nhận ra mà xoá trước khi xuất CSV. */
+  const firstIdx = Object.create(null);
+  for (let i = scanLog.length - 1; i >= 0; i--){
+    const key = scanLog[i].raw || "";
+    if (!(key in firstIdx)) firstIdx[key] = i;
+  }
+  let dups = 0;
+  scanLog.forEach((p,i) => { if (firstIdx[p.raw || ""] !== i) dups++; });
+  const db = $("btn-dedupe");
+  db.style.display = dups ? "" : "none";
+  db.textContent = "Lọc trùng (" + dups + ")";
+
   scanLog.forEach((p,i) => {
     const d = document.createElement("div");
     d.className = "hist-item";
@@ -3387,14 +3630,42 @@ function renderHistory(){
     const b = document.createElement("b"); b.textContent = p.title || p.badge;
     const s = document.createElement("span"); s.textContent = p.badge + " · " + p.at;
     t.appendChild(b); t.appendChild(s);
+    if (firstIdx[p.raw || ""] !== i){
+      const dup = document.createElement("span"); dup.className = "hist-dup"; dup.textContent = "trùng";
+      t.appendChild(dup);
+    }
     const n = document.createElement("span"); n.className = "n"; n.textContent = "#" + (scanLog.length-i);
-    d.appendChild(t); d.appendChild(n);
+    const x = document.createElement("button");
+    x.type = "button"; x.className = "hist-del"; x.title = "Xoá dòng này"; x.textContent = "✕";
+    x.onclick = e => {
+      e.stopPropagation();                       // không mở chi tiết khi bấm xoá
+      scanLog.splice(i, 1);
+      renderHistory();
+      toast("Đã xoá 1 dòng");
+    };
+    d.appendChild(t); d.appendChild(n); d.appendChild(x);
     d.onclick = () => { current = p; render(p); };
     list.appendChild(d);
   });
 }
 
-$("btn-clear").onclick = () => { scanLog.length = 0; renderHistory(); toast("Đã xoá phiên"); };
+/* Lọc trùng: giữ lần quét SỚM NHẤT của mỗi mã, bỏ các lần quét lại */
+$("btn-dedupe").onclick = () => {
+  const seen = Object.create(null), keep = [];
+  for (let i = scanLog.length - 1; i >= 0; i--){
+    const key = scanLog[i].raw || "";
+    if (!seen[key]){ seen[key] = 1; keep.unshift(scanLog[i]); }
+  }
+  const removed = scanLog.length - keep.length;
+  scanLog.length = 0; keep.forEach(x => scanLog.push(x));
+  renderHistory();
+  toast("Đã bỏ " + removed + " dòng trùng");
+};
+
+$("btn-clear").onclick = () => {
+  if (scanLog.length > 3 && !confirm("Xoá hết " + scanLog.length + " dòng trong phiên?")) return;
+  scanLog.length = 0; renderHistory(); toast("Đã xoá phiên");
+};
 $("btn-export").onclick = () => {
   if (!scanLog.length) return;
   const keys = [];
