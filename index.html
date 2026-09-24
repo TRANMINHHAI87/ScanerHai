@@ -652,6 +652,9 @@
 
     <script src="opencv.js"></script>
     <script src="jsQR.min.js"></script>
+    <!-- ZXing-C++ (WASM): bộ giải mã khoẻ hơn jsQR nhiều trên BẢN PHOTO. Cần 2 tệp đặt cạnh app:
+         zxing_reader.js + zxing_reader.wasm. THIẾU CŨNG KHÔNG SAO — app tự quay về dùng jsQR. -->
+    <script src="zxing_reader.js" onerror="window.__noZX=1"></script>
     <script src="jspdf.umd.min.js"></script>
 </head>
 <body>
@@ -1368,6 +1371,46 @@
     }
 
     // Quét 1 canvas -> { data, bounds } theo toạ độ của chính canvas đó, hoặc null
+    /* ===== ZXing-C++ (WASM) =====
+       Kiểm trên ảnh photo thật: cùng một ảnh đã xử lý, ZXing đọc được ở 3/5 công thức còn jsQR
+       chỉ 1/5; riêng thẻ bị teo nét thì CHỈ ZXing đọc nổi. Mỗi lần đọc ~10-40ms (jsQR ~75ms).
+       Thiếu tệp thì zxReady = false và mọi thứ chạy y như cũ bằng jsQR. */
+    let zxReady = false, zxTagDone = false;
+    (function initZXing() {
+        if (typeof ZXingWASM === 'undefined' || !ZXingWASM.readBarcodes) return;
+        try {
+            ZXingWASM.setZXingModuleOverrides({
+                locateFile: function (path, prefix) { return /\.wasm$/.test(path) ? 'zxing_reader.wasm' : (prefix || '') + path; }
+            });
+            const warm = new ImageData(new Uint8ClampedArray(64 * 64 * 4).fill(255), 64, 64);
+            ZXingWASM.readBarcodes(warm, { formats: ['QRCode'], maxNumberOfSymbols: 1 })
+                .then(function () { zxReady = true; })
+                .catch(function () { zxReady = false; });
+        } catch (e) { zxReady = false; }
+    })();
+
+    // ImageData -> { data, bounds } | null
+    async function zxScan(img) {
+        if (!zxReady || !img) return null;
+        try {
+            const rs = await ZXingWASM.readBarcodes(img, { formats: ['QRCode'], tryHarder: true, tryDownscale: true, maxNumberOfSymbols: 1 });
+            if (!rs || !rs.length || !rs[0].text) return null;
+            if (!zxTagDone) {      // cho biết tệp ZXing đã nạp đúng
+                zxTagDone = true;
+                const t = document.getElementById('engine-tag');
+                if (t) t.textContent = 'Bộ giải mã: ZXing-C++ + jsQR — có chế độ đọc bản photo';
+            }
+            const pos = rs[0].position || {};
+            const pts = [pos.topLeft, pos.topRight, pos.bottomRight, pos.bottomLeft].filter(Boolean);
+            let b = { minX: 0, maxX: img.width, minY: 0, maxY: img.height };
+            if (pts.length === 4) b = {
+                minX: Math.min.apply(null, pts.map(q => q.x)), maxX: Math.max.apply(null, pts.map(q => q.x)),
+                minY: Math.min.apply(null, pts.map(q => q.y)), maxY: Math.max.apply(null, pts.map(q => q.y)) };
+            return { data: rs[0].text, bounds: b };
+        } catch (e) { return null; }
+    }
+    window.__qrZX = zxScan;      // cho phần quét camera trực tiếp dùng chung
+
     async function scanOneCanvas(canvas, inv) {
         const bd = await getBarcodeDetector();
         if (bd) {
@@ -1384,8 +1427,10 @@
                 // ảnh mờ / nghiêng / nền hoa văn -> nó không thấy thì vẫn phải để jsQR thử.
             } catch (e) { /* lỗi thì rơi xuống jsQR */ }
         }
-        if (typeof jsQR === 'undefined') return null;
         const d = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+        const zx = await zxScan(d);            // khoẻ hơn jsQR trên bản photo -> thử trước
+        if (zx) return zx;
+        if (typeof jsQR === 'undefined') return null;
         const code = jsQR(d.data, d.width, d.height, { inversionAttempts: inv || 'dontInvert' });
         if (!code) return null;
         const L = code.location;
@@ -1559,18 +1604,29 @@
         // trên 2 bản photo CCCD mà Zalo đọc được còn app cũ thì không — chọn theo ĐỘ BỀN: cố tình
         // xê dịch vùng khoanh ±15% và cỡ ô ±10%, công thức nào sống sót nhiều nhất mới được giữ:
         //   xám nguyên   : mã in rõ (đa số thẻ thật)
-        //   thích ứng    : BẢN PHOTO MỜ, tương phản kém — chỉ cách này đọc được
-        //   lấp gốc      : BẢN PHOTO "RỖNG RUỘT" — máy photo chỉ tô đậm viền, ruột ô đen thành xám
-        //                  lốm đốm; jsQR lấy mẫu ở tâm ô nên tưởng là ô trắng. Phép mở hình thái
-        //                  (nhân 0.8 ô) lấp đầy ruột. Làm ở ĐÚNG độ nét gốc: đổi cỡ trước là mất tác dụng.
-        //   mờ x0.6 / x0.8: cũng cho rỗng ruột, khi ảnh không đủ nét cho cách trên — thu nhỏ + làm mờ
-        //                  để trộn viền với ruột rồi cắt ngưỡng.
-        // Ô mã còn dưới 4 điểm ảnh thì bỏ qua các công thức rỗng ruột cho đỡ tốn thời gian.
+        //   nở 0.3 / 0.5 : BẢN PHOTO hỏng theo 2 kiểu ngược nhau — tấm thì ô đen "rỗng ruột"
+        //                  (máy photo chỉ tô đậm viền), tấm thì ô đen bị TEO và nhạt (mất mực).
+        //                  Phép co ảnh xám (lấy điểm tối nhất quanh mỗi điểm) làm nét đen NỞ ra
+        //                  cho đầy ô, chữa được CẢ HAI kiểu. Nhân = 0.3 và 0.5 cỡ ô, bù nhau.
+        //   thích ứng    : bản photo mờ, tương phản kém đều
+        //   mờ + giữa    : dự phòng, cắt ở ngưỡng giữa thay vì Otsu
+        // Chọn theo kiểm thật trên 3 thẻ photo khác nhau, ở cả ảnh gốc lẫn khung camera 11px/ô.
+
+        let fromCache = false;
         try {
-            const rois = groupFinders(findFinderCandidates(gray, roiOnly ? (typeof roiOnly === 'number' ? roiOnly : 720) : 1000), gray.cols, gray.rows).slice(0, hard ? 4 : 2);
+            let rois = null;
+            // Camera trực tiếp: dò vị trí mã là phần TỐN NHẤT. Người dùng giơ thẻ đứng yên vài giây,
+            // nên dùng lại vị trí vừa tìm được (tối đa 1.5 giây) -> mỗi lượt quét kỹ nhẹ đi nhiều.
+            if (roiOnly && qrRoiCache && qrRoiCache.w === gray.cols && qrRoiCache.h === gray.rows
+                && (now() - qrRoiCache.t) < 1500) { rois = [qrRoiCache.roi]; fromCache = true; }
+            if (!rois) {
+                rois = groupFinders(findFinderCandidates(gray, roiOnly ? (typeof roiOnly === 'number' ? roiOnly : 720) : 1000), gray.cols, gray.rows).slice(0, hard ? 4 : 2);
+                if (roiOnly && rois.length) qrRoiCache = { w: gray.cols, h: gray.rows, roi: rois[0], t: now() };
+            }
             lastQrRoiCount = rois.length;
             // Camera trực tiếp: làn B đã quét ảnh xám mỗi khung rồi -> bỏ công thức xám cho nhanh
-            const RECIPES = roiOnly ? ['adapt', 'hollow10', 'blur06', 'blur08o'] : ['gray', 'adapt', 'hollow10', 'blur06', 'blur08o'];
+            // Camera trực tiếp: làn nhanh đã đọc ảnh thô mỗi khung rồi -> bỏ 'gray'
+            const RECIPES = roiOnly ? ['erode03', 'erode05', 'adapt', 'blurmid'] : ['gray', 'erode03', 'erode05', 'adapt', 'blurmid'];
             for (const roi of rois) {
                 if (found || (tries > 0 && elapsed() > budgetMs)) break;
                 let sub = gray.roi(new cv.Rect(roi.x, roi.y, roi.w, roi.h));
@@ -1580,10 +1636,11 @@
                     let f;
                     if (rc === 'gray') f = mod > 8 ? 8 / mod : 1;         // mã vốn đã nhỏ gọn -> để nguyên
                     else if (rc === 'adapt') f = 8 / mod;
-                    else f = rc === 'hollow10' ? 1 : rc === 'blur06' ? 0.6 : 0.8;
+                    else if (rc === 'blurmid') f = 0.6;
+                    else f = 1;                                            // nở: làm ở đúng độ nét gốc
                     if (rc !== 'gray' && rc !== 'adapt' && mod * f < 4) continue;   // ô quá nhỏ: vô ích
                     const side = Math.max(sub.cols, sub.rows) * f;
-                    if (side > 1600) f *= 1600 / side;                     // chặn trần cho khỏi chậm
+                    if (side > 1400) f *= 1400 / side;                     // chặn trần cho khỏi chậm
                     const T = mod * f;                                     // số điểm ảnh / ô sau khi đổi cỡ
                     let work = new cv.Mat();
                     try {
@@ -1593,28 +1650,24 @@
                             let b = new cv.Mat();
                             cv.adaptiveThreshold(work, b, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 57, 8);  // khối ≈ 7 ô
                             work.delete(); work = b;
-                        } else if (rc === 'blur06' || rc === 'blur08o') {
+                        } else if (rc === 'blurmid') {
                             let bl = new cv.Mat(), b = new cv.Mat();
                             const sg = Math.max(0.8, T * 0.35);
                             cv.GaussianBlur(work, bl, new cv.Size(0, 0), sg, sg);
-                            if (rc === 'blur08o') {
-                                cv.threshold(bl, b, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-                            } else {
-                                // ngưỡng = điểm giữa phân vị 10% (ô đen) và 90% (nền trắng)
-                                const dd = bl.data, hist = new Uint32Array(256);
-                                for (let q = 0; q < dd.length; q++) hist[dd[q]]++;
-                                const pct = function (pp) { let acc = 0; const lim = dd.length * pp;
-                                    for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= lim) return v; } return 255; };
-                                cv.threshold(bl, b, (pct(0.10) + pct(0.90)) / 2, 255, cv.THRESH_BINARY);
-                            }
+                            // ngưỡng = điểm giữa phân vị 10% (ô đen) và 90% (nền trắng)
+                            const dd = bl.data, hist = new Uint32Array(256);
+                            for (let q = 0; q < dd.length; q++) hist[dd[q]]++;
+                            const pct = function (pp) { let acc = 0; const lim = dd.length * pp;
+                                for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= lim) return v; } return 255; };
+                            cv.threshold(bl, b, (pct(0.10) + pct(0.90)) / 2, 255, cv.THRESH_BINARY);
                             bl.delete(); work.delete(); work = b;
-                        } else if (rc === 'hollow10') {
-                            const ks = Math.max(3, Math.round(T * 0.8));
+                        } else if (rc === 'erode03' || rc === 'erode05') {
+                            const ks = Math.max(3, Math.round(T * (rc === 'erode03' ? 0.3 : 0.5)));
                             let ker = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(ks, ks));
-                            let op = new cv.Mat(), b = new cv.Mat();
-                            cv.morphologyEx(work, op, cv.MORPH_OPEN, ker);
-                            cv.threshold(op, b, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
-                            ker.delete(); op.delete(); work.delete(); work = b;
+                            let er = new cv.Mat(), b = new cv.Mat();
+                            cv.erode(work, er, ker);                       // lấy điểm tối nhất quanh mỗi điểm -> nét đen nở ra
+                            cv.threshold(er, b, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU);
+                            ker.delete(); er.delete(); work.delete(); work = b;
                         }
                         const r = await scanMat(work);
                         if (r) {
@@ -1629,6 +1682,8 @@
                 sub.delete();
             }
         } catch (e) { /* dò ô định vị hỏng -> vẫn còn các bậc quét toàn ảnh bên dưới */ }
+        // Vị trí cũ không ra kết quả -> bỏ, lượt sau dò lại từ đầu (thẻ có thể đã xê dịch)
+        if (roiOnly) { if (found && qrRoiCache) qrRoiCache.t = now(); else if (fromCache) qrRoiCache = null; }
 
         // ---- BẬC 1+: quét toàn ảnh (dự phòng khi không khoanh được vùng) ----
         if (!found && !roiOnly) {
@@ -1686,7 +1741,7 @@
 
     // Cầu nối cho phần QUÉT CAMERA TRỰC TIẾP: mượn bộ khoanh vùng + 3 công thức ở trên.
     // Trả Promise<{data,bounds}|null>, hoặc null ngay nếu đang bận / OpenCV chưa sẵn sàng.
-    let qrDeepBusy = false, lastQrRoiCount = 0, qrDeepLoc = 720;
+    let qrDeepBusy = false, lastQrRoiCount = 0, qrDeepLoc = 720, qrRoiCache = null;
     window.__qrDeep = function (canvas) {
         if (qrDeepBusy || !cvReady || typeof cv === 'undefined' || !cv.Mat) return null;
         let src = null;
@@ -2558,6 +2613,9 @@ function safeJsQR(data, w, h, inv){
 
 /* Một lượt jsQR. p.full = cả vùng đang hiện, còn lại = ô vuông giữa khung. */
 function jsPass(p){
+  /* Làn C đang quét kỹ thì nhường máy cho nó. Trước đây 2 làn chạy chồng nhau:
+     vòng quét tụt còn 2 khung/giây MÀ làn C cũng bị ăn mất hạn giờ nên hiếm khi xong. */
+  if (deepBusy) return null;
   const f = view(); if (!f) return null;
   let sx, sy, sw, sh;
   if (p.full){ sx=f.vx; sy=f.vy; sw=f.visW; sh=f.visH; }
@@ -2634,6 +2692,36 @@ function nativeTry(){
   });
 }
 
+/* ===== Làn Z: ZXing-C++ đọc thẳng khung hình =====
+   Nhanh hơn jsQR (~10-40ms so với ~75ms) và khoẻ hơn hẳn trên bản photo. Chạy song song,
+   không chặn vòng quét. Không có tệp zxing_reader thì làn này tự tắt, mọi thứ như cũ. */
+let zxBusy = false, zxAt = 0;
+const ZCAN = document.createElement("canvas");
+const ZCTX = ZCAN.getContext("2d", { willReadFrequently: true });
+function zxTry(){
+  if (zxBusy || !scanActive || typeof window.__qrZX !== "function") return;
+  const t = performance.now(); if (t - zxAt < 110) return; zxAt = t;
+  const f = view(); if (!f) return;
+  const r = roiRect(1.15);
+  let sx, sy, sw, sh;
+  if (r){ sx=r.x; sy=r.y; sw=r.w; sh=r.h; } else { sx=f.vx; sy=f.vy; sw=f.visW; sh=f.visH; }
+  sx=Math.round(sx); sy=Math.round(sy); sw=Math.round(sw); sh=Math.round(sh);
+  if (sw < 30 || sh < 30) return;
+  const k = Math.min(1, 1200 / Math.max(sw, sh));
+  const dw = Math.max(1, Math.round(sw*k)), dh = Math.max(1, Math.round(sh*k));
+  if (ZCAN.width !== dw || ZCAN.height !== dh){ ZCAN.width = dw; ZCAN.height = dh; }
+  ZCTX.drawImage(video, sx,sy,sw,sh, 0,0,dw,dh);
+  const img = ZCTX.getImageData(0,0,dw,dh);
+  zxBusy = true;
+  window.__qrZX(img).then(res => {
+    zxBusy = false;
+    if (!res || !scanActive) return;
+    const b = res.bounds, X = v => sx + v/k, Y = v => sy + v/k;
+    handleHit({ data: res.data, fmt: "qr_code",
+      corners: [{x:X(b.minX),y:Y(b.minY)},{x:X(b.maxX),y:Y(b.minY)},{x:X(b.maxX),y:Y(b.maxY)},{x:X(b.minX),y:Y(b.maxY)}] });
+  }, () => { zxBusy = false; });
+}
+
 /* ===== Làn C (có từ khi gộp app) =====
    jsQR trần hay bó tay với BẢN PHOTO: ô đen rỗng ruột, mã mờ nhạt. Firefox lại không có
    bộ giải mã gốc (làn A), nên trên Firefox trước đây chỉ còn mỗi jsQR trần.
@@ -2663,7 +2751,7 @@ function deepTry(){
     deepBusy = false;
     /* Thấy ô định vị mà chưa đọc ra -> có mã khó trong khung, thử lại sớm (0.45s).
        Không thấy gì -> giãn ra 0.9s cho đỡ nóng máy, tốn pin. */
-    deepGap = (r && r.miss && !r.located) ? 900 : 450;
+    deepGap = (r && r.miss && !r.located) ? 900 : 300;
     if (!r || !r.data || !scanActive) return;
     const b = r.bounds, X = v => rx + v/k, Y = v => ry + v/k;
     handleHit({ data: r.data, fmt: "qr_code",
@@ -2718,7 +2806,8 @@ function tick(){
   else {
     paint(null);
     if (++noCode >= 4) armed = true;   // mã đã rời khung
-    if (noCode >= 3) deepTry();         // làn C: 2 làn nhanh trượt mấy khung liền
+    zxTry();                            // làn Z: ZXing đọc thẳng khung hình (rẻ, chạy song song)
+    if (noCode >= 3) deepTry();         // làn C: các làn nhanh trượt mấy khung liền
   }
   schedule();
 }
