@@ -324,7 +324,15 @@
       .brand-name{ font-size:16px; letter-spacing:.1em; }
       .brand-logo{ height:36px; }
       .appbar-actions{ width:100%; }
-      .appbar-actions .btn{ flex:1 1 0; min-width:0; padding:11px 8px; font-size:13px; }
+      /* 3 nút chia đều 3 cột; biểu tượng nằm TRÊN, chữ được xuống dòng.
+               Trước đây chữ bị ép 1 dòng (nowrap) trong 1/3 bề ngang nên tràn ra ngoài nút,
+               đè lên nút bên cạnh — nhất là khi điện thoại đặt cỡ chữ lớn. */
+            .appbar-actions { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; align-items:stretch; }
+            .brand-sub { text-wrap:balance; }   /* tránh rớt 1 chữ "SƠ" xuống dòng riêng */
+            .appbar-actions .btn { flex-direction:column; gap:4px; min-width:0; min-height:60px; padding:8px 4px;
+                                   font-size:12.5px; line-height:1.2; white-space:normal; text-align:center; }
+            .appbar-actions .btn .bi { font-size:19px; line-height:1; }
+            .appbar-actions .btn .bl { display:block; max-width:100%; overflow-wrap:anywhere; }
       .onbrand-select{ flex:1 1 100%; width:100%; }
       .card-body{ padding:13px; gap:12px; }
       .card-head{ padding:11px 13px; }
@@ -595,6 +603,39 @@
   #qrScanUI .hist-head{ flex-wrap:wrap; row-gap:2px; column-gap:16px; }
   #qrScanUI .hist-head h2{ flex:1 1 100%; }
 }
+
+/* ===== Thanh xanh: luật .appbar { display:flex } của Scanner (trùng tên lớp) lọt sang đây, biến phần ruột
+   thành 1 ô flex rộng cố định 640px -> tràn ra ngoài màn hình điện thoại 265px, tiêu đề bị cắt, trang
+   kéo ngang được. Trả về dạng khối như bản ScanQR gốc. ===== */
+#qrScanUI .appbar{ display:block; }
+#qrScanUI .appbar-inner{ min-width:0; }
+#qrScanUI .appbar h1{ overflow-wrap:anywhere; line-height:1.25; }
+@media (max-width:560px){ #qrScanUI .appbar .ver{ display:none; } }
+
+/* ===== Nguồn khác ngoài camera: ảnh trong máy / ảnh dán / đọc màn hình ===== */
+#qrScanUI .srcbar{ display:flex; gap:8px; }
+#qrScanUI .srcbtn{
+  flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  min-height:60px; padding:9px 6px; border-radius:12px; border:1.5px solid var(--brand); background:var(--brand-soft);
+  color:var(--brand); font:inherit; font-size:13.5px; font-weight:800; line-height:1.2; text-align:center;
+  white-space:normal; cursor:pointer; -webkit-tap-highlight-color:transparent; transition:.15s;
+}
+#qrScanUI .srcbtn .si{ font-size:20px; line-height:1; }
+#qrScanUI .srcbtn .sl{ overflow-wrap:anywhere; }
+#qrScanUI .srcbtn:hover{ background:#d4eadb; }
+#qrScanUI .srcbtn:focus-visible{ outline:3px solid rgba(18,92,52,.35); outline-offset:2px; }
+#qrScanUI .srcbtn.on{ background:var(--brand); color:#fff; }
+#qrScanUI .srcbar.busy .srcbtn:not(.on){ opacity:.45; pointer-events:none; }
+#qrScanUI .srcnote{ margin-top:10px; font-size:12.5px; line-height:1.5; color:var(--ink-3); }
+#qrScanUI .srcnote b{ color:var(--ink-2); }
+#qrScanUI .srcstat{ scroll-margin-top:96px; margin-top:10px; padding:9px 11px; border-radius:10px; background:#f2f5f9; color:var(--ink-2);
+  font-size:13px; line-height:1.45; overflow-wrap:anywhere; }
+#qrScanUI .srcstat.ok{ background:var(--ok-soft); color:#11663a; }
+#qrScanUI .srcstat.warn{ background:var(--warn-soft); color:var(--warn); }
+#qrScanUI.drop .wrap{ outline:3px dashed var(--brand); outline-offset:4px; border-radius:16px; }
+@media (max-width:560px){
+  #qrScanUI .srcbtn{ font-size:12.5px; min-height:56px; padding:8px 4px; }
+}
     </style>
 
     <script>
@@ -671,10 +712,10 @@
         </div>
         <div class="appbar-actions">
             <input type="file" id="fileInput" accept="image/*" multiple disabled class="file-native">
-            <label for="fileInput" class="btn btn-onbrand" title="Tải ảnh có sẵn trong máy">📁 Chọn ảnh có sẵn</label>
+            <label for="fileInput" class="btn btn-onbrand" title="Tải ảnh có sẵn trong máy"><span class="bi" aria-hidden="true">📁</span><span class="bl">Chọn ảnh có sẵn</span></label>
             <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
-            <button id="cameraBtn" class="btn btn-onbrand-solid" onclick="handleCameraBtn()" disabled>📸 Chụp ảnh trực tiếp</button>
-            <button id="qrScanBtn" class="btn btn-onbrand" onclick="openQRScan()" title="Chỉ đọc mã QR, không cần cắt ảnh">🔎 Quét QR</button>
+            <button id="cameraBtn" class="btn btn-onbrand-solid" onclick="handleCameraBtn()" disabled><span class="bi" aria-hidden="true">📸</span><span class="bl">Chụp ảnh trực tiếp</span></button>
+            <button id="qrScanBtn" class="btn btn-onbrand" onclick="openQRScan()" title="Chỉ đọc mã QR, không cần cắt ảnh"><span class="bi" aria-hidden="true">🔎</span><span class="bl">Quét QR</span></button>
         </div>
     </header>
 
@@ -847,6 +888,17 @@
       <span id="scan-indicator">Đang khởi động…</span>
       <span class="perf" id="perf"></span>
     </div>
+  </div>
+
+  <div class="panel srcpanel" id="srcpanel">
+    <div class="srcbar">
+      <input type="file" id="sqr-file" class="file-native" accept="image/*" multiple>
+      <label for="sqr-file" class="srcbtn" id="btn-img" role="button" tabindex="0"><span class="si" aria-hidden="true">🖼️</span><span class="sl">Quét từ ảnh</span></label>
+      <button type="button" class="srcbtn" id="btn-paste" hidden><span class="si" aria-hidden="true">📋</span><span class="sl">Dán ảnh</span></button>
+      <button type="button" class="srcbtn" id="btn-screen" hidden><span class="si" aria-hidden="true">🖥️</span><span class="sl">Quét màn hình</span></button>
+    </div>
+    <div class="srcstat" id="srcstat" hidden></div>
+    <div class="srcnote" id="srcnote"></div>
   </div>
 
   <div class="result" id="result">
@@ -1375,16 +1427,28 @@
        Kiểm trên ảnh photo thật: cùng một ảnh đã xử lý, ZXing đọc được ở 3/5 công thức còn jsQR
        chỉ 1/5; riêng thẻ bị teo nét thì CHỈ ZXing đọc nổi. Mỗi lần đọc ~10-40ms (jsQR ~75ms).
        Thiếu tệp thì zxReady = false và mọi thứ chạy y như cũ bằng jsQR. */
-    let zxReady = false, zxTagDone = false;
+    let zxReady = false;
     (function initZXing() {
         if (typeof ZXingWASM === 'undefined' || !ZXingWASM.readBarcodes) return;
         try {
-            ZXingWASM.setZXingModuleOverrides({
-                locateFile: function (path, prefix) { return /\.wasm$/.test(path) ? 'zxing_reader.wasm' : (prefix || '') + path; }
-            });
+            const ov = { locateFile: function (path, prefix) { return /\.wasm$/.test(path) ? 'zxing_reader.wasm' : (prefix || '') + path; } };
+            // zxing_reader.js bản mới gói sẵn .wasm (base64) bên trong. Khi mở app bằng đường dẫn file://
+            // (máy tính ở chi nhánh), trình duyệt CHẶN tải tệp .wasm rời -> ZXing im lặng không chạy.
+            // Có bản gói sẵn thì không phải tải gì cả. Bản cũ thì vẫn tải .wasm rời như trước (chạy được qua web).
+            if (typeof window.__ZXW_B64 === 'string' && window.__ZXW_B64.length > 1000) {
+                const bin = atob(window.__ZXW_B64), u8 = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+                ov.wasmBinary = u8;
+                window.__ZXW_B64 = null;                 // trả bộ nhớ chuỗi base64
+            }
+            ZXingWASM.setZXingModuleOverrides(ov);
             const warm = new ImageData(new Uint8ClampedArray(64 * 64 * 4).fill(255), 64, 64);
             ZXingWASM.readBarcodes(warm, { formats: ['QRCode'], maxNumberOfSymbols: 1 })
-                .then(function () { zxReady = true; })
+                .then(function () {
+                    zxReady = true;
+                    window.__qrZXReady = true;
+                    try { window.dispatchEvent(new Event('qr-zx-ready')); } catch (e) {}
+                })
                 .catch(function () { zxReady = false; });
         } catch (e) { zxReady = false; }
     })();
@@ -1395,11 +1459,6 @@
         try {
             const rs = await ZXingWASM.readBarcodes(img, { formats: ['QRCode'], tryHarder: true, tryDownscale: true, maxNumberOfSymbols: 1 });
             if (!rs || !rs.length || !rs[0].text) return null;
-            if (!zxTagDone) {      // cho biết tệp ZXing đã nạp đúng
-                zxTagDone = true;
-                const t = document.getElementById('engine-tag');
-                if (t) t.textContent = 'Bộ giải mã: ZXing-C++ + jsQR — có chế độ đọc bản photo';
-            }
             const pos = rs[0].position || {};
             const pts = [pos.topLeft, pos.topRight, pos.bottomRight, pos.bottomLeft].filter(Boolean);
             let b = { minX: 0, maxX: img.width, minY: 0, maxY: img.height };
@@ -1609,7 +1668,8 @@
         //                  Phép co ảnh xám (lấy điểm tối nhất quanh mỗi điểm) làm nét đen NỞ ra
         //                  cho đầy ô, chữa được CẢ HAI kiểu. Nhân = 0.3 và 0.5 cỡ ô, bù nhau.
         //   thích ứng    : bản photo mờ, tương phản kém đều
-        //   mờ + giữa    : dự phòng, cắt ở ngưỡng giữa thay vì Otsu
+        //   mờ + giữa    : bản photo rỗng ruột bị NÉN NHỎ (ảnh Zalo gửi thường, 1280px): làm mờ σ≈0.35 ô
+        //                  trộn viền với ruột rồi cắt ở ngưỡng giữa. Kiểm thật: đọc được ở mọi tỉ lệ ×0.5–×2.
         // Chọn theo kiểm thật trên 3 thẻ photo khác nhau, ở cả ảnh gốc lẫn khung camera 11px/ô.
 
         let fromCache = false;
@@ -1626,7 +1686,7 @@
             lastQrRoiCount = rois.length;
             // Camera trực tiếp: làn B đã quét ảnh xám mỗi khung rồi -> bỏ công thức xám cho nhanh
             // Camera trực tiếp: làn nhanh đã đọc ảnh thô mỗi khung rồi -> bỏ 'gray'
-            const RECIPES = roiOnly ? ['erode03', 'erode05', 'adapt', 'blurmid'] : ['gray', 'erode03', 'erode05', 'adapt', 'blurmid'];
+            const RECIPES = roiOnly ? ['blurmid', 'erode03', 'erode05', 'adapt'] : ['gray', 'blurmid', 'erode03', 'erode05', 'adapt'];
             for (const roi of rois) {
                 if (found || (tries > 0 && elapsed() > budgetMs)) break;
                 let sub = gray.roi(new cv.Rect(roi.x, roi.y, roi.w, roi.h));
@@ -1636,7 +1696,7 @@
                     let f;
                     if (rc === 'gray') f = mod > 8 ? 8 / mod : 1;         // mã vốn đã nhỏ gọn -> để nguyên
                     else if (rc === 'adapt') f = 8 / mod;
-                    else if (rc === 'blurmid') f = 0.6;
+                    else if (rc === 'blurmid') f = mod > 10 ? 8 / mod : 1;   // ~8px/ô với ảnh to, giữ nguyên với ảnh nhỏ
                     else f = 1;                                            // nở: làm ở đúng độ nét gốc
                     if (rc !== 'gray' && rc !== 'adapt' && mod * f < 4) continue;   // ô quá nhỏ: vô ích
                     const side = Math.max(sub.cols, sub.rows) * f;
@@ -1759,6 +1819,54 @@
                 if (!r && !lastQrRoiCount) qrDeepLoc = qrDeepLoc === 720 ? 1000 : 720;
                 return r || { miss: true, located: lastQrRoiCount > 0 };
             });
+    };
+
+    // ===== ĐỌC MÃ QR TRÊN ẢNH TĨNH: ảnh trong máy, ảnh dán, khung hình màn hình =====
+    // canvas -> { data, bounds } | null. opt.budget: hạn giờ lượt thường; opt.hard: trượt thì quét kỹ thêm.
+    window.__qrStill = async function (canvas, opt) {
+        opt = opt || {};
+        if (!canvas || !canvas.width || !canvas.height) return null;
+        // 1) ZXing trên cả ảnh: ảnh chụp màn hình, mã in rõ -> ra ngay, vài chục ms
+        if (zxReady) {
+            const k = Math.min(1, 2600 / Math.max(canvas.width, canvas.height));
+            let c = canvas;
+            try {
+                if (k < 1) {
+                    c = document.createElement('canvas');
+                    c.width = Math.round(canvas.width * k); c.height = Math.round(canvas.height * k);
+                    c.getContext('2d').drawImage(canvas, 0, 0, c.width, c.height);
+                }
+                const r = await zxScan(c.getContext('2d').getImageData(0, 0, c.width, c.height));
+                if (r) return { data: r.data, bounds: { minX: r.bounds.minX / k, maxX: r.bounds.maxX / k,
+                                                        minY: r.bounds.minY / k, maxY: r.bounds.maxY / k } };
+            } catch (e) { /* rơi xuống OpenCV */ }
+            finally { if (c !== canvas) { c.width = 1; c.height = 1; } }
+        }
+        // 2) OpenCV: khoanh vùng theo 3 ô định vị + các công thức chữa bản photo (nở ô đen, thích ứng…).
+        //    Chọn ảnh ngay lúc OpenCV (13MB) còn đang nạp trên điện thoại chậm: chờ tối đa 15 giây.
+        for (let i = 0; i < 60 && !cvReady; i++) await new Promise(function (r) { setTimeout(r, 250); });
+        if (cvReady && typeof cv !== 'undefined' && cv.Mat) {
+            let src = null;
+            try { src = cv.imread(canvas); } catch (e) { src = null; }
+            if (src) {
+                try {
+                    let r = await decodeQRFromMat(src, opt.budget || 2500, false, false);
+                    if (!r && opt.hard) r = await decodeQRFromMat(src, opt.hardBudget || 6000, true, false);
+                    if (r) return r;
+                } catch (e) { /* hỏng thì thử jsQR bên dưới */ }
+                finally { src.delete(); }
+            }
+            return null;
+        }
+        // 3) Không có OpenCV: jsQR trên cả ảnh
+        if (typeof jsQR !== 'undefined') {
+            try {
+                const d = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+                const q = jsQR(d.data, d.width, d.height, { inversionAttempts: 'attemptBoth' });
+                if (q) return { data: q.data, bounds: { minX: 0, maxX: canvas.width, minY: 0, maxY: canvas.height } };
+            } catch (e) {}
+        }
+        return null;
     };
 
     // Nắn phẳng thẻ từ ẢNH GỐC ĐỘ PHÂN GIẢI CAO (không phải ảnh 1600px hiển thị) -> cho QR sắc nét nhất
@@ -2442,6 +2550,7 @@ const scanIndicator = $("scan-indicator");
 const perfEl = $("perf");
 
 let toastTimer = null;
+let stillBusy = false;   /* đang đọc ảnh / màn hình -> vòng quét camera tạm nhường máy */
 function toast(msg){
   const t = $("toast");
   t.textContent = msg; t.classList.add("show");
@@ -2503,7 +2612,13 @@ let armed = true, noCode = 0;   /* armed=false: chờ mã rời khung rồi mớ
 
 let frames = 0, fpsT0 = performance.now(), lastMs = 0;
 
-function markEngine(t){ $("engine-tag").textContent = "Bộ giải mã: " + t; }
+let engineName = "";
+function markEngine(t){
+  engineName = t;
+  $("engine-tag").textContent = "Bộ giải mã: " + (window.__qrZXReady ? "ZXing-C++ + " : "") + t;
+}
+/* ZXing nạp xong sau (vài trăm ms) thì cập nhật dòng này — nhìn vào là biết tệp zxing_reader.js đã nạp đúng */
+window.addEventListener("qr-zx-ready", () => { if (engineName) markEngine(engineName); });
 
 async function initDetector(){
   let name = hasJsQR ? "jsQR" : "—";
@@ -2778,6 +2893,7 @@ function tick(){
      đánh thức CPU liên tục — đúng thứ mà nút Tắt camera muốn tránh.
      Mọi đường bật lại đều đi qua onMeta() nên vòng lặp tự sống lại. */
   if (!currentStream) return;
+  if (stillBusy){ schedule(); return; }   /* đang đọc ảnh / màn hình: không tranh máy với nó */
   if (!scanActive || video.readyState < 2){ schedule(); return; }
   const t0 = performance.now();
 
@@ -3551,22 +3667,26 @@ function beep(){
   if (navigator.vibrate) navigator.vibrate(55);
 }
 
-function onFound(raw, fmt){
+function onFound(raw, fmt, opt){
+  opt = opt || {};
   const parsed = parseQR(raw, fmt);
   parsed.fmt = fmt || "qr_code";
   parsed.raw = raw;
   parsed.at = nowStr();
+  if (opt.src) parsed.src = opt.src;       /* "ảnh", "ảnh dán", "màn hình" — camera thì để trống */
   current = parsed;
   render(parsed);
-  beep();
+  if (!opt.quiet) beep();
 
   scanLog.unshift(parsed);
-  if (scanLog.length > 40) scanLog.length = 40;
+  /* Trước đây giữ 40 dòng. Giờ đọc được cả loạt ảnh một lúc -> 40 dòng là mất dữ liệu
+     trước khi kịp xuất CSV. Mỗi dòng chỉ vài trăm byte chữ, 500 dòng vẫn nhẹ. */
+  if (scanLog.length > 500) scanLog.length = 500;
   renderHistory();
 
   /* Không dừng quét. Giơ mã lên là đọc, không phải bấm gì.
      Cổng "mã đã rời khung" lo phần không đọc lặp khi thẻ nằm yên. */
-  flash(parsed.title || parsed.badge);
+  if (!opt.quiet) flash(parsed.title || parsed.badge);
 }
 
 function flash(text){
@@ -3585,7 +3705,7 @@ function render(p){
   const fe = $("r-fmt");
   if (p.fmt && p.fmt !== "qr_code"){ fe.hidden = false; fe.textContent = FMT_NAME[p.fmt] || p.fmt; }
   else fe.hidden = true;
-  $("r-time").textContent = p.at;
+  $("r-time").textContent = p.at + (p.src ? " · từ " + p.src : "");
   $("r-raw").textContent = p.raw;
 
   const box = $("r-fields");
@@ -3717,7 +3837,7 @@ function renderHistory(){
     if (p.badgeClass === "agri") d.style.borderLeftColor = "var(--agri)";
     const t = document.createElement("div"); t.className = "t";
     const b = document.createElement("b"); b.textContent = p.title || p.badge;
-    const s = document.createElement("span"); s.textContent = p.badge + " · " + p.at;
+    const s = document.createElement("span"); s.textContent = p.badge + " · " + p.at + (p.src ? " · " + p.src : "");
     t.appendChild(b); t.appendChild(s);
     if (firstIdx[p.raw || ""] !== i){
       const dup = document.createElement("span"); dup.className = "hist-dup"; dup.textContent = "trùng";
@@ -3826,6 +3946,267 @@ $("roi-slider").oninput = e => {
    ================================================================== */
 /* GHÉP APP: không tự xin quyền camera lúc tải trang nữa.
    Chỉ chạy khi người dùng bấm nút "Quét QR" -> mở Scanner bình thường không bị hỏi camera. */
+/* ==================================================================
+   NGUỒN KHÁC NGOÀI CAMERA: ảnh trong máy · ảnh dán · đọc màn hình (máy tính)
+   Cả ba dùng chung bộ đọc ảnh tĩnh của Scanner (window.__qrStill): ZXing đọc nhanh cả ảnh,
+   trượt thì OpenCV khoanh vùng mã theo 3 ô định vị + các công thức chữa bản photo.
+   Trình duyệt ĐIỆN THOẠI không cho trang web đọc màn hình (Chrome, Firefox, Safari đều chưa có
+   getDisplayMedia trên di động) -> nút "Quét màn hình" chỉ hiện ở nơi có hỗ trợ, tức máy tính.
+   ================================================================== */
+const nap = ms => new Promise(r => setTimeout(r, ms));
+const esc = v => String(v).replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isMac = /^Mac/i.test(navigator.platform || "") && !isPhone;
+const canScreen = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === "function");
+const canClip = !!(navigator.clipboard && typeof navigator.clipboard.read === "function");
+const srcStat = $("srcstat"), srcBar = document.querySelector("#qrScanUI .srcbar"), fileIn = $("sqr-file");
+const TIP_MISS = "Ảnh chụp màn hình: phóng to mã cho lớn rồi chụp lại. Ảnh khách gửi qua Zalo: " +
+                 "<b>lưu ảnh về máy</b> rồi chọn ảnh đó — nét hơn chụp màn hình nhiều.";
+
+function setSrcStat(html, cls){
+  if (!html){ srcStat.hidden = true; return; }
+  srcStat.hidden = false;
+  srcStat.className = "srcstat" + (cls ? " " + cls : "");
+  srcStat.innerHTML = html;
+}
+function shortName(n){
+  n = String(n || "ảnh");
+  if (/^image\.(png|jpe?g|webp|gif|bmp)$/i.test(n)) return "ảnh dán";     /* Chrome đặt tên ảnh dán là image.png */
+  return n.length > 30 ? n.slice(0, 14) + "…" + n.slice(-13) : n;
+}
+function setBusy(on){
+  stillBusy = on;
+  srcBar.classList.toggle("busy", on);
+  fileIn.disabled = on;
+}
+
+/* Tệp ảnh -> canvas (giữ tới 4000px: bản photo "rỗng ruột" chỉ đọc được ở độ nét cao) */
+async function blobToCanvas(blob){
+  let bmp = null, url = null, im = null;
+  try{
+    if (window.createImageBitmap){ try{ bmp = await createImageBitmap(blob); }catch(e){ bmp = null; } }
+    if (!bmp){
+      url = URL.createObjectURL(blob);
+      im = new Image();
+      await new Promise((res, rej) => { im.onload = res; im.onerror = rej; im.src = url; });
+    }
+    const w = bmp ? bmp.width : im.naturalWidth, h = bmp ? bmp.height : im.naturalHeight;
+    if (!w || !h) return null;
+    const k = Math.min(1, 4000 / Math.max(w, h));
+    const c = document.createElement("canvas");
+    c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+    c.getContext("2d").drawImage(bmp || im, 0, 0, c.width, c.height);
+    return c;
+  }catch(e){ return null; }
+  finally{
+    if (bmp && bmp.close) bmp.close();
+    if (url) URL.revokeObjectURL(url);
+  }
+}
+function jsqrWhole(c){
+  if (!hasJsQR) return null;
+  const d = c.getContext("2d").getImageData(0, 0, c.width, c.height);
+  return safeJsQR(d.data, d.width, d.height, "attemptBoth");
+}
+async function readOne(blob, opt){
+  const c = await blobToCanvas(blob);
+  if (!c) return { err: "open" };
+  try{
+    const r = typeof window.__qrStill === "function" ? await window.__qrStill(c, opt) : jsqrWhole(c);
+    return r && r.data ? { data: r.data } : { err: "noqr" };
+  }catch(e){ return { err: "noqr" }; }
+  finally{ c.width = 1; c.height = 1; }         /* trả bộ nhớ ngay (điện thoại) */
+}
+
+/* Đọc 1 hoặc nhiều ảnh. Mỗi mã đọc được vào thẳng Phiên làm việc (lọc trùng, xuất CSV như thường). */
+async function scanFiles(list, how){
+  const files = Array.from(list || []).filter(f => f && (/^image\//.test(f.type || "") ||
+                  /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif|tiff?)$/i.test(f.name || "")));
+  if (!files.length){ setSrcStat("Không có tệp ảnh nào để đọc.", "warn"); return; }
+  if (stillBusy){ toast("Đang đọc dở, chờ chút…"); return; }
+  setBusy(true);
+  const many = files.length > 1, miss = [], bad = [];
+  let ok = 0, last = null;
+  try{
+    for (let i = 0; i < files.length; i++){
+      const f = files[i], nm = f.name || ("ảnh " + (i + 1));
+      setSrcStat((many ? "Đang đọc ảnh " + (i + 1) + "/" + files.length : "Đang đọc ảnh") + ": <b>" + esc(shortName(nm)) + "</b>…");
+      await nap(30);                                  /* cho dòng trạng thái kịp hiện */
+      const r = await readOne(f, { hard: !many });    /* 1 ảnh thì trượt lượt thường sẽ quét kỹ thêm */
+      if (r.data){ ok++; onFound(r.data, "qr_code", { src: how, quiet: many }); last = current; }
+      else (r.err === "open" ? bad : miss).push(nm);
+    }
+  } finally {
+    setBusy(false);
+    fileIn.value = "";                                /* chọn lại đúng ảnh đó vẫn chạy */
+  }
+  let msg;
+  if (!many){
+    const nm = shortName(files[0].name);
+    if (ok) msg = "✓ Đã đọc mã từ <b>" + esc(nm) + "</b>.";
+    else if (bad.length) msg = "Không mở được <b>" + esc(nm) + "</b> — trình duyệt này không đọc được định dạng ảnh đó.";
+    else msg = "Không tìm thấy mã QR đọc được trong <b>" + esc(nm) + "</b>. " + TIP_MISS;
+  } else {
+    msg = "Đọc được <b>" + ok + "/" + files.length + "</b> ảnh.";
+    if (miss.length) msg += " Không thấy mã: " + miss.map(n => esc(shortName(n))).join(", ") + ".";
+    if (bad.length)  msg += " Không mở được: " + bad.map(n => esc(shortName(n))).join(", ") + ".";
+    if (miss.length) msg += " " + TIP_MISS;
+    if (ok){ beep(); if (last) flash(last.title || last.badge); }
+  }
+  setSrcStat(msg, ok === files.length ? "ok" : (ok ? "" : "warn"));
+  showOutcome();
+}
+/* Đọc xong: gấp lời chỉ dẫn (đã dùng được rồi) và cuộn tới dòng trạng thái — kết quả nằm ngay dưới */
+function showOutcome(){
+  $("srcnote").hidden = true;
+  /* trừ đúng chiều cao thanh xanh đang dính trên đỉnh (chữ to thì thanh cao hơn) */
+  const bar = document.querySelector("#qrScanUI .appbar"), hh = bar ? bar.getBoundingClientRect().height : 80;
+  const y = srcStat.getBoundingClientRect().top + window.scrollY - hh - 10;
+  try{ window.scrollTo({ top: Math.max(0, y), behavior: "smooth" }); }catch(e){ window.scrollTo(0, Math.max(0, y)); }
+}
+
+fileIn.addEventListener("change", () => { if (fileIn.files && fileIn.files.length) scanFiles(fileIn.files, "ảnh"); });
+$("btn-img").addEventListener("keydown", e => {
+  if (e.key === "Enter" || e.key === " "){ e.preventDefault(); if (!fileIn.disabled) fileIn.click(); }
+});
+
+/* ---- Dán ảnh: Ctrl+V ở bất kỳ đâu trong chế độ quét, hoặc nút "Dán ảnh" ---- */
+document.addEventListener("paste", e => {
+  if (!$("qrScanUI").classList.contains("on")) return;
+  const dt = e.clipboardData; if (!dt) return;
+  const files = [];
+  Array.from(dt.items || []).forEach(it => {
+    if (it.kind === "file" && /^image\//.test(it.type)){ const f = it.getAsFile(); if (f) files.push(f); }
+  });
+  if (!files.length) return;                    /* dán chữ vào ô nhập: để yên */
+  e.preventDefault();
+  scanFiles(files, "ảnh dán");
+});
+$("btn-paste").addEventListener("click", async () => {
+  const how = isMac ? "<b>⌘ + Ctrl + Shift + 4</b> khoanh vùng có mã" : "<b>Win + Shift + S</b> khoanh vùng có mã";
+  try{
+    const items = await navigator.clipboard.read();
+    const files = [];
+    for (const it of items){
+      const t = it.types.find(x => /^image\//.test(x));
+      if (t){ const b = await it.getType(t); files.push(new File([b], "image." + (t.split("/")[1] || "png"), { type: t })); }
+    }
+    if (!files.length){ setSrcStat("Bộ nhớ tạm chưa có ảnh. " + how + ", rồi bấm lại <b>Dán ảnh</b>.", "warn"); return; }
+    scanFiles(files, "ảnh dán");
+  }catch(e){
+    setSrcStat("Trình duyệt chưa cho đọc bộ nhớ tạm" + (e && e.name === "NotAllowedError" ? " (chưa cấp quyền)" : "") +
+               ". Bấm <b>" + (isMac ? "⌘" : "Ctrl") + " + V</b> ngay trên trang này cũng được.", "warn");
+  }
+});
+
+/* ---- Kéo thả ảnh vào chế độ quét (máy tính) ---- */
+(function(){
+  const qv = $("qrScanUI");
+  let depth = 0;
+  const hasFiles = e => !!(e.dataTransfer && Array.from(e.dataTransfer.types || []).indexOf("Files") >= 0);
+  qv.addEventListener("dragenter", e => { if (!hasFiles(e)) return; e.preventDefault(); depth++; qv.classList.add("drop"); });
+  qv.addEventListener("dragover",  e => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; });
+  qv.addEventListener("dragleave", () => { if (--depth <= 0){ depth = 0; qv.classList.remove("drop"); } });
+  qv.addEventListener("drop", e => {
+    if (!hasFiles(e)) return;
+    e.preventDefault(); depth = 0; qv.classList.remove("drop");
+    scanFiles(e.dataTransfer.files, "ảnh");
+  });
+})();
+
+/* ---- Đọc thẳng màn hình (máy tính): chọn cửa sổ / tab / cả màn hình, đọc được thì tự dừng ---- */
+let screenJob = null;
+$("btn-screen").addEventListener("click", () => {
+  if (screenJob) screenJob.stop("Đã dừng đọc màn hình.");
+  else scanScreen();
+});
+async function scanScreen(){
+  if (stillBusy){ toast("Đang đọc dở, chờ chút…"); return; }
+  let stream;
+  try{
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: { frameRate: { ideal: 4, max: 10 } }, audio: false,
+      selfBrowserSurface: "exclude", surfaceSwitching: "include"   /* bỏ chính tab này khỏi danh sách chọn */
+    });
+  }catch(e){
+    setSrcStat(e && e.name === "NotAllowedError" ? "Đã huỷ — không đọc màn hình."
+               : "Không mở được chế độ đọc màn hình: " + esc((e && e.message) || e), "warn");
+    return;
+  }
+  const track = stream.getVideoTracks()[0];
+  if (!track){ stream.getTracks().forEach(t => t.stop()); return; }
+  setBusy(true);
+  const btn = $("btn-screen"), lbl = btn.querySelector(".sl");
+  btn.classList.add("on"); lbl.textContent = "Dừng đọc";
+  const vid = document.createElement("video");
+  vid.muted = true; vid.playsInline = true; vid.srcObject = stream;
+  vid.style.cssText = "position:fixed;left:-10000px;top:0;width:4px;height:4px;opacity:0;pointer-events:none";
+  document.body.appendChild(vid);
+  try{ await vid.play(); }catch(e){}
+  /* ImageCapture lấy khung hình được cả khi tab này bị che (người dùng đang ở cửa sổ khác) */
+  let cap = null;
+  if (typeof window.ImageCapture === "function"){ try{ cap = new ImageCapture(track); }catch(e){ cap = null; } }
+  const job = { done: false };
+  screenJob = job;
+  job.stop = (msg, cls) => {
+    if (job.done) return;
+    job.done = true;
+    try{ stream.getTracks().forEach(t => t.stop()); }catch(e){}
+    try{ vid.pause(); vid.srcObject = null; vid.remove(); }catch(e){}
+    screenJob = null;
+    btn.classList.remove("on"); lbl.textContent = "Quét màn hình";
+    setBusy(false);
+    btn.disabled = false;
+    if (msg) setSrcStat(msg, cls || "");
+  };
+  track.addEventListener("ended", () => job.stop("Đã dừng chia sẻ màn hình."));
+  setSrcStat("🖥️ <b>Đang đọc màn hình</b> — chuyển sang cửa sổ có mã QR (ảnh nhỏ thì bấm mở to ra). " +
+             "Đọc được sẽ tự dừng; tối đa 60 giây.");
+  const c = document.createElement("canvas"), t0 = performance.now();
+  while (!job.done){
+    if (performance.now() - t0 > 60000){
+      job.stop("Hết 60 giây mà chưa thấy mã QR trên màn hình. Mở to mã rồi bấm <b>Quét màn hình</b> lại.", "warn");
+      break;
+    }
+    let frame = null, w = 0, h = 0;
+    if (cap){ try{ frame = await cap.grabFrame(); w = frame.width; h = frame.height; }catch(e){ frame = null; } }
+    if (!frame && vid.videoWidth){ frame = vid; w = vid.videoWidth; h = vid.videoHeight; }
+    if (frame && w && h && !job.done){
+      const k = Math.min(1, 2600 / Math.max(w, h));
+      c.width = Math.round(w * k); c.height = Math.round(h * k);
+      c.getContext("2d").drawImage(frame, 0, 0, c.width, c.height);
+      if (frame.close) frame.close();
+      let r = null;
+      try{ r = await window.__qrStill(c, { budget: 900 }); }catch(e){ r = null; }
+      if (job.done) break;
+      if (r && r.data){
+        job.stop("✓ Đã đọc mã QR trên màn hình. Bấm <b>Quét màn hình</b> để đọc mã khác.", "ok");
+        onFound(r.data, "qr_code", { src: "màn hình" });
+        showOutcome();
+        break;
+      }
+    }
+    await nap(400);
+  }
+  c.width = 1; c.height = 1;
+}
+
+/* ---- Hiện đúng nút theo máy, kèm lời chỉ dẫn ---- */
+(function(){
+  if (canScreen) $("btn-screen").hidden = false;
+  if (canClip && !isPhone) $("btn-paste").hidden = false;
+  const note = $("srcnote");
+  if (isPhone){
+    note.innerHTML = "📱 Mã đang hiện trên màn hình điện thoại? Trình duyệt không cho web tự đọc màn hình — " +
+      "<b>chụp màn hình</b> rồi bấm <b>Quét từ ảnh</b>. Ảnh qua Zalo: <b>lưu về máy</b> rồi chọn (nét hơn).";
+  } else {
+    const snip = isMac ? "<b>⌘ + Ctrl + Shift + 4</b> khoanh vùng có mã rồi <b>⌘ + V</b>"
+                       : "<b>Win + Shift + S</b> khoanh vùng có mã rồi <b>Ctrl + V</b>";
+    note.innerHTML = "🖥️ " + (canScreen ? "<b>Quét màn hình</b> rồi chọn cửa sổ có mã; hoặc " : "") +
+      snip + " vào trang này; hoặc kéo thả ảnh vào đây. Chọn được nhiều ảnh một lượt.";
+  }
+})();
+
 let qrBooted = false;
 window.__qrBoot = async function(){
   if (qrBooted) { window.__qrResume(); return; }
@@ -3836,7 +4217,9 @@ window.__qrBoot = async function(){
     s.getTracks().forEach(t=>t.stop());
     getCameras();
   }catch(err){
-    scanIndicator.textContent = "Trình duyệt chặn camera. Cấp quyền rồi tải lại trang.";
+    const noCam = err && /NotFound|DevicesNotFound|Overconstrained/.test(err.name || "");
+    scanIndicator.textContent = noCam ? "Máy này không có camera — dùng các nút đọc ảnh bên dưới"
+                                      : "Trình duyệt chặn camera — cấp quyền rồi tải lại trang, hoặc đọc từ ảnh bên dưới";
   }
 };
 window.__qrResume = function(){
