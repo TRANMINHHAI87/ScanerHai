@@ -1913,6 +1913,7 @@
                     </div>
                     <label class="t-chk"><input type="checkbox" id="tXTab"> <span><b>Chỉ lấy bảng</b><small>Bỏ tiêu đề, chữ nằm ngoài bảng</small></span></label>
                 </div>
+                <label class="t-chk t-ocr" id="tOcrRow" hidden><input type="checkbox" id="tOcr" checked> <span><b>Nhận dạng chữ trên trang ảnh scan (OCR)</b><small>Đọc chữ tiếng Việt ra văn bản sửa được · con dấu, chữ ký, hình giữ nguyên là ảnh · chạy ngay trên máy, không gửi tệp đi đâu</small></span></label>
                 <label class="t-name"><span>Tên tệp</span><span class="t-inp"><input id="tConvName" autocomplete="off" spellcheck="false"><em id="tConvExt">.docx</em></span></label>
                 <button type="button" class="t-go" id="tConvGo">📝 CHUYỂN SANG WORD</button>
             </div>
@@ -9145,6 +9146,12 @@ window.PdfConv = (function () {
             if (w < 18 || h < 18) continue;
             blocks.push({ type: 'image', x0: Math.max(0, im.x0), x1: Math.min(pg.W, im.x1), top: Math.max(0, im.y0), bot: Math.min(pg.H, im.y1), img: im });
         }
+        // 4b) v16: ảnh tách ra từ trang ảnh scan đã nhận dạng chữ
+        const floats = [];
+        for (const im of pg.ocrImages || []) {
+            const b = { type: 'image', x0: im.x0, x1: im.x1, top: im.y0, bot: im.y1, canvas: im.canvas, kind: im.kind, png: im.kind !== 'image' };
+            if (im.float) floats.push(b); else blocks.push(b);
+        }
         blocks.sort((a, b) => a.top - b.top || a.x0 - b.x0);
         // 5) các dòng lẻ liền nhau cùng một tâm nhưng lệch khỏi giữa trang (khối chữ ký, quốc hiệu đặt bên phải…) -> căn giữa quanh tâm đó
         for (let i = 0; i < blocks.length;) {
@@ -9153,14 +9160,15 @@ window.PdfConv = (function () {
             const c = (b.x0 + b.x1) / 2; let j = i + 1;
             while (j < blocks.length && blocks[j].type === 'para' && blocks[j].lines === 1 && Math.abs((blocks[j].x0 + blocks[j].x1) / 2 - c) < 2.5 && blocks[j].top - blocks[j - 1].bot < 3 * b.fs) j++;
             const grp = blocks.slice(i, j), ws = grp.map(x => x.x1 - x.x0);
-            if (grp.length >= 2 && Math.max(...ws) - Math.min(...ws) > 3) grp.forEach(x => { x.align = 'center'; x.indFirst = 0; x.indL = Math.max(0, 2 * c - L - R); x.indR = Math.max(0, L + R - 2 * c); x.chunks = null; });
+            const xs0 = grp.map(x => x.x0);
+            if (grp.length >= 2 && Math.max(...ws) - Math.min(...ws) > 3 && Math.max(...xs0) - Math.min(...xs0) > 1.5) grp.forEach(x => { x.align = 'center'; x.indFirst = 0; x.indL = Math.max(0, 2 * c - L - R); x.indR = Math.max(0, L + R - 2 * c); x.chunks = null; });
             i = Math.max(j, i + 1);
         }
         // khoảng cách phía trên mỗi khối (để giữ nhịp dọc giống bản gốc)
         let prevBot = null;
         blocks.forEach(b => { b.gapBefore = prevBot == null ? 0 : Math.max(0, b.top - prevBot); prevBot = Math.max(prevBot == null ? -Infinity : prevBot, b.bot); });
         const contentTop = blocks.length ? Math.min(...blocks.map(b => b.top)) : 72, contentBot = blocks.length ? Math.max(...blocks.map(b => b.bot)) : pg.H - 72;
-        return { blocks, L, R, T: contentTop, B: contentBot };
+        return { blocks, L, R, T: contentTop, B: contentBot, floats };
     }
     const LIST_RE = /^(\(?\d{1,3}[.)]|\(?[a-zđ][.)]|[-–—•+*●○■□▪➢✓►]|[IVXLC]{1,6}[.)]|(Điều|Chương|Mục|Phần|Khoản|Bước)\s+\d+[.:]?)(\s|$)/iu;
     function percentile(a, p, d) { if (!a.length) return d; a = a.slice().sort((x, y) => x - y); return a[Math.min(a.length - 1, Math.floor(a.length * p))]; }
@@ -9244,8 +9252,8 @@ window.PdfConv = (function () {
             return true;
         } catch (e) { return false; }
     }
-    async function imageBytes(c) {
-        const png = fewColors(c) && c.width * c.height < 4e6;
+    async function imageBytes(c, forcePng) {
+        const png = forcePng || (fewColors(c) && c.width * c.height < 4e6);
         const b = await canvasBlob(c, png ? 'image/png' : 'image/jpeg', png ? undefined : 0.88);
         return { bytes: await blobBytes(b), ext: png ? 'png' : 'jpeg', w: c.width, h: c.height };
     }
@@ -9275,7 +9283,7 @@ window.PdfConv = (function () {
         const mul = b.lines > 1 && b.lineH ? b.lineH / (1.15 * b.fs) : 1;
         const sp = '<w:spacing w:before="' + Math.round(before * PT) + '" w:after="0"' + (mul > 1.08 ? ' w:line="' + Math.round(clamp(mul, 1, 3) * 240) + '" w:lineRule="auto"' : '') + '/>';
         const il = Math.round((b.indL || 0) * PT), ir = Math.round((b.indR || 0) * PT), f1 = Math.round((b.indFirst || 0) * PT);
-        if (il > 40 || ir > 40 || Math.abs(f1) > 40) ind = '<w:ind w:left="' + Math.max(0, il) + '" w:right="' + Math.max(0, ir) + '"' + (f1 > 40 ? ' w:firstLine="' + f1 + '"' : f1 < -40 ? ' w:hanging="' + (-f1) + '"' : '') + '/>';
+        if (Math.abs(il) > 40 || Math.abs(ir) > 40 || Math.abs(f1) > 40) ind = '<w:ind w:left="' + il + '" w:right="' + ir + '"' + (f1 > 40 ? ' w:firstLine="' + f1 + '"' : f1 < -40 ? ' w:hanging="' + (-f1) + '"' : '') + '/>';
         if (b.align && b.align !== 'left') jc = '<w:jc w:val="' + b.align + '"/>';
         return '<w:p><w:pPr>' + tabs + sp + ind + jc + '</w:pPr>' + b.runs.map(r => runXml(r, defFs)).join('') + '</w:p>';
     }
@@ -9286,7 +9294,7 @@ window.PdfConv = (function () {
         if (!paras || !paras.length) return '<w:p><w:pPr><w:spacing w:before="0" w:after="0"/>' + jc + '</w:pPr></w:p>';
         return paras.map(p => '<w:p><w:pPr><w:spacing w:before="0" w:after="0"/>' + jc + '</w:pPr>' + p.runs.map(r => runXml(Object.assign({ fs }, r), defFs)).join('') + '</w:p>').join('');
     }
-    function tableXml(t, defFs, L) {
+    function tableXml(t, defFs, L, Rm) {
         let colsW, rows = [], ind, mar;
         if (t.ruled) {
             colsW = []; for (let c = 0; c < t.C; c++) colsW.push(Math.max(1, Math.round((t.xs[c + 1] - t.xs[c]) * PT)));
@@ -9305,12 +9313,12 @@ window.PdfConv = (function () {
             }
         } else {
             // ranh giới cột = giữa khe trống giữa 2 cột; chữ đặt đúng chỗ cũ nhờ lề trong từng ô
-            const bs = t.bands, C = t.C, E = [bs[0][0]];
+            const bs = t.bands, C = t.C, E = [Math.min(bs[0][0], Math.max(L, bs[0][0] - 36))];
             for (let k = 1; k < C; k++) E.push((bs[k - 1][1] + bs[k][0]) / 2);
-            E.push(bs[C - 1][1] + 3);
+            E.push(Rm ? Math.max(bs[C - 1][1] + 3, Math.min(Rm, bs[C - 1][1] + 36)) : bs[C - 1][1] + 3);
             colsW = E.slice(1).map((e, k) => Math.max(1, Math.round((e - E[k]) * PT)));
             ind = E[0] - L; mar = 0;
-            rows = t.rows.map(row => '<w:tr>' + row.cells.map((c, k) => {
+            rows = t.rows.map((row, ri) => '<w:tr>' + (t.rows[ri + 1] && t.rows[ri + 1].top > row.top ? '<w:trPr><w:trHeight w:val="' + Math.round((t.rows[ri + 1].top - row.top) * PT) + '" w:hRule="atLeast"/></w:trPr>' : '') + row.cells.map((c, k) => {
                 const al = c ? c.align : 'left', b = bs[k];
                 let ml = 0, mr = 0;
                 if (al === 'left') ml = b[0] - E[k];
@@ -9335,6 +9343,21 @@ window.PdfConv = (function () {
             '<pic:blipFill><a:blip r:embed="' + rid + '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + cx + '" cy="' + cy + '"/></a:xfrm>' +
             '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>';
     }
+    function graphicXml(rid, idn, cx, cy, name) {
+        return '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">' +
+            '<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="' + idn + '" name="' + xe(name) + '"/><pic:cNvPicPr/></pic:nvPicPr>' +
+            '<pic:blipFill><a:blip r:embed="' + rid + '"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="' + cx + '" cy="' + cy + '"/></a:xfrm>' +
+            '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic>';
+    }
+    function anchorXml(rid, idn, wPt, hPt, xPt, yPt, relV, name) {
+        const cx = Math.round(wPt * EMU), cy = Math.round(hPt * EMU);
+        return '<w:r><w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0" relativeHeight="' + (251659264 + idn) + '" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">' +
+            '<wp:simplePos x="0" y="0"/><wp:positionH relativeFrom="page"><wp:posOffset>' + Math.round(xPt * EMU) + '</wp:posOffset></wp:positionH>' +
+            '<wp:positionV relativeFrom="' + relV + '"><wp:posOffset>' + Math.round(yPt * EMU) + '</wp:posOffset></wp:positionV>' +
+            '<wp:extent cx="' + cx + '" cy="' + cy + '"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/><wp:docPr id="' + idn + '" name="' + xe(name) + '"/>' +
+            '<wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>' +
+            graphicXml(rid, idn, cx, cy, name) + '</wp:anchor></w:drawing></w:r>';
+    }
     function pageMargins(pg, lay) {
         const ml = clamp(lay.L, 14, pg.W * 0.45), mr = clamp(pg.W - lay.R - 3, 14, pg.W * 0.45);
         const mt = clamp(lay.T - 3, 14, 110), mb = clamp(pg.H - lay.B - 6, 14, 110);
@@ -9349,7 +9372,20 @@ window.PdfConv = (function () {
     async function buildDocx(model, opt, prog) {
         opt = Object.assign({ images: true, title: 'Tài liệu' }, opt || {});
         const media = [], rels = [];
-        let body = '', idn = 1, allFs = [], stats = { paras: 0, tables: 0, images: 0, scanned: [], garbled: [] };
+        let body = '', idn = 1, allFs = [], stats = { paras: 0, tables: 0, images: 0, scanned: [], garbled: [], ocr: model.pages.filter(p => p.ocr).map(p => p.n), floats: 0 };
+        // ảnh (canvas) -> tệp trong word/media, trả về rid
+        const addMedia = async (c, png) => {
+            const im = await imageBytes(c, png), n = media.length + 1, rid = 'rIdImg' + n, nm = 'image' + n + '.' + im.ext;
+            media.push({ name: 'word/media/' + nm, data: im.bytes, store: true });
+            rels.push('<Relationship Id="' + rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + nm + '"/>');
+            return { rid, n };
+        };
+        const fitCanvas = (c, wPt, dpiMax) => {               // ảnh quá nét so với chỗ đặt -> thu nhỏ (tệp Word gọn); trả về canvas MỚI hoặc chính nó
+            const maxPx = Math.round(wPt / 72 * dpiMax);
+            if (c.width <= maxPx * 1.2) return c;
+            const s2 = maxPx / c.width, d = document.createElement('canvas'); d.width = Math.max(1, Math.round(c.width * s2)); d.height = Math.max(1, Math.round(c.height * s2));
+            const x = d.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(c, 0, 0, d.width, d.height); return d;
+        };
         model.pages.forEach(pg => pg.spans.forEach(s => allFs.push(Math.round(s.fs * 2) / 2)));
         allFs.sort((a, b) => a - b);
         const defFs = allFs.length ? allFs[allFs.length >> 1] : 12;
@@ -9360,29 +9396,59 @@ window.PdfConv = (function () {
             const pg = model.pages[k];
             if (prog) prog(k + 1, model.pages.length);
             const lay = layoutPage(pg, marginsOf(pg)), M = pageMargins(pg, lay);
+            if (pg.ocr) M.mb = Math.min(M.mb, 20);
             if (pg.scanned) stats.scanned.push(pg.n);
             if (pg.garbled) stats.garbled.push(pg.n);
             let page = null, first = true;
             const W = pg.W - M.ml - M.mr;
+            // v16: ảnh nổi (con dấu, chữ ký, logo…) neo vào đoạn văn gần nhất phía trên nó
+            const anch = new Map(), paras = lay.blocks.filter(b => b.type === 'para');
+            if (opt.images) for (const f of lay.floats || []) {
+                let host = null; for (const b of paras) if (b.top <= f.top + 2) host = b;
+                if (!host) host = paras[0] || null;
+                if (!anch.has(host)) anch.set(host, []); anch.get(host).push(f);
+            }
+            const anchorsOf = async host => {
+                let x = '';
+                for (const f of anch.get(host) || []) {
+                    try {
+                        const wPt = f.x1 - f.x0, hPt = f.bot - f.top, c = fitCanvas(f.canvas, wPt, 250), m = await addMedia(c, f.png);
+                        if (c !== f.canvas) freeC(c);
+                        x += anchorXml(m.rid, idn++, wPt, hPt, f.x0, f.top, 'page', (f.kind === 'stamp' ? 'Con dấu ' : f.kind === 'line' ? 'Đường kẻ ' : 'Ảnh ') + m.n);
+                        stats.images++; stats.floats++;
+                    } catch (e) { console.warn('ảnh nổi Word', e); }
+                }
+                return x;
+            };
+            if (anch.has(null)) body += '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="20" w:lineRule="exact"/><w:rPr><w:sz w:val="2"/></w:rPr></w:pPr>' + await anchorsOf(null) + '</w:p>';
             for (const b of lay.blocks) {
                 if (first) { b.gapBefore = Math.max(0, b.top - M.mt); first = false; }
-                if (b.type === 'para') { body += paraXml(b, defFs, M.ml, pg.W - M.mr); stats.paras++; }
+                if (b.type === 'para') {
+                    if (pg.ocr && b.lines === 1) {
+                        const need = b.x1 + 0.6 * b.fs - (pg.W - M.mr);
+                        if (need > 0) { if (b.align === 'center') { b.indL = (b.indL || 0) - need; b.indR = (b.indR || 0) - need; } else b.indR = Math.min(b.indR || 0, -need); }
+                    }
+                    let px = paraXml(b, defFs, M.ml, pg.W - M.mr);
+                    if (anch.has(b)) { const ax = await anchorsOf(b), k = px.indexOf('</w:pPr>') + 8; px = px.slice(0, k) + ax + px.slice(k); }
+                    body += px; stats.paras++;
+                }
                 else if (b.type === 'table') {
                     if (b.gapBefore > 4) body += '<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="' + Math.round(clamp(b.gapBefore - 2, 2, 72) * PT) + '" w:lineRule="exact"/><w:rPr><w:sz w:val="2"/></w:rPr></w:pPr></w:p>';
-                    body += tableXml(b, defFs, M.ml); stats.tables++;
+                    body += tableXml(b, defFs, M.ml, pg.W - M.mr); stats.tables++;
                 } else if (b.type === 'image' && opt.images) {
                     try {
-                        if (!page) { page = await model.pdf.getPage(pg.n); await page.getOperatorList(); }
-                        let c = await imageFromObjs(page, b.img);
-                        if (!c) c = await renderRegion(page, b, 200);
+                        let c = b.canvas || null;                   // v16: ảnh đã tách sẵn từ trang scan (giữ lại để chuyển lần sau)
+                        if (!c) {
+                            if (!page) { page = await model.pdf.getPage(pg.n); await page.getOperatorList(); }
+                            c = await imageFromObjs(page, b.img);
+                            if (!c) c = await renderRegion(page, b, 200);
+                        }
                         if (!c) continue;
                         // ảnh quá nét so với chỗ đặt trong trang: thu về ~220 dpi cho tệp Word gọn
-                        const wPt = b.x1 - b.x0, hPt = b.bot - b.top, maxPx = Math.round(wPt / 72 * 220);
-                        if (c.width > maxPx * 1.2) { const s2 = maxPx / c.width, d = document.createElement('canvas'); d.width = Math.max(1, Math.round(c.width * s2)); d.height = Math.max(1, Math.round(c.height * s2)); const x = d.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(c, 0, 0, d.width, d.height); freeC(c); c = d; }
-                        const im = await imageBytes(c); freeC(c);
-                        const n = media.length + 1, rid = 'rIdImg' + n, nm = 'image' + n + '.' + im.ext;
-                        media.push({ name: 'word/media/' + nm, data: im.bytes, store: true });
-                        rels.push('<Relationship Id="' + rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/' + nm + '"/>');
+                        const wPt = b.x1 - b.x0, hPt = b.bot - b.top, c2 = fitCanvas(c, wPt, 220);
+                        if (c2 !== c && c !== b.canvas) freeC(c);
+                        const { rid, n } = await addMedia(c2, b.png);
+                        if (c2 !== b.canvas) freeC(c2);
                         const w = Math.min(wPt, W), h = hPt * (w / wPt), ind = Math.max(0, Math.min(b.x0 - M.ml, W - w));
                         body += '<w:p><w:pPr><w:spacing w:before="' + Math.round(clamp(b.gapBefore || 0, 0, 72) * PT) + '" w:after="0" w:line="240" w:lineRule="auto"/>' +
                             (ind > 2 ? '<w:ind w:left="' + Math.round(ind * PT) + '"/>' : '') + '</w:pPr>' + imageXml(rid, idn++, w, h, 'Ảnh ' + n) + '</w:p>';
@@ -9435,7 +9501,7 @@ window.PdfConv = (function () {
         let h = '';
         model.pages.slice(0, maxPages).forEach(pg => {
             const lay = layoutPage(pg, marginsOf(pg)), W = Math.max(1, lay.R - lay.L), pc = v => (clamp(v / W, 0, 0.9) * 100).toFixed(1) + '%';
-            h += '<div class="pv-page"><div class="pv-pno">Trang ' + pg.n + '</div>';
+            h += '<div class="pv-page"><div class="pv-pno">Trang ' + pg.n + (pg.ocr ? ' · chữ nhận dạng từ ảnh scan (OCR)' : '') + '</div>';
             for (const b of lay.blocks) {
                 if (b.type === 'para') {
                     const al = { both: 'justify', center: 'center', right: 'right' }[b.align] || 'left';
@@ -9459,6 +9525,8 @@ window.PdfConv = (function () {
                     h += '</table>';
                 } else if (b.type === 'image') h += '<div class="pv-img">🖼️ ' + (pg.scanned ? 'Ảnh scan cả trang (không có chữ thật)' : 'Ảnh') + '</div>';
             }
+            const fl = (lay.floats || []).length;
+            if (fl) h += '<div class="pv-img">🖼️ ' + fl + ' ảnh đặt nổi đúng chỗ (con dấu, chữ ký, logo, đường kẻ…)</div>';
             h += '</div>';
         });
         if (model.pages.length > maxPages) h += '<p class="pv-more">… còn ' + (model.pages.length - maxPages) + ' trang nữa trong tệp Word</p>';
@@ -10007,6 +10075,959 @@ window.PdfConv = (function () {
     }
 
     return { _dbg: { buildLines, alignedTables, findBands }, compress, LEVELS, analyze, layoutPage, previewHtml, buildDocx, buildXlsx, typeCell, detectNumFmt, tcvn3, looksTcvn, zip, jpegStrip, pngUnpredict };
+})();
+</script>
+<script>
+// ======================= v16: NHẬN DẠNG CHỮ (OCR) — PHẦN XỬ LÝ ẢNH + BỐ CỤC (thuần JavaScript) =======================
+// Dùng chung cho trình duyệt (window.OcrCore) và Node (để chạy thử). Không phụ thuộc OpenCV / canvas.
+// Toạ độ ảnh tính bằng điểm ảnh (px) của ảnh trang ~300 dpi; chuyển sang pt (1/72 inch) ở bước cuối (toSpans).
+(function (root) {
+    'use strict';
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const median = a => { if (!a.length) return 0; const b = Float64Array.from(a).sort(); return b[b.length >> 1]; };
+
+    // ---------------- ảnh xám, nhị phân ----------------
+    function grayOf(rgba, W, H) {
+        const g = new Uint8Array(W * H);
+        for (let i = 0, j = 0; i < g.length; i++, j += 4) g[i] = (rgba[j] * 77 + rgba[j + 1] * 150 + rgba[j + 2] * 29) >> 8;
+        return g;
+    }
+    // ngưỡng thích nghi theo vùng (trung bình cửa sổ ~1/50 trang): bóng đổ, giấy ngả màu không làm mất chữ, không sinh nhiễu nền
+    function binarize(g, W, H) {
+        const r = Math.max(12, Math.round(Math.min(W, H) / 50)), I = new Uint32Array((W + 1) * (H + 1));
+        for (let y = 0; y < H; y++) {
+            let s = 0; const o = (y + 1) * (W + 1), p = y * (W + 1);
+            for (let x = 0; x < W; x++) { s += g[y * W + x]; I[o + x + 1] = I[p + x + 1] + s; }
+        }
+        // nền giấy: mức sáng thường gặp nhất -> chữ phải tối hơn nền đủ xa
+        const hist = new Uint32Array(256); for (let i = 0; i < g.length; i += 7) hist[g[i]]++;
+        let paper = 255, best = 0; for (let v = 120; v < 256; v++) if (hist[v] > best) { best = hist[v]; paper = v; }
+        const b = new Uint8Array(W * H);
+        for (let y = 0; y < H; y++) {
+            const y0 = Math.max(0, y - r), y1 = Math.min(H, y + r + 1);
+            for (let x = 0; x < W; x++) {
+                const x0 = Math.max(0, x - r), x1 = Math.min(W, x + r + 1);
+                const n = (y1 - y0) * (x1 - x0), s = I[y1 * (W + 1) + x1] - I[y0 * (W + 1) + x1] - I[y1 * (W + 1) + x0] + I[y0 * (W + 1) + x0];
+                const v = g[y * W + x], m = s / n;
+                if (v < m - Math.max(12, 0.1 * m) && v < paper - 40) b[y * W + x] = 1;
+            }
+        }
+        return { bin: b, paper };
+    }
+    // ---------------- độ nghiêng của trang (ảnh chụp / scan lệch) ----------------
+    function skewAngle(bin, W, H) {
+        // lấy mẫu MỌI hàng (lấy hàng cách hàng thì ở góc 0° các điểm dồn vào hàng chẵn -> điểm số ảo gấp đôi), cột cách 3
+        const xs = [], ys = [];
+        for (let y = 0; y < H; y++) for (let x = (y % 3); x < W; x += 3) if (bin[y * W + x]) { xs.push(x); ys.push(y); }
+        let n = xs.length; if (n < 500) return 0;
+        const keep = Math.max(1, Math.floor(n / 80000));
+        const X = [], Y = []; for (let i = 0; i < n; i += keep) { X.push(xs[i] - W / 2); Y.push(ys[i]); }
+        n = X.length;
+        const hist = new Int32Array(H * 2 + 8);
+        const score = a => {
+            const t = Math.tan(a * Math.PI / 180); hist.fill(0);
+            for (let i = 0; i < n; i++) { const r = Math.round((Y[i] - X[i] * t) / 2) + 4; if (r >= 0 && r < hist.length) hist[r]++; }
+            let s = 0; for (let i = 0; i < hist.length; i++) s += hist[i] * hist[i];
+            return s;
+        };
+        let best = 0, bs = -1;
+        for (let a = -5; a <= 5.001; a += 0.1) { const s = score(a); if (s > bs) { bs = s; best = a; } }
+        for (let a = best - 0.1; a <= best + 0.1001; a += 0.02) { const s = score(a); if (s > bs) { bs = s; best = a; } }
+        return Math.round(best * 100) / 100;
+    }
+    // ---------------- màu: mực đỏ (con dấu) ----------------
+    function redMask(rgba, W, H) {
+        const m = new Uint8Array(W * H);
+        for (let i = 0, j = 0; i < m.length; i++, j += 4) { const r = rgba[j], g = rgba[j + 1], b = rgba[j + 2]; if (r > 110 && r - g > 45 && r - b > 35 && r > 1.35 * g) m[i] = 1; }
+        return m;
+    }
+    // thu nhỏ mặt nạ k lần (ô k×k có điểm nào bật -> bật)
+    function shrink(m, W, H, k) {
+        const w = Math.ceil(W / k), h = Math.ceil(H / k), o = new Uint8Array(w * h);
+        for (let y = 0; y < H; y++) { const r = (y / k | 0) * w; for (let x = 0; x < W; x++) if (m[y * W + x]) o[r + (x / k | 0)] = 1; }
+        return { m: o, w, h };
+    }
+    function dilate(m, w, h, r) {
+        const t = new Uint8Array(w * h), o = new Uint8Array(w * h);
+        for (let y = 0; y < h; y++) { let last = -1e9; for (let x = 0; x < w; x++) if (m[y * w + x]) last = x; else if (x - last <= r) t[y * w + x] = 1; for (let x = w - 1, nx = 1e9; x >= 0; x--) { if (m[y * w + x]) { nx = x; t[y * w + x] = 1; } else if (nx - x <= r) t[y * w + x] = 1; } }
+        for (let x = 0; x < w; x++) { let last = -1e9; for (let y = 0; y < h; y++) if (t[y * w + x]) last = y; else if (y - last <= r) o[y * w + x] = 1; for (let y = h - 1, ny = 1e9; y >= 0; y--) { if (t[y * w + x]) { ny = y; o[y * w + x] = 1; } else if (ny - y <= r) o[y * w + x] = 1; } }
+        return o;
+    }
+    // thành phần liên thông (4 hướng): khung bao + số điểm
+    function components(m, w, h) {
+        const lab = new Int32Array(w * h), out = [], st = new Int32Array(w * h);
+        let id = 0;
+        for (let i = 0; i < m.length; i++) {
+            if (!m[i] || lab[i]) continue;
+            id++; let sp = 0; st[sp++] = i; lab[i] = id;
+            const c = { x0: 1e9, y0: 1e9, x1: -1, y1: -1, n: 0 };
+            while (sp) {
+                const p = st[--sp], x = p % w, y = (p / w) | 0; c.n++;
+                if (x < c.x0) c.x0 = x; if (x > c.x1) c.x1 = x; if (y < c.y0) c.y0 = y; if (y > c.y1) c.y1 = y;
+                if (x > 0 && m[p - 1] && !lab[p - 1]) { lab[p - 1] = id; st[sp++] = p - 1; }
+                if (x < w - 1 && m[p + 1] && !lab[p + 1]) { lab[p + 1] = id; st[sp++] = p + 1; }
+                if (y > 0 && m[p - w] && !lab[p - w]) { lab[p - w] = id; st[sp++] = p - w; }
+                if (y < h - 1 && m[p + w] && !lab[p + w]) { lab[p + w] = id; st[sp++] = p + w; }
+            }
+            out.push(c);
+        }
+        return out;
+    }
+    // con dấu: vùng mực đỏ đủ to (≥ ~1 cm)
+    function stampBoxes(red, W, H, dpi) {
+        const k = 4, s = shrink(red, W, H, k), d = dilate(s.m, s.w, s.h, 3), min = 0.38 * dpi / k;
+        return components(d, s.w, s.h).filter(c => c.x1 - c.x0 >= min && c.y1 - c.y0 >= min)
+            .map(c => ({ x0: c.x0 * k, y0: c.y0 * k, x1: Math.min(W, (c.x1 + 1) * k), y1: Math.min(H, (c.y1 + 1) * k) }));
+    }
+    // ---------------- nét kẻ (bảng, gạch chân) ----------------
+    function findRules(bin, W, H, dpi) {
+        const out = { H: [], V: [] }, maxTh = Math.round(0.035 * dpi), gapOk = 2;
+        const run = (get, len, lines, minLen) => {                  // các đoạn mực liền (cho phép đứt ≤ 2 px) dài ≥ minLen trên từng hàng / cột
+            const segs = [];
+            for (let a = 0; a < lines; a++) {
+                let s = -1, lastInk = -1;
+                for (let b = 0; b <= len; b++) {
+                    const on = b < len && get(a, b);
+                    if (on) { if (s < 0) s = b; lastInk = b; }
+                    else if (s >= 0 && b - lastInk > gapOk) { if (lastInk - s + 1 >= minLen) segs.push([a, s, lastInk]); s = -1; }
+                }
+            }
+            // gộp các hàng kề nhau chồng lên nhau = 1 nét dày vài px
+            segs.sort((p, q) => p[1] - q[1] || p[0] - q[0]);
+            const used = new Uint8Array(segs.length), res = [];
+            const byRow = new Map(); segs.forEach((g, i) => { if (!byRow.has(g[0])) byRow.set(g[0], []); byRow.get(g[0]).push(i); });
+            for (let i = 0; i < segs.length; i++) {
+                if (used[i]) continue;
+                used[i] = 1; const L = { a0: segs[i][0], a1: segs[i][0], b0: segs[i][1], b1: segs[i][2], n: 1, sa: segs[i][0] };
+                let grew = true;
+                while (grew) {
+                    grew = false;
+                    for (let a = L.a0 - 2; a <= L.a1 + 2; a++) {
+                        const ids = byRow.get(a); if (!ids) continue;
+                        for (const j of ids) {
+                            if (used[j]) continue; const g = segs[j];
+                            if (g[1] <= L.b1 + 6 && g[2] >= L.b0 - 6) { used[j] = 1; L.a0 = Math.min(L.a0, a); L.a1 = Math.max(L.a1, a); L.b0 = Math.min(L.b0, g[1]); L.b1 = Math.max(L.b1, g[2]); L.n++; L.sa += a; grew = true; }
+                        }
+                    }
+                }
+                if (L.a1 - L.a0 + 1 <= maxTh) res.push({ at: L.sa / L.n, b0: L.b0, b1: L.b1, th: L.a1 - L.a0 + 1 });
+            }
+            return res;
+        };
+        out.H = run((y, x) => bin[y * W + x], W, H, Math.max(Math.round(0.28 * dpi), Math.round(W / 32))).map(l => ({ y: l.at, x0: l.b0, x1: l.b1, th: l.th }));
+        out.V = run((x, y) => bin[y * W + x], H, W, Math.max(Math.round(0.22 * dpi), Math.round(H / 48))).map(l => ({ x: l.at, y0: l.b0, y1: l.b1, th: l.th }));
+        // nét nào cắt / chạm nét vuông góc = thuộc bảng; còn lại là gạch trang trí (dưới quốc hiệu, tên cơ quan…)
+        const T = Math.round(0.03 * dpi);
+        out.H.forEach(h => { h.grid = out.V.some(v => v.x >= h.x0 - T && v.x <= h.x1 + T && h.y >= v.y0 - T && h.y <= v.y1 + T); });
+        out.V.forEach(v => { v.grid = out.H.some(h => v.x >= h.x0 - T && v.x <= h.x1 + T && h.y >= v.y0 - T && h.y <= v.y1 + T); });
+        return out;
+    }
+    // ---------------- ảnh trang -> ảnh PGM (P5) gửi cho Tesseract ----------------
+    function pgm(g, W, H) {
+        const head = new TextEncoder().encode('P5\n' + W + ' ' + H + '\n255\n'), o = new Uint8Array(head.length + g.length);
+        o.set(head, 0); o.set(g, head.length); return o;
+    }
+
+    // ---------------- kết quả Tesseract (JSON) -> dòng / từ ----------------
+    // sym: [chữ, độ tin, [chữ thay thế, độ tin, …], …] theo đúng thứ tự ký tự trong JSON (để sửa dấu)
+    function parseResult(json, sym) {
+        const J = typeof json === 'string' ? JSON.parse(json) : json, lines = [];
+        let si = 0, ok = Array.isArray(sym) && sym.length > 0, para = 0, blk = 0;
+        for (const b of J.blocks || []) {
+            blk++;
+            for (const p of b.paragraphs || []) {
+                para++;
+                for (const l of p.lines || []) {
+                    const L = { words: [], box: l.bbox, base: l.baseline, row: l.rowAttributes || {}, conf: l.confidence, para, blk, btype: b.blocktype };
+                    for (const w of l.words || []) {
+                        const W = { t: (w.text || '').normalize('NFC'), conf: w.confidence, x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1, ch: null,
+                            sb: (w.symbols || []).map(q => ({ t: q.text, x0: q.bbox.x0, x1: q.bbox.x1 })) };
+                        if (ok) {
+                            const ch = [];
+                            for (const s of w.symbols || []) {
+                                if (si + 2 >= sym.length || sym[si] !== s.text) { ok = false; break; }
+                                ch.push({ t: sym[si], c: sym[si + 1], alt: sym[si + 2] }); si += 3;
+                            }
+                            if (ok) W.ch = ch;
+                        }
+                        if (W.t.trim()) L.words.push(W);
+                    }
+                    if (L.words.length) lines.push(L);
+                }
+            }
+        }
+        if (!ok) lines.forEach(l => l.words.forEach(w => { w.ch = null; }));
+        return lines;
+    }
+    // 1 dòng của Tesseract có thể gồm nhiều cột cách xa (tên cơ quan | quốc hiệu, Nơi nhận | chức vụ ký): tách thành các cụm riêng
+    function splitSegments(lines) {
+        const out = [];
+        for (const l of lines) {
+            const ws = l.words, rh = l.row.rowHeight || (l.box.y1 - l.box.y0) * 0.8, gaps = [];
+            for (let i = 1; i < ws.length; i++) gaps.push(ws[i].x0 - ws[i - 1].x1);
+            const gMed = median(gaps.filter(g => g > 0)) || 0.3 * rh, lim = Math.max(1.15 * rh, 3.5 * gMed);
+            let cur = [], k = 0;
+            const push = () => {
+                if (!cur.length) return;
+                const box = { x0: Math.min(...cur.map(w => w.x0)), x1: Math.max(...cur.map(w => w.x1)), y0: Math.min(l.box.y0, ...cur.map(w => w.y0)), y1: Math.max(...cur.map(w => w.y1)) };
+                out.push(Object.assign({}, l, { words: cur, box, seg: k, para: l.para + '.' + k, src: l })); cur = []; k++;
+            };
+            ws.forEach((w, i) => { if (i && w.x0 - ws[i - 1].x1 > lim) push(); cur.push(w); });
+            push();
+        }
+        return out;
+    }
+    // trong bảng kẻ ô: 1 “từ” của Tesseract nằm vắt qua nét kẻ dọc (số TT dính vào ngày tháng ở ô bên cạnh) -> cắt đôi tại nét kẻ
+    function splitAtRules(lines, V) {
+        if (!V.length) return 0;
+        let n = 0;
+        for (const l of lines) {
+            const out = [];
+            for (const w of l.words) {
+                const cy = (w.y0 + w.y1) / 2, cut = V.filter(v => v.x > w.x0 + 2 && v.x < w.x1 - 2 && cy >= v.y0 && cy <= v.y1).map(v => v.x).sort((a, b) => a - b);
+                const chars = [...w.t];
+                if (!cut.length || !w.sb || w.sb.length !== chars.length || w.sb.map(q => q.t).join('') !== w.t) { out.push(w); continue; }
+                let from = 0;
+                const piece = (a, b) => {
+                    if (b <= a) return;
+                    const sb = w.sb.slice(a, b);
+                    out.push(Object.assign({}, w, { t: chars.slice(a, b).join(''), x0: Math.min(...sb.map(q => q.x0)), x1: Math.max(...sb.map(q => q.x1)), sb, ch: w.ch && w.ch.length === chars.length ? w.ch.slice(a, b) : null }));
+                };
+                for (const x of cut) { let k = from; while (k < chars.length && (w.sb[k].x0 + w.sb[k].x1) / 2 < x) k++; if (k > from && k < chars.length) { piece(from, k); from = k; n++; } }
+                piece(from, chars.length);
+            }
+            l.words = out;
+        }
+        return n;
+    }
+    // đường chân chữ của dòng tại hoành độ x (Tesseract cho 2 đầu mút; boff = độ lệch đo lại trên nét chữ)
+    const baseAt = (l, x) => { const b = l.base; if (!b || b.x1 === b.x0) return l.box.y1; return b.y0 + (b.y1 - b.y0) * (x - b.x0) / (b.x1 - b.x0); };
+    const baseL = (l, x) => baseAt(l, x) + (l.boff || 0);
+    let GROW = 0.4;                                     // nét chữ trên ảnh scan nở thêm ~0,4 pt (mực loang + nhoè + ngưỡng đen trắng)
+
+    // ---------------- lọc rác: chữ ký, con dấu, hoa văn bị đọc thành chữ ----------------
+    const VI_LET = 'a-zA-ZàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ';
+    const RE_WORD = new RegExp('^[\\(\\[\\"\'“‘«]*([' + VI_LET + ']+)([\\.,;:!?\\)\\]\\"\'”’»…]*)$');
+    function inBox(w, b, frac) {
+        const ix = Math.min(w.x1, b.x1) - Math.max(w.x0, b.x0), iy = Math.min(w.y1, b.y1) - Math.max(w.y0, b.y0);
+        return ix > 0 && iy > 0 && ix * iy >= frac * (w.x1 - w.x0) * (w.y1 - w.y0);
+    }
+    function junkScore(w0, lex) {
+        // độ tin của từ: Tesseract hay cho cả từ độ tin rất thấp chỉ vì 1 ký tự -> lấy thêm tỉ lệ ký tự đọc chắc chắn
+        let w = w0;
+        if (w0.ch && w0.ch.length >= 3) { const sure = w0.ch.filter(c => c.c >= 90).length / w0.ch.length; if (sure >= 0.8) w = Object.assign({}, w0, { conf: Math.max(w0.conf, 100 * sure - 15) }); }
+        const t = w.t.replace(/[Ð]/g, 'Đ').replace(/[ð]/g, 'đ');
+        if (/[|¦]/.test(t) && !/[\p{L}\p{N}]{2}/u.test(t)) return 1;                                   // nét kẻ / mép giấy đọc thành '|'
+        if (/^[|¦!:;.,'"`~^_\-–—=+*<>\\/()[\]{}°]+$/.test(t)) return t.length <= 2 && w.conf > 70 ? 0.4 : 1;         // chỉ toàn dấu câu / gạch
+        const m = RE_WORD.exec(t);
+        if (m) {
+            const core = m[1].toLowerCase();
+            if (lex && lex.has(core)) return core.length <= 1 ? (w.conf < 50 ? 0.55 : 0.1) : w.conf < 22 ? 0.5 : 0.05;   // âm tiết có thật: giữ (độ tin của Tesseract hay thấp oan)
+            if (core.length <= 1) return w.conf < 60 ? 0.6 : 0.1;
+            return w.conf < 45 ? 0.8 : w.conf < 70 ? 0.45 : 0.15;                  // không có trong từ điển (tên riêng, tiếng Anh, chữ đọc sai…)
+        }
+        if (/^[(]?(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4}|\d{1,3}([.,]\d{3})+([.,]\d+)?|\d+([.,]\d+)?%?|\d+\/\d+)[)]?[.,;:]?$/.test(t)) return w.conf < 12 ? 0.6 : 0;   // số, ngày tháng đúng dạng: Tesseract hay báo độ tin thấp oan
+        if (/^[\d.,/:\-()%]+$/.test(t)) return w.conf < 35 ? 0.6 : 0;           // số, ngày tháng, số hiệu
+        if (/^[A-ZĐ0-9][A-ZĐ0-9\-/.]*[A-ZĐ0-9]$/u.test(t)) return w.conf < 40 ? 0.6 : 0.05;   // mã: QĐ-UBND, 170/2025/NĐ-CP
+        const bad = (t.match(/[^\p{L}\p{N}\s.,;:!?()\-/%"'“”‘’]/gu) || []).length;
+        return clamp((bad / t.length) * 1.5 + (w.conf < 60 ? 0.5 : w.conf < 80 ? 0.25 : 0), 0, 1);
+    }
+    // bỏ từ / dòng rác; trả về số từ đã bỏ
+    function dropJunk(lines, ctx) {
+        const { stamps, lex, W, H } = ctx; let dropped = 0;
+        for (const l of lines) {
+            for (const w of l.words) {
+                w.junk = junkScore(w, lex);
+                if (stamps.some(b => inBox(w, b, 0.35))) w.junk = Math.max(w.junk, w.conf < 88 ? 1 : 0.5);    // chữ trong con dấu (đọc lẫn nét dấu)
+                if (/camscanner|quét bằng/i.test(w.t)) w.junk = 1;
+            }
+            const n = l.words.length, bad = l.words.filter(w => w.junk >= 0.6).length, avg = l.words.reduce((a, w) => a + w.conf, 0) / n;
+            if (/camscanner|được quét bằng/i.test(l.words.map(w => w.t).join(' '))) l.drop = true;
+            else if (n && (bad / n > 0.5 || (avg < 50 && bad >= 1) || (n <= 2 && bad >= 1 && avg < 70))) l.drop = true;
+            // dòng chạm mép dưới / trên ảnh mà đọc kém (dòng chữ bị cắt mất nửa, dấu chìm của phần mềm scan)
+            if ((l.box.y1 > H - 0.012 * H || l.box.y0 < 0.006 * H) && avg < 80) l.drop = true;
+        }
+        for (const l of lines) {
+            if (l.drop) { dropped += l.words.length; l.words = []; continue; }
+            const keep = l.words.filter(w => w.junk < 0.6); dropped += l.words.length - keep.length; l.words = keep;
+        }
+        return dropped;
+    }
+
+    // ---------------- cỡ chữ, đậm, nghiêng (đo trên nét chữ) ----------------
+    // chiều cao phần thân chữ đứng trên đường chân chữ, tính theo cỡ chữ (font Times New Roman / Liberation Serif — font văn bản hành chính).
+    // Dấu thanh, dấu mũ, dấu chấm dưới là khối mực riêng nên không tính; chữ có đuôi dưới (g p q y j Q) không chạm đường chân chữ -> bỏ.
+    function glyphH(c) {
+        const d = c.normalize('NFD'), b = d[0], horn = d.indexOf('̛') > 0;
+        if (b === 'đ') return 0.69; if (b === 'Đ') return 0.658;
+        if (/[a-z]/.test(b)) {
+            if ('gpqyj'.includes(b)) return 0;
+            if (horn) return 0.57;
+            if (b === 't') return 0.566; if (b === 'f') return 0.70; if ('bdhkl'.includes(b)) return 0.69;
+            return 0.462;                                   // a c e i m n o r s u v w x z
+        }
+        if (/[A-Z]/.test(b)) return b === 'Q' ? 0 : horn ? 0.715 : 0.658;
+        if (/[0-9]/.test(b)) return 0.664;
+        return 0;
+    }
+    // cỡ chữ của 1 dòng (cụm) = so khớp phân bố chiều cao các khối mực nằm trên đường chân chữ với phân bố mong đợi theo chính dòng chữ đã đọc
+    // (dòng nhiều chữ số / chữ hoa hay dòng toàn chữ thường đều đo đúng, không phụ thuộc chữ nào chiếm đa số)
+    function lineMetrics(bin, W, H, l, grow) {
+        const bx = l.box, bh = Math.max(8, bx.y1 - bx.y0);
+        const x0 = clamp(Math.round(bx.x0) - 2, 0, W - 1), x1 = clamp(Math.round(bx.x1) + 2, 0, W - 1);
+        const y0 = clamp(Math.round(bx.y0 - 0.12 * bh), 0, H - 1), y1 = clamp(Math.round(bx.y1 + 0.12 * bh), 0, H - 1);
+        const w = x1 - x0 + 1, h = y1 - y0 + 1; if (w < 8 || h < 8) return null;
+        const E = []; for (const wd of l.words) for (const c of wd.t) { const r = glyphH(c); if (r) E.push(r); }
+        if (E.length < 2) return null;
+        const crop = new Uint8Array(w * h);
+        for (let y = 0; y < h; y++) crop.set(bin.subarray((y0 + y) * W + x0, (y0 + y) * W + x0 + w), y * w);
+        const cs = components(crop, w, h).filter(c => c.y0 > 0 && c.y1 < h - 1 && c.n >= 6 && c.x1 - c.x0 >= 1 && c.y1 - c.y0 + 1 >= 0.22 * bh && c.y1 - c.y0 + 1 <= 1.05 * bh);
+        if (cs.length < 2) return null;
+        // đường chân chữ: Tesseract cho độ dốc; độ lệch = giá trị hay gặp nhất của (đáy khối mực − đường chân chữ)
+        const R = Math.ceil(0.5 * bh), hist = new Float64Array(2 * R + 1);
+        const res = cs.map(c => y0 + c.y1 + 1 - baseAt(l, x0 + (c.x0 + c.x1) / 2));
+        res.forEach(r => { const k = Math.round(r) + R; if (k >= 0 && k <= 2 * R) hist[k] += 1; });
+        let off = 0, bv = -1;
+        for (let k = 1; k < 2 * R; k++) { const v = hist[k - 1] * 0.5 + hist[k] + hist[k + 1] * 0.5; if (v > bv) { bv = v; off = k - R; } }
+        const tol = Math.max(2, 0.04 * bh), O = [];
+        cs.forEach((c, i) => { if (Math.abs(res[i] - off) <= tol) O.push(c.y1 - c.y0 + 1); });
+        if (O.length < 2) return null;
+        O.sort((p, q) => p - q); E.sort((p, q) => p - q);
+        const rs = O.map((v, i) => (v - grow) / E[Math.min(E.length - 1, Math.floor((i + 0.5) / O.length * E.length))]);
+        rs.sort((p, q) => p - q);
+        const lo = Math.floor(rs.length * 0.2), hi = Math.max(lo + 1, Math.ceil(rs.length * 0.8));
+        let em = 0; for (let i = lo; i < hi; i++) em += rs[i]; em /= (hi - lo);
+        return { em, off, n: O.length, m: E.length };
+    }
+    // độ rộng ký tự (1/1000 em) của Times New Roman (= Liberation Serif) thường / đậm / nghiêng / đậm nghiêng — để đo cỡ chữ theo bề ngang dòng
+    const TW = (function () {
+        const C = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~°·ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝàáâãèéêìíòóôõùúýĂăĐđĨĩŨũƠơƯưẠạẢảẤấẦầẨẩẪẫẬậẮắẰằẲẳẴẵẶặẸẹẺẻẼẽẾếỀềỂểỄễỆệỈỉỊịỌọỎỏỐốỒồỔổỖỗỘộỚớỜờỞởỠỡỢợỤụỦủỨứỪừỬửỮữỰựỲỳỴỵỶỷỸỹ–—‘’“”•…‰€№", E = {"R": "6y99bcdwdwn5lm509999dwfo6y996y7qdwdwdwdwdwdwdwdwdwdw7q7qfofofoccplk2ijijk2gzfgk2k299atk2gzopk2k2fgk2ijfggzk2k2q8k2k2gz997q99d1dw99ccdwccdwcc99dwdw7q7qdw7qlmdwdwdwdw99at7qdwdwk2dwdwccdc5kdcf1b499k2k2k2k2gzgzgz9999k2k2k2k2k2k2k2cccccccccccccc7q7qdwdwdwdwdwdwdwk2cck2dw997qk2dwk2eplkf2k2cck2cck2cck2cck2cck2cck2cck2cck2cck2cck2cck2ccgzccgzccgzccgzccgzccgzccgzccgzcc997q997qk2dwk2dwk2dwk2dwk2dwk2dwk2dwk2epk2epk2epk2epk2epk2dwk2dwlkf2lkf2lkf2lkf2lkf2k2dwk2dwk2dwk2dwdwrs9999cccc9qrsrsdwqi", "B": "6y99ffdwdwrsn57q9999dwfu6y996y7qdwdwdwdwdwdwdwdwdwdw9999fufufudwpuk2ijk2k2ijgzlmlmatdwlmijq8k2lmgzlmk2fgijk2k2rsk2k2ij997q99g5dw99dwfgccfgcc99dwfg7q99fg7qn5fgdwfgfgccat99fgdwk2dwdwccay64ayegb499k2k2k2k2ijijijatatlmlmlmlmk2k2k2dwdwdwdwcccccc7q7qdwdwdwdwfgfgdwk2dwk2fgat7qk2fglmfem4gok2dwk2dwk2dwk2dwk2dwk2dwk2dwk2dwk2dwk2dwk2dwk2dwijccijccijccijccijccijccijccijccat7qat7qlmdwlmdwlmdwlmdwlmdwlmdwlmdwlmfelmfelmfelmfelmfek2fgk2fgm4gom4gom4gom4gom4gok2dwk2dwk2dwk2dwdwrs9999dwdw9qrsrsdwrx", "I": "6y99bodwdwn5lm5y9999dwir6y996y7qdwdwdwdwdwdwdwdwdwdw9999iririrdwpkgzgzijk2gzgzk2k299ccijfgn5ijk2gzk2gzdwfgk2gzn5gzfgfgat7qatbqdw99dwdwccdwcc7qdwdw7q7qcc7qk2dwdwdwdwatat7qdwccijccccatb47nb4f1b46ygzgzgzgzgzgzgz9999k2k2k2k2k2k2fgdwdwdwdwcccccc7q7qdwdwdwdwdwdwccgzdwk2dw997qk2dwk2eukyf5gzdwgzdwgzdwgzdwgzdwgzdwgzdwgzdwgzdwgzdwgzdwgzdwgzccgzccgzccgzccgzccgzccgzccgzcc997q997qk2dwk2dwk2dwk2dwk2dwk2dwk2dwk2euk2euk2euk2euk2euk2dwk2dwkyf5kyf5kyf5kyf5kyf5fgccfgccfgccfgccdwop9999fgfg9qoprsdwq7", "BI": "6yatffdwdwn5lm7q9999dwfu6y996y7qdwdwdwdwdwdwdwdwdwdw9999fufufudwn4ijijijk2ijijk2lmatdwijgzopk2k2gzk2ijfggzk2ijopijgzgz997q99fudw99dwdwccdwcc99dwfg7q7qdw7qlmfgdwdwdwatat7qfgccijdwccat9o649ofub46yijijijijijijijatatk2k2k2k2k2k2gzdwdwdwdwcccccc7q7qdwdwdwdwfgfgccijdwk2dwat7qk2fgk2exljgnijdwijdwijdwijdwijdwijdwijdwijdwijdwijdwijdwijdwijccijccijccijccijccijccijccijccat7qat7qk2dwk2dwk2dwk2dwk2dwk2dwk2dwk2exk2exk2exk2exk2exk2fgk2fgljgnljgnljgnljgnljgngzccgzccgzccgzccdwrs9999dwdw9qrsrsdwpf"}, m = {};
+        for (const k in E) { const t = new Map(); for (let i = 0; i < C.length; i++) t.set(C[i], parseInt(E[k].substr(2 * i, 2), 36)); m[k] = t; }
+        return m;
+    })();
+    const advEm = (t, b, it) => { const m = TW[b && it ? 'BI' : b ? 'B' : it ? 'I' : 'R']; let s = 0; for (const c of t) { const v = m.get(c); s += v != null ? v : 500; } return s / 1000; };
+    // độ dày nét: trung vị độ dài các đoạn mực ngang trong dải chữ thường
+    function strokeW(bin, W, w, yb, xh) {
+        const y0 = Math.round(yb - 0.8 * xh), y1 = Math.round(yb - 0.2 * xh), runs = [];
+        for (let y = Math.max(0, y0); y <= y1; y++) {
+            let s = -1;
+            for (let x = Math.max(0, Math.round(w.x0)); x <= Math.min(W - 1, Math.round(w.x1)) + 1; x++) {
+                const on = x <= w.x1 && bin[y * W + x];
+                if (on && s < 0) s = x; else if (!on && s >= 0) { const L = x - s; if (L <= 0.6 * xh) runs.push(L); s = -1; }
+            }
+        }
+        if (runs.length < 6) return 0;
+        runs.sort((p, q) => p - q);                                     // trung bình đoạn giữa (20%–70%): liên tục, không bị làm tròn theo điểm ảnh
+        const a = Math.floor(runs.length * 0.2), b = Math.max(a + 1, Math.ceil(runs.length * 0.7));
+        let t = 0; for (let i = a; i < b; i++) t += runs[i]; return t / (b - a);
+    }
+    // độ dày nét (cách 2): với mỗi điểm mực trong dải chữ thường lấy min(đoạn mực ngang, đoạn mực dọc) đi qua nó, trung bình theo điểm mực
+    // -> nét đứng, nét ngang, nét chéo đều được tính; nét đậm nhiều điểm mực nên trọng số lớn (chữ N, A, M đậm không bị đo mảnh)
+    function strokeW2(bin, W, H, w, yb, xh) {
+        const y0 = Math.max(0, Math.round(yb - 0.92 * xh)), y1 = Math.min(H - 1, Math.round(yb - 0.08 * xh));
+        const x0 = Math.max(0, Math.round(w.x0)), x1 = Math.min(W - 1, Math.round(w.x1)), ww = x1 - x0 + 1, hh = y1 - y0 + 1;
+        if (ww < 4 || hh < 4) return 0;
+        const hr = new Uint16Array(ww * hh), lim = Math.round(0.9 * xh);
+        for (let y = 0; y < hh; y++) { const r = (y0 + y) * W; let s = -1; for (let x = 0; x <= ww; x++) { const on = x < ww && bin[r + x0 + x]; if (on && s < 0) s = x; else if (!on && s >= 0) { const L = Math.min(x - s, 65535); for (let k = s; k < x; k++) hr[y * ww + k] = L; s = -1; } } }
+        let n = 0, t = 0;
+        for (let x = 0; x < ww; x++) {
+            // đoạn dọc: tính trên toàn cột ảnh (không cắt theo dải) để nét ngang ở mép dải không bị đo ngắn
+            let s = -1;
+            for (let y = Math.max(0, y0 - lim); y <= Math.min(H, y1 + lim + 1); y++) {
+                const on = y < H && bin[y * W + x0 + x];
+                if (on && s < 0) s = y; else if (!on && s >= 0) {
+                    const L = y - s;
+                    for (let k = Math.max(s, y0); k < Math.min(y, y1 + 1); k++) { const v = Math.min(L, hr[(k - y0) * ww + x]); if (v > 0 && v <= lim) { t += v; n++; } }
+                    s = -1;
+                }
+            }
+        }
+        return n >= 20 ? t / n : 0;
+    }
+    // độ nghiêng nét chữ (chữ nghiêng / italic): góc làm các nét đứng “thẳng” nhất
+    const SLANTS = [-6, -3, 0, 3, 6, 9, 12, 15, 18, 22];
+    function slantCurve(bin, W, w, yb, xh) {
+        const y0 = Math.round(yb - 0.95 * xh), y1 = Math.round(yb - 0.05 * xh), x0 = Math.max(0, Math.round(w.x0) - 4), x1 = Math.min(W - 1, Math.round(w.x1) + 4);
+        if (y1 - y0 < 6 || x1 - x0 < 10) return null;
+        const pts = [];
+        for (let y = Math.max(0, y0); y <= y1; y++) for (let x = x0; x <= x1; x++) if (bin[y * W + x]) pts.push(x, yb - y);
+        if (pts.length < 60) return null;
+        const cols = new Float64Array(x1 - x0 + 40);
+        return SLANTS.map(a => {
+            const t = Math.tan(a * Math.PI / 180); cols.fill(0);
+            for (let i = 0; i < pts.length; i += 2) { const c = Math.round(pts[i] - pts[i + 1] * t) - x0 + 20; if (c >= 0 && c < cols.length) cols[c]++; }
+            let s = 0; for (let i = 0; i < cols.length; i++) s += cols[i] * cols[i];
+            return s / pts.length;
+        });
+    }
+    // mặt bậc 2 s(u,v) = a + b·u + c·v + d·u² + e·v² + f·u·v (bình phương tối thiểu, có chặn nhẹ các hệ số bậc cao)
+    function fitQuad(pts) {
+        const n = 6, A = Array.from({ length: n }, () => new Float64Array(n)), B = new Float64Array(n);
+        for (const p of pts) { const f = [1, p.u, p.v, p.u * p.u, p.v * p.v, p.u * p.v]; for (let i = 0; i < n; i++) { B[i] += f[i] * p.s; for (let j = 0; j < n; j++) A[i][j] += f[i] * f[j]; } }
+        const lam = 0.02 * pts.length; for (let i = 3; i < n; i++) A[i][i] += lam; A[1][1] += lam * 0.1; A[2][2] += lam * 0.1;
+        for (let c = 0; c < n; c++) {                       // khử Gauss
+            let piv = c; for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[piv][c])) piv = r;
+            if (Math.abs(A[piv][c]) < 1e-12) return null;
+            [A[c], A[piv]] = [A[piv], A[c]]; [B[c], B[piv]] = [B[piv], B[c]];
+            for (let r = 0; r < n; r++) if (r !== c) { const k = A[r][c] / A[c][c]; for (let j = c; j < n; j++) A[r][j] -= k * A[c][j]; B[r] -= k * B[c]; }
+        }
+        return Array.from(B, (b, i) => b / A[i][i]);
+    }
+    const evalQuad = (q, u, v) => q[0] + q[1] * u + q[2] * v + q[3] * u * u + q[4] * v * v + q[5] * u * v;
+    // góc ứng với đỉnh đường cong (nội suy bậc 2 qua 3 điểm quanh đỉnh)
+    function peakAngle(c) {
+        if (!c) return null; let k = 0; for (let i = 1; i < c.length; i++) if (c[i] > c[k]) k = i;
+        if (k === 0 || k === c.length - 1) return SLANTS[k];
+        const x0 = SLANTS[k - 1], x1 = SLANTS[k], x2 = SLANTS[k + 1], y0 = c[k - 1], y1 = c[k], y2 = c[k + 1], d = (x0 - x1) * (x0 - x2) * (x1 - x2);
+        const A = (x2 * (y1 - y0) + x1 * (y0 - y2) + x0 * (y2 - y1)) / d, B = (x2 * x2 * (y0 - y1) + x1 * x1 * (y2 - y0) + x0 * x0 * (y1 - y2)) / d;
+        return A < 0 ? clamp(-B / (2 * A), x0, x2) : x1;
+    }
+    const sharpOf = c => { let a = Infinity, b = 0; c.forEach(v => { if (v < a) a = v; if (v > b) b = v; }); return a > 0 ? b / a : 1; };
+    // cỡ chữ (pt), đậm, nghiêng cho từng dòng / từ
+    function styleLines(lines, bin, W, H, pxPerPt) {
+        const caps = t => { const L = t.replace(/[^\p{L}]/gu, ''); if (L.length < 2) return false; const up = L.replace(/[^\p{Lu}]/gu, '').length; return up / L.length > 0.7; };
+        for (const l of lines) {
+            if (!l.words.length) continue;
+            const text = l.words.map(w => w.t).join(' '), m = lineMetrics(bin, W, H, l, GROW * pxPerPt), isCaps = caps(text);
+            const rh = l.row.rowHeight && !/^5[45]\.9/.test(String(l.row.rowHeight)) ? l.row.rowHeight : 0;
+            let em = m ? m.em : 0;
+            const em2 = rh ? rh / 0.93 : (l.box.y1 - l.box.y0) / 1.1;
+            if (!em || em < 0.55 * em2 || em > 1.6 * em2) em = em2;               // đo hỏng -> theo chiều cao dòng Tesseract
+            l.fsPx = em; l.caps = isCaps; l.boff = m ? m.off : 0; l.xh = 0.462 * em + GROW * pxPerPt; l.yb = baseL(l, (l.box.x0 + l.box.x1) / 2);
+            for (const w of l.words) {
+                const yb = baseL(l, (w.x0 + w.x1) / 2);
+                w.sw = Math.max(0, strokeW2(bin, W, H, w, yb, l.xh) - 0.8 * GROW * pxPerPt) / Math.max(1, em);
+                w.sl = slantCurve(bin, W, w, yb, l.xh);
+            }
+        }
+        // đậm: nét dày hơn hẳn nét thường của cả trang (so theo cỡ chữ)
+        const all = []; lines.forEach(l => l.words.forEach(w => { if (w.sw > 0 && w.t.replace(/[^\p{L}\p{N}]/gu, '').length >= 2) all.push(w); }));
+        const swAll = median(all.map(w => w.sw)) || 0.09, swMed = median(all.map(w => w.sw).filter(v => v < 1.15 * swAll)) || swAll;     // nét chữ thường (cụm dưới)
+        // ảnh chụp điện thoại: nét chữ đậm nhạt khác nhau theo vùng (ánh sáng, nét nhoè không đều) -> mặt cong bậc 2 của “nét thường” theo vị trí,
+        // khớp bằng các từ thường (bỏ dần các từ nét dày hơn hẳn = chữ đậm)
+        const pts = all.map(w => ({ u: (w.x0 + w.x1) / 2 / W - 0.5, v: (w.y0 + w.y1) / 2 / H - 0.5, s: w.sw }));
+        let keep = pts.filter(p => p.s < 1.2 * swMed && p.s > 0.6 * swMed), surf = null;
+        for (let it = 0; it < 3 && keep.length >= 40; it++) {
+            surf = fitQuad(keep);
+            if (!surf) break;
+            keep = pts.filter(p => { const r = p.s / Math.max(1e-6, evalQuad(surf, p.u, p.v)); return r < 1.15 && r > 0.7; });
+        }
+        const refAt = (x, y) => { if (!surf) return swMed; const v = evalQuad(surf, x / W - 0.5, y / H - 0.5); return clamp(v, 0.75 * swMed, 1.35 * swMed); };
+        for (const l of lines) {
+            // đậm / thường theo cả dòng (Viterbi 2 trạng thái): từ đo được nét dày gần mức đậm -> đậm; đổi kiểu giữa dòng phải trả giá
+            // -> 1 từ đo lệch không làm vỡ dòng, nhưng cụm “Điều 1.” đậm đầu dòng thường vẫn tách được
+            const xs = l.words.map(w => !(w.sw > 0) || w.t.replace(/[^\p{L}\p{N}]/gu, '').length < 2 ? null : w.sw / refAt((w.x0 + w.x1) / 2, (w.y0 + w.y1) / 2));
+            const em2 = (x, b) => x == null ? 0 : b ? (x >= 1.45 ? 0 : (1.45 - x) * (1.45 - x) / (2 * 0.13 * 0.13) - 0.31) : (x <= 1.0 ? 0 : (x - 1.0) * (x - 1.0) / (2 * 0.1 * 0.1));
+            const SW = 2.2; let cR = em2(xs[0], false), cB = em2(xs[0], true); const bk = [];
+            for (let i = 1; i < xs.length; i++) {
+                const r = Math.min(cR, cB + SW), b2 = Math.min(cB, cR + SW);
+                bk.push([cR <= cB + SW ? 0 : 1, cB <= cR + SW ? 1 : 0]);
+                cR = r + em2(xs[i], false); cB = b2 + em2(xs[i], true);
+            }
+            let st = cB < cR ? 1 : 0;
+            for (let i = xs.length - 1; i >= 0; i--) { l.words[i].bold = st === 1; if (i) st = bk[i - 1][st]; }
+            // nghiêng: góc nghiêng nét chữ (nội suy đỉnh đường cong); từ ngắn / đo phẳng -> cộng với các từ bên cạnh cùng độ đậm
+            const curveOf = ws => { const c = SLANTS.map(() => 0); let n = 0; ws.forEach(w => { if (w.sl) { w.sl.forEach((v, k) => { c[k] += v; }); n++; } }); return n ? c : null; };
+            const lineAng = peakAngle(curveOf(l.words));
+            l.words.forEach((w, i) => {
+                let c = w.sl;
+                if (!c || sharpOf(c) < 1.08 || w.t.length <= 2) c = curveOf(l.words.slice(Math.max(0, i - 1), i + 2).filter(x => x.bold === w.bold));
+                const a = c && sharpOf(c) >= 1.03 ? peakAngle(c) : lineAng;
+                w.italic = a != null && a >= 5; w.ia = a;
+            });
+            // số thứ tự ngay sau chữ đậm (“Điều 2.”, “Chương II”, “Mục 1:”) = cùng kiểu với chữ đứng trước
+            l.words.forEach((w, i) => { if (i && /^([0-9]+|[IVXLC]+)[.:)]?$/.test(w.t) && l.words[i - 1].bold && /^(Điều|Chương|Mục|Phần|Khoản|Phụ|lục|Bước|Câu|Bài|ĐIỀU|CHƯƠNG|MỤC|PHẦN)$/.test(l.words[i - 1].t)) { w.bold = true; w.italic = l.words[i - 1].italic; } });
+            // dấu câu / ký hiệu đứng riêng (gạch đầu dòng, dấu ngoặc): theo từ bên cạnh
+            l.words.forEach((w, i) => { if (!/[\p{L}\p{N}]/u.test(w.t)) { const nb = l.words[i + 1] || l.words[i - 1]; if (nb) { w.bold = nb.bold; w.italic = nb.italic; } } });
+        }
+        // làm mượt: 1 từ lẻ khác kiểu giữa 2 từ cùng kiểu -> theo 2 bên (đo sai)
+        for (const l of lines) {
+            const ws = l.words;
+            for (let i = 1; i < ws.length - 1; i++) {
+                if (ws[i - 1].bold === ws[i + 1].bold && ws[i].bold !== ws[i - 1].bold) ws[i].bold = ws[i - 1].bold;
+                if (ws[i - 1].italic === ws[i + 1].italic && ws[i].italic !== ws[i - 1].italic) ws[i].italic = ws[i - 1].italic;
+            }
+            // từ đầu / cuối dòng nghiêng khác hẳn 2 từ bên cạnh mà góc đo không rõ ràng (3°–9°) -> theo 2 từ đó
+            const edge = (i, j, k) => { const w = ws[i]; if (ws[j].italic === ws[k].italic && w.italic !== ws[j].italic && !(w.ia >= 9 || w.ia <= 1)) w.italic = ws[j].italic; };
+            if (ws.length >= 3) { edge(0, 1, 2); edge(ws.length - 1, ws.length - 2, ws.length - 3); }
+        }
+        // cỡ chữ theo bề ngang: bề rộng nét mực của từng từ / bề rộng chữ đó trong phông Times New Roman ở cỡ 1 pt (trung vị các từ ≥ 3 ký tự).
+        // Chính xác hơn đo chiều cao trên ảnh chụp, và bảo đảm chữ dựng lại trong Word chiếm đúng bề ngang như bản gốc (không tràn, không xuống dòng sai)
+        for (const l of lines) {
+            if (!l.words.length || !l.fsPx) continue;
+            const est = l.words.filter(w => w.t.replace(/[^\p{L}\p{N}]/gu, '').length >= 3).map(w => (w.x1 - w.x0) / pxPerPt / Math.max(0.3, advEm(w.t, w.bold, w.italic) - 0.03)).sort((a, b) => a - b);
+            const chars = l.words.reduce((a, w) => a + w.t.length, 0);
+            if (est.length >= 2 || (est.length === 1 && chars >= 6)) {
+                const wv = est[est.length >> 1], hv = l.fsPx / pxPerPt;
+                l.fsW = wv; if (Math.abs(wv - hv) < 0.25 * hv) l.fsPx = (0.7 * wv + 0.3 * hv) * pxPerPt;
+            }
+        }
+        // cỡ chữ: trong 1 đoạn, các dòng đo gần bằng nhau (lệch ≤ 0,45 pt liền nhau, cả nhóm trải ≤ 0,8 pt) = cùng cỡ -> lấy trung vị; rồi làm tròn về cỡ chuẩn
+        const sizes = lines.filter(l => l.words.length && l.fsPx).map(l => l.fsPx / pxPerPt);
+        const snap = v => { const r = Math.round(v); return v >= 12 || Math.abs(v - r) <= 0.35 ? r : Math.round(v * 2) / 2; };   // ưu tiên cỡ chẵn (12, 13, 14…)
+        const byPara = new Map();
+        lines.forEach(l => { if (!l.words.length || !l.fsPx) return; if (!byPara.has(l.para)) byPara.set(l.para, []); byPara.get(l.para).push(l); });
+        byPara.forEach(ls => {
+            const arr = ls.map(l => ({ l, v: l.fsPx / pxPerPt })).sort((p, q) => p.v - q.v);
+            let grp = [];
+            const flush = () => { if (!grp.length) return; const m = median(grp.map(g => g.v)); grp.forEach(g => { g.l.fs = snap(m); }); grp = []; };
+            arr.forEach((g, i) => { if (i && (g.v - arr[i - 1].v > 0.45 || g.v - grp[0].v > 0.8)) flush(); grp.push(g); });   // nhóm không trải quá 0,8 pt
+            flush();
+        });
+        // cả trang: ảnh chụp bằng điện thoại (méo phối cảnh, nhoè không đều) làm cỡ đo dao động -> dòng nào đo gần cỡ chữ chính của trang thì theo cỡ chính
+        const cnt = {}; lines.forEach(l => { if (l.fs && l.words.length) cnt[l.fs] = (cnt[l.fs] || 0) + l.words.length; });
+        const D = +Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0];
+        if (D) {
+            const res = lines.filter(l => l.fs === D && l.words.length).map(l => l.fsPx / pxPerPt - D), c = median(res);
+            const win = clamp(2.5 * 1.4826 * median(res.map(v => Math.abs(v - c))), 0.6, 0.9);
+            lines.forEach(l => { if (l.fs && l.fs !== D && l.words.length && Math.abs(l.fsPx / pxPerPt - D - c) <= win) l.fs = D; });
+        }
+        return { swMed, sizes, surf };
+    }
+
+    // ---------------- vùng không phải chữ: con dấu, chữ ký, logo, ảnh minh hoạ, nét gạch trang trí ----------------
+    function imageRegions(bin, W, H, dpi, lines, rules, stamps) {
+        const m = bin.slice(), pad = Math.round(0.012 * dpi);
+        for (const l of lines) for (const w of l.words) {
+            const y0 = Math.max(0, Math.round(w.y0) - pad), y1 = Math.min(H - 1, Math.round(w.y1) + pad), x0 = Math.max(0, Math.round(w.x0) - pad), x1 = Math.min(W - 1, Math.round(w.x1) + pad);
+            for (let y = y0; y <= y1; y++) m.fill(0, y * W + x0, y * W + x1 + 1);
+        }
+        for (const h of rules.H) { const t = Math.ceil(h.th / 2) + 2; for (let y = Math.max(0, Math.round(h.y - t)); y <= Math.min(H - 1, Math.round(h.y + t)); y++) m.fill(0, y * W + Math.max(0, h.x0 - 2), y * W + Math.min(W, h.x1 + 3)); }
+        for (const v of rules.V) { const t = Math.ceil(v.th / 2) + 2; for (let y = Math.max(0, v.y0 - 2); y <= Math.min(H - 1, v.y1 + 2); y++) m.fill(0, y * W + Math.max(0, Math.round(v.x - t)), y * W + Math.min(W, Math.round(v.x + t) + 1)); }
+        const k = 4, s = shrink(m, W, H, k), d = dilate(s.m, s.w, s.h, Math.round(0.06 * dpi / k));
+        let regs = components(d, s.w, s.h).map(c => ({ x0: c.x0 * k, y0: c.y0 * k, x1: Math.min(W, (c.x1 + 1) * k), y1: Math.min(H, (c.y1 + 1) * k) }));
+        // đếm mực thật trong từng vùng; bỏ vùng nhỏ / thưa (bụi, vết bẩn, nét chữ sót)
+        regs = regs.filter(r => {
+            let n = 0; for (let y = r.y0; y < r.y1; y += 2) for (let x = r.x0; x < r.x1; x += 2) if (m[y * W + x]) n++;
+            r.ink = n * 4; const w = r.x1 - r.x0, h = r.y1 - r.y0;
+            return (w >= 0.3 * dpi || h >= 0.3 * dpi) && w >= 0.12 * dpi && h >= 0.12 * dpi && r.ink >= 0.008 * dpi * dpi;
+        });
+        stamps.forEach(st => regs.push(Object.assign({ stamp: true, ink: 1e9 }, st)));
+        // gộp vùng chồng / sát nhau (con dấu + chữ ký đè lên)
+        const near = (a, b, g) => a.x0 <= b.x1 + g && b.x0 <= a.x1 + g && a.y0 <= b.y1 + g && b.y0 <= a.y1 + g;
+        let changed = true;
+        while (changed) {
+            changed = false;
+            for (let i = 0; i < regs.length && !changed; i++) for (let j = i + 1; j < regs.length; j++) {
+                if (near(regs[i], regs[j], Math.round(0.08 * dpi))) {
+                    const a = regs[i], b = regs[j];
+                    regs[i] = { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1), stamp: a.stamp || b.stamp, ink: a.ink + b.ink };
+                    regs.splice(j, 1); changed = true; break;
+                }
+            }
+        }
+        // gạch trang trí (không thuộc bảng) -> ảnh nét mảnh
+        for (const h of rules.H) if (!h.grid) regs.push({ x0: h.x0, x1: h.x1 + 1, y0: Math.max(0, Math.round(h.y - h.th / 2 - 1)), y1: Math.min(H, Math.round(h.y + h.th / 2 + 2)), line: true });
+        // vệt mép giấy / bóng mép ảnh scan: mảnh và sát mép trang -> bỏ
+        const mg = 0.008 * Math.min(W, H);
+        regs = regs.filter(r => !((r.y0 <= mg || r.y1 >= H - mg) && r.y1 - r.y0 < 0.02 * H) && !((r.x0 <= mg || r.x1 >= W - mg) && r.x1 - r.x0 < 0.02 * W));
+        // gạch nằm trong con dấu / ảnh = 1 phần của dấu, ảnh -> bỏ
+        regs = regs.filter(r => !r.line || !regs.some(q => !q.line && q.x0 <= r.x1 && r.x0 <= q.x1 && q.y0 <= r.y1 && r.y0 <= q.y1));
+        for (const r of regs) {
+            r.kind = r.stamp ? 'stamp' : r.line ? 'line' : 'image';
+            // ảnh to đứng riêng (không có chữ nằm ngang hàng) -> đặt trong dòng; còn lại (logo cạnh tên cơ quan, dấu, chữ ký, gạch) -> nổi đúng chỗ
+            const beside = lines.some(l => l.words.length && Math.min(l.box.y1, r.y1) - Math.max(l.box.y0, r.y0) > 0.3 * Math.min(l.box.y1 - l.box.y0, r.y1 - r.y0) && (l.box.x1 < r.x0 || l.box.x0 > r.x1 || l.words.some(w => w.x1 > r.x0 && w.x0 < r.x1)));
+            r.float = r.kind !== 'image' || beside || (r.x1 - r.x0) < 0.25 * W;
+        }
+        return regs;
+    }
+
+    // ---------------- dòng -> các mẩu chữ (span) theo đúng dạng của PDF có chữ thật ----------------
+    function toSpans(lines, pxPerPt, family, V) {
+        V = V || [];
+        const spans = [];
+        for (const l of lines) {
+            if (!l.words.length) continue;
+            const fs = l.fs || 12, ws = l.words, gaps = [];
+            for (let i = 1; i < ws.length; i++) gaps.push(ws[i].x0 - ws[i - 1].x1);
+            const gMed = median(gaps.filter(g => g > 0)) || 0.3 * fs * pxPerPt;
+            let cur = null, grp = [];
+            // khung từ của Tesseract ôm sát nét mực; chữ thật (PDF có chữ) tính cả khoảng trống hai bên ký tự -> nới 2 đầu mỗi cụm chữ 1 chút
+            // (để ô bảng, cột chữ dựng lại trong Word không hụt chỗ làm chữ bị xuống dòng). Chỗ đổi kiểu chữ giữa cụm thì không nới (giữ dấu cách).
+            const endGrp = () => { if (grp.length) { grp[0].x0 -= 0.03 * fs; grp[grp.length - 1].x1 += 0.07 * fs; grp = []; } };
+            const flush = () => { if (cur) { spans.push(cur.s); grp.push(cur.s); cur = null; } };
+            ws.forEach((w, i) => {
+                const gap = i ? w.x0 - ws[i - 1].x1 : 0, cy = (w.y0 + w.y1) / 2;
+                const big = i && (gap > Math.max(1.15 * fs * pxPerPt, 3.2 * gMed) || V.some(v => v.x >= ws[i - 1].x1 - 3 && v.x <= w.x0 + 3 && cy >= v.y0 && cy <= v.y1));   // cụm xa / khác ô bảng
+                const same = cur && cur.w.bold === w.bold && cur.w.italic === w.italic;
+                if (cur && !big && same) { cur.s.str += ' ' + w.t; cur.s.x1 = w.x1 / pxPerPt; cur.w = w; return; }
+                if (cur && !big) cur.s.x1 = Math.max(cur.s.x1, w.x0 / pxPerPt - 0.27 * fs);   // đổi kiểu chữ giữa dòng: giữ khoảng cách như 1 dấu cách thường
+                flush(); if (big) endGrp();
+                const base = baseL(l, (w.x0 + w.x1) / 2) / pxPerPt;
+                cur = { w, s: { str: w.t, x0: w.x0 / pxPerPt, x1: w.x1 / pxPerPt, base, top: base - 0.85 * fs, bot: base + 0.2 * fs, fs, bold: !!w.bold, italic: !!w.italic, family: family || 'Times New Roman', tcvn: false, ocr: true } };
+            });
+            flush(); endGrp();
+        }
+        return spans;
+    }
+
+    // ---------------- SỬA DẤU TIẾNG VIỆT bằng từ điển âm tiết + cặp từ ----------------
+    const BASE = { 'à': 'a', 'á': 'a', 'ả': 'a', 'ã': 'a', 'ạ': 'a', 'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ẳ': 'a', 'ẵ': 'a', 'ặ': 'a', 'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ẩ': 'a', 'ẫ': 'a', 'ậ': 'a',
+        'è': 'e', 'é': 'e', 'ẻ': 'e', 'ẽ': 'e', 'ẹ': 'e', 'ê': 'e', 'ề': 'e', 'ế': 'e', 'ể': 'e', 'ễ': 'e', 'ệ': 'e', 'ì': 'i', 'í': 'i', 'ỉ': 'i', 'ĩ': 'i', 'ị': 'i',
+        'ò': 'o', 'ó': 'o', 'ỏ': 'o', 'õ': 'o', 'ọ': 'o', 'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ổ': 'o', 'ỗ': 'o', 'ộ': 'o', 'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ở': 'o', 'ỡ': 'o', 'ợ': 'o',
+        'ù': 'u', 'ú': 'u', 'ủ': 'u', 'ũ': 'u', 'ụ': 'u', 'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ử': 'u', 'ữ': 'u', 'ự': 'u', 'ỳ': 'y', 'ý': 'y', 'ỷ': 'y', 'ỹ': 'y', 'ỵ': 'y', 'đ': 'd' };
+    const plain = s => { let o = ''; for (const c of s) o += BASE[c] || c; return o; };
+    // mô hình ngôn ngữ: danh sách âm tiết + cặp âm tiết (chữ thường, số = '#')
+    function makeLM(text) {
+        const k = text.indexOf('\n\n'), words = new Set(text.slice(0, k).split('\n')), big = new Set(text.slice(k + 2).split('\n')), byBase = new Map();
+        for (const w of words) { const b = plain(w); if (!byBase.has(b)) byBase.set(b, []); byBase.get(b).push(w); }
+        return { words, big, byBase };
+    }
+    const caseLike = (src, w) => {
+        const L = [...src].filter(c => /\p{L}/u.test(c));
+        if (L.length > 1 && L.every(c => c === c.toUpperCase())) return w.toUpperCase();
+        if (L.length && L[0] === L[0].toUpperCase()) return w.charAt(0).toUpperCase() + w.slice(1);
+        return w;
+    };
+    // sửa dấu cho 1 chuỗi từ (1 đoạn): Viterbi trên các phương án cùng mặt chữ (chỉ khác dấu), chấm điểm theo cặp từ có thật
+    function fixVi(words, LM, opt) {
+        opt = Object.assign({ pair: 0.8, pairNum: 0.4, change: 0.25, sup: 0.55, unsupHi: 1.6, unsupMid: 1.25, unsupLo: 0.85, name: 1.5, oov: 1.2 }, opt || {});
+        const toks = words.map((w, i) => {
+            const t = w.t.replace(/Ð/g, 'Đ').replace(/ð/g, 'đ'), m = RE_WORD.exec(t);
+            if (!m) return { w, key: /^\d[\d.,]*$/.test(t.replace(/[.,;:)]+$/, '')) ? '#' : null, cands: null };
+            const core = m[1], pre = t.slice(0, t.length - core.length - m[2].length), post = m[2], low = core.toLowerCase();
+            const list = LM.byBase.get(plain(low)) || [];
+            const cands = [{ v: low, own: true, oov: low.length >= 2 && !LM.words.has(low) }];
+            if (low.length >= 2 && low.length <= 7) for (const v of list) if (v !== low && v.length === low.length) cands.push({ v, own: false });
+            // chữ viết hoa đầu (không phải đầu câu) = tên riêng: tên người, địa danh… -> rất hạn chế đổi
+            const prevT = i ? words[i - 1].t : '', title = core.length >= 2 && core[0] !== core[0].toLowerCase() && core.slice(1) === core.slice(1).toLowerCase();
+            const name = title && i > 0 && !/[.:;!?]$/.test(prevT) && !/^[-–•+]$/.test(prevT);
+            return { w, core, pre, post, cands, low, name };
+        });
+        // phạt khi đổi 1 ký tự: bộ nhận dạng có cân nhắc ký tự đó (có trong danh sách thay thế, độ tin a) -> phạt theo tỉ lệ độ tin; không -> phạt theo độ tin của cả từ
+        const cost = (tk, c) => {
+            if (c.own) return c.oov ? opt.oov : 0;
+            const chs = tk.w.ch, src = [...tk.low], dst = [...c.v]; let s = 0;
+            const un = tk.w.conf >= 90 ? opt.unsupHi : tk.w.conf >= 75 ? opt.unsupMid : opt.unsupLo;
+            for (let i = 0; i < dst.length; i++) {
+                if (dst[i] === src[i]) continue;
+                const sy = chs && chs.length === src.length ? chs[i] : null, alt = sy ? sy.alt : null;
+                let a = -1, own = -1;
+                if (alt) for (let j = 0; j < alt.length; j += 2) { const ch = alt[j].toLowerCase(); if (ch === dst[i] && a < 0) a = alt[j + 1]; if (ch === src[i] && own < 0) own = alt[j + 1]; }
+                if (own < 0 && alt && alt.length) own = alt[1];
+                s += a >= 3 ? clamp(opt.sup * Math.log((own + 5) / (a + 5)), 0.05, un) : un;
+            }
+            s += opt.change;                                                  // mỗi lần đổi 1 từ đều phải có lý do rõ ràng
+            return tk.name && !tk.cands[0].oov ? s * opt.name : s;
+        };
+        const pairW = (a, b) => !a || !b || !LM.big.has(a + ' ' + b) ? 0 : a === '#' ? opt.pairNum : opt.pair;
+        // Viterbi theo chuỗi; từ không phải chữ (số, mã, dấu câu) cắt ngữ cảnh (riêng số làm '#' để bắt cặp "số #", "# tháng")
+        let prev = null;
+        const trail = [];
+        toks.forEach(tk => {
+            const keys = tk.cands ? tk.cands.map(c => c.v) : [tk.key];
+            const own = tk.cands ? tk.cands.map(c => -cost(tk, c)) : [0];
+            const cur = keys.map((k, j) => {
+                let best = own[j], bk = -1;
+                if (prev) prev.forEach((p, pj) => { const v = p.score + own[j] + pairW(p.key, k); if (bk < 0 || v > best) { best = v; bk = pj; } });
+                return { key: k, score: best, back: bk };
+            });
+            trail.push(cur); prev = cur;
+        });
+        if (!trail.length) return 0;
+        let j = 0, last = trail[trail.length - 1]; last.forEach((c, k) => { if (c.score > last[j].score) j = k; });
+        let fixed = 0;
+        for (let i = trail.length - 1; i >= 0; i--) {
+            const tk = toks[i], c = trail[i][j];
+            if (tk.cands && c.key !== tk.low) { tk.w.t0 = tk.w.t; tk.w.t = tk.pre + caseLike(tk.core, c.key) + tk.post; fixed++; }
+            else if (tk.cands && /Ð|ð/.test(tk.w.t)) tk.w.t = tk.w.t.replace(/Ð/g, 'Đ').replace(/ð/g, 'đ');
+            j = c.back; if (j < 0) j = 0;
+        }
+        toks.forEach(tk => { if (!tk.cands) tk.w.t = tk.w.t.replace(/Ð/g, 'Đ').replace(/ð/g, 'đ'); });
+        return fixed;
+    }
+    // sửa dấu cả trang: theo từng đoạn Tesseract (nối các dòng của đoạn để có ngữ cảnh qua chỗ xuống dòng)
+    function fixPage(lines, LM, opt) {
+        // số đọc lẫn chữ: l6 -> 16, 2O25 -> 2025 (chỉ khi phần lớn là chữ số)
+        lines.forEach(l => l.words.forEach(w => {
+            const m = /^([0-9lIO|]{2,})([.,;:]?)$/.exec(w.t);
+            if (m && /\d/.test(m[1]) && m[1].replace(/\D/g, '').length >= m[1].length / 2) { const t = m[1].replace(/[lI|]/g, '1').replace(/O/g, '0') + m[2]; if (t !== w.t) { w.t0 = w.t; w.t = t; } }
+        }));
+        if (!LM) return 0;
+        const byPara = new Map(); lines.forEach(l => { if (!byPara.has(l.para)) byPara.set(l.para, []); byPara.get(l.para).push(l); });
+        let n = 0;
+        byPara.forEach(ls => {
+            // trong 1 dòng các cột cách xa nhau (đầu văn bản 2 cột) không phải ngữ cảnh của nhau: cắt tại khoảng trống lớn
+            let seq = [];
+            ls.forEach(l => {
+                l.words.forEach((w, i) => {
+                    if (i && w.x0 - l.words[i - 1].x1 > 1.5 * (l.fsPx || 50)) { n += fixVi(seq, LM, opt); seq = []; }
+                    seq.push(w);
+                });
+            });
+            n += fixVi(seq, LM, opt);
+        });
+        return n;
+    }
+
+    // ======================= CẢ DÂY CHUYỀN 1 TRANG =======================
+    // trước OCR (ảnh trang ĐÃ nắn thẳng, RGBA): ảnh xám gửi Tesseract đã xoá mực dấu đỏ + nét kẻ bảng (để không đọc nhầm thành chữ)
+    function prepare(rgba, W, H, dpi) {
+        const g = grayOf(rgba, W, H), { bin, paper } = binarize(g, W, H);
+        const red = redMask(rgba, W, H), stamps = stampBoxes(red, W, H, dpi), og = g.slice();
+        for (const s of stamps) for (let y = s.y0; y < s.y1; y++) for (let x = s.x0; x < s.x1; x++) if (red[y * W + x]) og[y * W + x] = paper;
+        const rules = findRules(bin, W, H, dpi);
+        for (const h of rules.H) if (h.grid) { const t = Math.ceil(h.th / 2) + 2; for (let y = Math.max(0, Math.round(h.y - t)); y <= Math.min(H - 1, Math.round(h.y + t)); y++) og.fill(paper, y * W + Math.max(0, h.x0 - 2), y * W + Math.min(W, h.x1 + 3)); }
+        for (const v of rules.V) if (v.grid) { const t = Math.ceil(v.th / 2) + 2; for (let y = Math.max(0, v.y0 - 2); y <= Math.min(H - 1, v.y1 + 2); y++) og.fill(paper, y * W + Math.max(0, Math.round(v.x - t)), y * W + Math.min(W, Math.round(v.x + t) + 1)); }
+        return { W, H, dpi, g, bin, paper, red, stamps, rules, og };
+    }
+    // sau OCR: dòng, kiểu chữ, vùng ảnh, mẩu chữ (pt) + nét kẻ bảng (pt) theo đúng dạng trang của PdfConv
+    function finish(P, json, sym, LM) {
+        const { W, H, dpi, bin, rules, stamps } = P, k = dpi / 72;
+        const lines = splitSegments(parseResult(json, sym)), GV = rules.V.filter(v => v.grid);
+        splitAtRules(lines, GV);
+        const dropped = dropJunk(lines, { stamps, lex: LM ? LM.words : null, W, H });
+        const fixed = fixPage(lines, LM);
+        const st = styleLines(lines, bin, W, H, k);
+        const regs = imageRegions(bin, W, H, dpi, lines, rules, stamps);
+        const spans = toSpans(lines, k, null, GV);
+        const H_ = rules.H.filter(h => h.grid).map(h => ({ y: h.y / k, x0: h.x0 / k, x1: h.x1 / k }));
+        const V_ = rules.V.filter(v => v.grid).map(v => ({ x: v.x / k, y0: v.y0 / k, y1: v.y1 / k }));
+        let words = 0, cs = 0; lines.forEach(l => l.words.forEach(w => { words++; cs += w.conf; }));
+        return { lines, spans, regs, H_, V_, stats: { words, conf: words ? Math.round(cs / words) : 0, dropped, fixed, swMed: st.swMed } };
+    }
+
+    root.OcrCore = { prepare, finish, setGrow: v => { GROW = v; }, glyphH, splitSegments, grayOf, binarize, skewAngle, redMask, stampBoxes, findRules, pgm, parseResult, dropJunk, styleLines, imageRegions, toSpans, makeLM, fixVi, fixPage, plain, baseAt, components, shrink, dilate, junkScore };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+// ======================= v16: NHẬN DẠNG CHỮ (OCR) CHO TRANG ẢNH SCAN — PDF → WORD / EXCEL =======================
+// Chạy hoàn toàn trong trình duyệt, không cần mạng: lõi Tesseract 5 + dữ liệu tiếng Việt nằm trong tệp ocr_vie.js (đặt cạnh trang).
+// Trang ảnh scan được: vẽ lại 300 dpi → nắn thẳng → xoá mực dấu đỏ, nét bảng → nhận dạng chữ → sửa dấu tiếng Việt →
+// đo cỡ chữ / đậm / nghiêng → tách con dấu, chữ ký, logo, ảnh minh hoạ thành ảnh riêng → điền vào mô hình trang của PdfConv
+// (như PDF có chữ thật), nên Word / Excel dựng ra là văn bản sửa được.
+(function () {
+    'use strict';
+    const C = window.OcrCore;
+    const DPI = 300, MAXPX = 12.5e6;
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const freeC = c => { try { c.width = c.height = 1; } catch (e) {} };
+    let dataP = null, engP = null, lmP = null;
+
+    // ---------- nạp ocr_vie.js (≈ 6,8 MB) khi cần ----------
+    function loadScript(src) {
+        return new Promise((res, rej) => {
+            const s = document.createElement('script'); s.src = src; s.async = true;
+            s.onload = () => res(); s.onerror = () => { s.remove(); rej(new Error('không tải được ' + src)); };
+            document.head.appendChild(s);
+        });
+    }
+    function ensureData() {
+        if (window.__ocrVie && window.__ocrVie.core) return Promise.resolve(window.__ocrVie);
+        if (dataP) return dataP;
+        dataP = loadScript('ocr_vie.js').then(() => {
+            if (!(window.__ocrVie && window.__ocrVie.core && window.__ocrVie.data)) throw new Error('tệp ocr_vie.js bị hỏng');
+            return window.__ocrVie;
+        }).catch(e => {
+            dataP = null;
+            const er = new Error('Thiếu tệp ocr_vie.js (bộ nhận dạng chữ tiếng Việt). Chép tệp này vào cùng thư mục với trang Scanner Pro (chỗ có opencv.js) rồi thử lại — hoặc bỏ chọn “Nhận dạng chữ” để chỉ chèn ảnh trang.');
+            er.code = 'NO_OCR'; er.cause = e; throw er;
+        });
+        return dataP;
+    }
+    function b64(s) { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+    async function gunzip(u8) {
+        if (typeof DecompressionStream === 'undefined') throw new Error('trình duyệt quá cũ (thiếu DecompressionStream) — hãy cập nhật Chrome / Edge');
+        return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer());
+    }
+    // WebAssembly SIMD (Chrome / Edge 91+, Android WebView 91+, Safari 16.4+)
+    function simdOk() { try { return WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11])); } catch (e) { return false; } }
+
+    // ---------- bộ nhận dạng: chạy trong Web Worker (không đơ trang); không tạo được worker thì chạy ngay trên trang ----------
+    // (hàm này được chép nguyên mã nguồn vào worker — không dùng biến bên ngoài)
+    function workerMain() {
+        let M = null, api = null;
+        function rec(pgm, dpi) {
+            M.FS.writeFile('/input', pgm); api.SetImageFile(1); api.SetSourceResolution(dpi);
+            api.Recognize(null);
+            const json = api.GetJSONText(), sym = [];
+            if (/"symbols"\s*:\s*\[\s*\{/.test(json)) {          // trang trắng: KHÔNG tạo ChoiceIterator (lõi dừng hẳn)
+                const ri = api.GetIterator();
+                do {
+                    const t = ri.GetUTF8Text(4); if (!t) continue;
+                    const ci = new M.ChoiceIterator(ri), alts = [];
+                    do { const a = ci.GetUTF8Text(); if (a) alts.push(a, Math.round(ci.Confidence())); } while (ci.Next());
+                    M.destroy(ci); sym.push(t, Math.round(ri.Confidence(4)), alts);
+                } while (ri.Next(4));
+                M.destroy(ri);
+            }
+            api.Clear(); try { M.FS.unlink('/input'); } catch (e) {}
+            return { json, sym };
+        }
+        async function init(data, onProg) {
+            M = await self.TesseractCore({ print() {}, printErr() {}, TesseractProgress(p) { if (onProg) onProg(p); } });
+            M.FS.writeFile('/vie.traineddata', data);
+            api = new M.TessBaseAPI();
+            if (api.Init('/', 'vie', 1) !== 0) throw new Error('không khởi động được bộ nhận dạng chữ');
+            api.SetVariable('lstm_choice_mode', '2');
+            try { M.FS.unlink('/vie.traineddata'); } catch (e) {}
+        }
+        if (typeof WorkerGlobalScope !== 'undefined' && self instanceof WorkerGlobalScope) {
+            self.onmessage = async e => {
+                const m = e.data;
+                try {
+                    if (m.cmd === 'init') { await init(m.data, p => self.postMessage({ prog: p })); self.postMessage({ ok: 1 }); }
+                    else if (m.cmd === 'rec') self.postMessage(Object.assign({ ok: 1 }, rec(m.pgm, m.dpi)));
+                } catch (err) { self.postMessage({ err: String(err && err.message || err) }); }
+            };
+        }
+        return { init, rec };
+    }
+    function workerEngine(V, data) {
+        return new Promise((resolve, reject) => {
+            let w, url, cur = null, onProg = null, done = false;
+            const fail = e => { if (!done) { done = true; try { w && w.terminate(); } catch (x) {} reject(e); } else if (cur) { const c = cur; cur = null; c.rej(e); } };
+            try {
+                url = URL.createObjectURL(new Blob(['(' + V.core.toString() + ')();\n(' + workerMain.toString() + ')();'], { type: 'text/javascript' }));
+                w = new Worker(url);
+            } catch (e) { reject(e); return; }
+            const timer = setTimeout(() => fail(new Error('bộ nhận dạng khởi động quá lâu')), 90000);
+            w.onerror = ev => { ev.preventDefault && ev.preventDefault(); fail(new Error('lỗi bộ nhận dạng: ' + (ev.message || 'worker'))); };
+            w.onmessage = ev => {
+                const m = ev.data;
+                if (m.prog != null) { if (onProg) { try { onProg(m.prog); } catch (e) { kill(); if (cur) { const c = cur; cur = null; c.rej(e); } } } return; }
+                if (!done) {                                   // trả lời lệnh init
+                    done = true; clearTimeout(timer); URL.revokeObjectURL(url);
+                    if (m.err) { w.terminate(); reject(new Error(m.err)); return; }
+                    resolve(api); return;
+                }
+                if (cur) { const c = cur; cur = null; onProg = null; if (m.err) c.rej(new Error(m.err)); else c.res(m); }
+            };
+            const kill = () => { try { w.terminate(); } catch (e) {} engP = null; };
+            const api = {
+                kind: 'worker',
+                rec(pgm, dpi, prog) {
+                    return new Promise((res, rej) => { cur = { res, rej }; onProg = prog; w.postMessage({ cmd: 'rec', pgm, dpi }, [pgm.buffer]); });
+                },
+                kill
+            };
+            w.postMessage({ cmd: 'init', data }, [data.buffer]);
+        });
+    }
+    async function mainEngine(V, data) {
+        if (!self.TesseractCore) V.core();                     // định nghĩa self.TesseractCore trên chính trang
+        let onProg = null;
+        const E = workerMain();
+        await E.init(data, p => { if (onProg) onProg(p); });
+        return {
+            kind: 'main',
+            async rec(pgm, dpi, prog) { onProg = null; await new Promise(r => setTimeout(r, 30)); const r = E.rec(pgm, dpi); if (prog) prog(100); return r; },
+            kill() {}
+        };
+    }
+    function engine() {
+        if (engP) return engP;
+        engP = (async () => {
+            if (!simdOk()) throw new Error('trình duyệt quá cũ, chưa chạy được bộ nhận dạng chữ (cần Chrome / Edge từ bản 91, 2021 trở lên)');
+            const V = await ensureData(), raw = await gunzip(b64(V.data));
+            try { return await workerEngine(V, raw.slice(0)); }
+            catch (e) { console.warn('OCR: không chạy được trong worker, chạy trên trang', e); return await mainEngine(V, raw); }
+        })().catch(e => { engP = null; throw e; });
+        return engP;
+    }
+    function langModel() {
+        if (lmP) return lmP;
+        lmP = (async () => {
+            const V = await ensureData();
+            if (!V.lm) return null;
+            try { return C.makeLM(new TextDecoder().decode(await gunzip(b64(V.lm)))); } catch (e) { console.warn('OCR: không nạp được từ điển sửa dấu', e); return null; }
+        })();
+        return lmP;
+    }
+
+    // ---------- 1 trang ----------
+    async function ocrPage(pdf, pg, ctx, tick) {
+        const page = await pdf.getPage(pg.n), vp1 = page.getViewport({ scale: 1 });
+        let dpi = DPI; if (vp1.width * vp1.height * (dpi / 72) * (dpi / 72) > MAXPX) dpi = Math.max(150, Math.floor(72 * Math.sqrt(MAXPX / (vp1.width * vp1.height))));
+        const s = dpi / 72, vp = page.getViewport({ scale: s }), W = Math.round(vp.width), H = Math.round(vp.height);
+        let cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+        let x = cv.getContext('2d', { willReadFrequently: true }); x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+        await page.render({ canvasContext: x, viewport: vp }).promise;
+        try { page.cleanup(); } catch (e) {}
+        for (const im of ctx.wm || []) { x.fillStyle = '#fff'; x.fillRect(Math.floor(im.x0 * s) - 3, Math.floor(im.y0 * s) - 3, Math.ceil((im.x1 - im.x0) * s) + 6, Math.ceil((im.y1 - im.y0) * s) + 6); }
+        tick(0.06);
+        // nắn thẳng (ảnh chụp / scan lệch): đo góc trên ảnh đen trắng, xoay cả trang bằng canvas
+        let rgba = x.getImageData(0, 0, W, H).data;
+        const g0 = C.grayOf(rgba, W, H), b0 = C.binarize(g0, W, H), ang = C.skewAngle(b0.bin, W, H);
+        if (Math.abs(ang) >= 0.1) {
+            const c2 = document.createElement('canvas'); c2.width = W; c2.height = H;
+            const x2 = c2.getContext('2d', { willReadFrequently: true }), p = b0.paper;
+            x2.fillStyle = 'rgb(' + p + ',' + p + ',' + p + ')'; x2.fillRect(0, 0, W, H);
+            x2.imageSmoothingQuality = 'high';
+            x2.translate(W / 2, H / 2); x2.rotate(-ang * Math.PI / 180); x2.drawImage(cv, -W / 2, -H / 2); x2.setTransform(1, 0, 0, 1, 0, 0);
+            freeC(cv); cv = c2; x = x2; rgba = x.getImageData(0, 0, W, H).data;
+        }
+        tick(0.14);
+        const P = C.prepare(rgba, W, H, dpi);
+        rgba = null;
+        const r = await ctx.eng.rec(C.pgm(P.og, W, H), dpi, p => tick(0.16 + 0.74 * clamp(p, 0, 100) / 100));
+        const R = C.finish(P, r.json, r.sym, ctx.LM);
+        tick(0.93);
+        // vùng ảnh: con dấu, chữ ký, gạch trang trí -> nền trong suốt, bỏ phần chữ đã nhận dạng (chữ đó đã nằm trong Word); logo, ảnh minh hoạ giữ nguyên
+        const regions = [], words = []; R.lines.forEach(l => l.words.forEach(w => words.push(w)));
+        for (const g of R.regs) {
+            const pad = Math.round(0.012 * dpi), x0 = clamp(Math.floor(g.x0) - pad, 0, W - 1), y0 = clamp(Math.floor(g.y0) - pad, 0, H - 1);
+            const x1 = clamp(Math.ceil(g.x1) + pad, x0 + 1, W), y1 = clamp(Math.ceil(g.y1) + pad, y0 + 1, H), w = x1 - x0, h = y1 - y0;
+            if (w < 4 || h < 4) continue;
+            const c = document.createElement('canvas'); c.width = w; c.height = h;
+            const cx = c.getContext('2d', { willReadFrequently: true }); cx.drawImage(cv, x0, y0, w, h, 0, 0, w, h);
+            if (g.kind !== 'image') {
+                const id = cx.getImageData(0, 0, w, h), d = id.data, paper = P.paper, inW = new Uint8Array(w * h);
+                for (const wd of words) {
+                    if (wd.x1 < x0 || wd.x0 > x1 || wd.y1 < y0 || wd.y0 > y1) continue;
+                    for (let yy = Math.max(0, Math.floor(wd.y0 - y0) - 2); yy < Math.min(h, Math.ceil(wd.y1 - y0) + 2); yy++) inW.fill(1, yy * w + Math.max(0, Math.floor(wd.x0 - x0) - 2), yy * w + Math.min(w, Math.ceil(wd.x1 - x0) + 2));
+                }
+                for (let i = 0, j = 0; i < inW.length; i++, j += 4) {
+                    const R0 = d[j], G0 = d[j + 1], B0 = d[j + 2], mx = Math.max(R0, G0, B0), mn = Math.min(R0, G0, B0), lum = (R0 * 77 + G0 * 150 + B0 * 29) >> 8;
+                    const colored = mx - mn > 50;                   // mực màu (dấu đỏ, chữ ký xanh) — giữ; mực đen trong ô chữ đã đọc — bỏ
+                    let a = lum >= paper - 22 ? 0 : lum <= paper - 85 ? 255 : Math.round(255 * (paper - 22 - lum) / 63);
+                    if (inW[i] && !colored) a = 0;
+                    d[j + 3] = a;
+                }
+                cx.putImageData(id, 0, 0);
+            }
+            regions.push({ x0: x0 / s, y0: y0 / s, x1: x1 / s, y1: y1 / s, canvas: c, float: !!g.float, kind: g.kind });
+        }
+        freeC(cv);
+        pg.spans = R.spans; pg.H_ = R.H_; pg.V_ = R.V_; pg.images = []; pg.ocrImages = regions;
+        pg.scanned = false; pg.ocr = Object.assign({ dpi, ang, engine: ctx.eng.kind }, R.stats);
+        tick(1);
+        return pg.ocr;
+    }
+
+    // Nhận dạng các trang ảnh scan của mô hình (PdfConv.analyze). prog(k, n, phần trang) — ném lỗi trong prog để huỷ.
+    async function run(model, opt, prog) {
+        opt = opt || {};
+        const todo = model.pages.filter(p => p.scanned && !p.ocr && !(opt.only && !opt.only.includes(p.n)));
+        const out = { pages: 0, words: 0, conf: 0, fixed: 0, failed: [] };
+        if (!todo.length) return out;
+        if (prog) prog(0, todo.length, 0);
+        const [eng, LM] = await Promise.all([engine(), langModel()]);
+        let prod = '';
+        try { const md = await model.pdf.getMetadata(); prod = ((md && md.info && (md.info.Producer || '')) + ' ' + (md && md.info && (md.info.Creator || ''))); } catch (e) {}
+        const camScanner = /intsig|camscanner/i.test(prod);
+        let cs = 0;
+        for (let i = 0; i < todo.length; i++) {
+            const pg = todo[i], tick = f => { if (prog) prog(i + 1, todo.length, f); };
+            tick(0);
+            // CamScanner gắn dấu chìm là 1 ảnh riêng: dải ngang ở chân trang -> không đọc, không chép
+            const wm = camScanner ? (pg.images || []).filter(im => im.x1 - im.x0 > 0.35 * pg.W && im.y1 - im.y0 < 0.12 * pg.H && im.y0 > 0.8 * pg.H) : [];
+            try {
+                const st = await ocrPage(model.pdf, pg, { eng, LM, wm }, tick);
+                out.pages++; out.words += st.words; cs += st.conf * st.words; out.fixed += st.fixed;
+            } catch (e) {
+                if (opt.isCancel && opt.isCancel(e)) { try { eng.kill(); } catch (x) {} throw e; }
+                console.warn('OCR trang ' + pg.n, e); out.failed.push(pg.n);
+                if (/Aborted|RuntimeError|bộ nhận dạng/.test(String(e && e.message || e))) { try { eng.kill(); } catch (x) {} engP = null; throw e; }
+            }
+        }
+        out.conf = out.words ? Math.round(cs / out.words) : 0;
+        return out;
+    }
+    // giải phóng bộ nhận dạng (nhả ~100 MB bộ nhớ) — gọi khi đóng công cụ
+    function release() { if (engP) engP.then(e => e.kill(), () => {}); engP = null; }
+
+    window.PdfOcr = { run, release, ensureData, engine, simdOk, available: () => !!(window.__ocrVie && window.__ocrVie.core) };
 })();
 </script>
 <script>
@@ -11948,6 +12969,7 @@ window.PdfConv = (function () {
     const CV = { file: null, buf: null, base: '', pdf: null, model: null, run: 0, info: '' };
     function convReset() {
         pdfDrop(CV.pdf);
+        if (CV.model) CV.model.pages.forEach(p => { (p.ocrImages || []).forEach(im => { try { im.canvas.width = im.canvas.height = 1; } catch (e) {} }); });
         Object.assign(CV, { file: null, buf: null, base: '', pdf: null, model: null, info: '' });
         CV.run++;
         $('tConvRes').hidden = true; $('tConvPrev').hidden = true; $('tConvPrev').innerHTML = ''; $('tConvWarn').hidden = true;
@@ -11986,13 +13008,16 @@ window.PdfConv = (function () {
         const info = $('tConvInfo');
         if (m && CV.info) { info.innerHTML = ''; info.append('📄 ', ...CV.info.map(x => x.nodeType ? x.cloneNode(true) : x)); }
         else if (!m && !/⏳|⚠️|⏹/.test(info.textContent)) info.textContent = word
-            ? 'Chọn 1 tệp PDF để chuyển sang Word (.docx). Chữ, số lấy đúng như trong PDF (không đoán) — đoạn văn, bảng, ảnh được dựng lại để sửa tiếp được.' + (ON_PHONE ? '' : ' Có thể kéo thả tệp vào đây.')
+            ? 'Chọn 1 tệp PDF để chuyển sang Word (.docx). Chữ, số lấy đúng như trong PDF — đoạn văn, bảng, ảnh được dựng lại để sửa tiếp được. PDF ảnh scan / chụp thì app tự nhận dạng chữ (OCR).' + (ON_PHONE ? '' : ' Có thể kéo thả tệp vào đây.')
             : 'Chọn 1 tệp PDF có bảng (sao kê, danh sách, báo cáo…) để chuyển sang Excel (.xlsx). Số tiền, ngày tháng thành số thật để cộng trừ được; số tài khoản, số CCCD giữ nguyên dạng chữ.' + (ON_PHONE ? '' : ' Có thể kéo thả tệp vào đây.');
         // cảnh báo: trang ảnh scan (không có chữ thật), phông chữ mã hoá riêng
         const w = $('tConvWarn'); let html = '', block = false;
         if (m) {
-            const sc = m.pages.filter(p => p.scanned).map(p => p.n), gb = m.pages.filter(p => p.garbled).map(p => p.n), all = sc.length === m.pages.length;
-            if (all) {
+            const sc = m.pages.filter(p => p.scanned || p.ocr).map(p => p.n), gb = m.pages.filter(p => p.garbled).map(p => p.n), all = sc.length === m.pages.length;
+            $('tOcrRow').hidden = !sc.length;
+            if (sc.length && $('tOcr').checked) html += '🔎 ' + (all ? 'Tệp này là <b>ảnh scan</b>' : 'Trang ' + pagesTxt(sc) + ' là <b>ảnh scan</b>') +
+                ' — app sẽ <b>nhận dạng chữ (OCR)</b> để ra văn bản sửa được' + (word ? '; con dấu, chữ ký, hình minh hoạ giữ nguyên là ảnh' : '; bảng kẻ ô thành bảng Excel') + '. Mất khoảng 5–15 giây mỗi trang.';
+            else if (all) {
                 html += '⚠️ Tệp này là <b>ảnh scan</b> — trong tệp không có chữ thật nên không lấy ra chữ được. ' + (word ? 'Tệp Word sẽ chỉ chứa ảnh của từng trang.' : 'Không có bảng chữ nào để chuyển sang Excel.');
                 block = !word;
             } else if (sc.length) html += '⚠️ Trang ' + pagesTxt(sc) + ' là ảnh scan (không có chữ thật) — ' + (word ? 'sẽ chèn nguyên ảnh trang đó.' : 'bỏ qua trang đó.');
@@ -12000,11 +13025,34 @@ window.PdfConv = (function () {
         }
         w.innerHTML = html; w.hidden = !html;
         $('tConvGo').disabled = T.busy || !m || block;
+        if (!m) $('tOcrRow').hidden = true;
         if (!T.busy) {                                        // kết quả của Word / Excel chỉ hiện ở đúng thẻ của nó
             const r = $('tConvRes'), pv = $('tConvPrev');
             r.hidden = !(m && r.dataset.done === '1' && r.dataset.kind === T.tab);
             pv.hidden = !(m && pv.dataset.done === '1' && pv.dataset.kind === T.tab);
         }
+    }
+    // v16: bật / tắt OCR — trang đã nhận dạng giữ kết quả (đổi qua lại không phải chạy lại)
+    $('tOcr').addEventListener('change', () => { if (CV.model) ocrMode(CV.model, $('tOcr').checked); convRender(); });
+    function ocrMode(m, on) {
+        m.pages.forEach(p => {
+            if (!p.ocrData && !p.ocrOrig) return;
+            if (on && p.ocrData) Object.assign(p, p.ocrData, { scanned: false });
+            if (!on && p.ocrOrig) Object.assign(p, p.ocrOrig, { scanned: true, ocr: null, ocrImages: null });
+        });
+    }
+    async function convOcr(res, word) {
+        const m = CV.model; if (!m || !$('tOcr').checked) return null;
+        // trang đã nhận dạng ở lần trước: dùng lại
+        m.pages.forEach(p => { if (p.scanned && p.ocrData) Object.assign(p, p.ocrData, { scanned: false }); });
+        if (!m.pages.some(p => p.scanned)) return m.pages.some(p => p.ocr) ? { pages: m.pages.filter(p => p.ocr).length, cached: true } : null;
+        if (!window.PdfOcr) throw new Error('bản này thiếu bộ nhận dạng chữ');
+        progBox(res, 'Đang nạp bộ nhận dạng chữ tiếng Việt…', 0.01);
+        m.pages.forEach(p => { if (p.scanned && !p.ocrOrig) p.ocrOrig = { spans: p.spans, H_: p.H_, V_: p.V_, images: p.images }; });
+        const r = await PdfOcr.run(m, { isCancel: e => e && e.message === CANCEL },
+            (k, n, f) => progTick(res, k ? 'Đang nhận dạng chữ trang ' + k + ' / ' + n + '…' : 'Đang nạp bộ nhận dạng chữ tiếng Việt…', k ? 0.02 + 0.86 * (k - 1 + (f || 0)) / n : 0.01));
+        m.pages.forEach(p => { if (p.ocr && !p.ocrData) p.ocrData = { spans: p.spans, H_: p.H_, V_: p.V_, images: p.images, ocrImages: p.ocrImages, ocr: p.ocr }; });
+        void word; return r;
     }
     $('tConvGo').onclick = async () => {
         if (!CV.model || T.busy) return;
@@ -12015,22 +13063,24 @@ window.PdfConv = (function () {
         progBox(res, word ? 'Đang dựng tệp Word…' : 'Đang dựng tệp Excel…', 0);
         try {
             await frame();
-            const tick = (k, n) => progTick(res, 'Đang xử lý trang ' + k + ' / ' + n + '…', k / Math.max(1, n));
+            const oc = await convOcr(res, word), o0 = oc ? 0.88 : 0;
+            const tick = (k, n) => progTick(res, 'Đang xử lý trang ' + k + ' / ' + n + '…', o0 + (1 - o0) * k / Math.max(1, n));
             let r, msg;
             if (word) {
                 r = await PdfConv.buildDocx(CV.model, { images: $('tWImg').checked, title: name }, tick);
                 const st = r.stats;
-                msg = 'Đã chuyển sang Word: ' + ([st.paras ? st.paras + ' đoạn văn' : '', st.tables ? st.tables + ' bảng' : '', st.images ? st.images + ' ảnh' : ''].filter(Boolean).join(' · ') || 'xong');
+                msg = 'Đã chuyển sang Word: ' + ([st.paras ? st.paras + ' đoạn văn' : '', st.tables ? st.tables + ' bảng' : '', st.images ? st.images + ' ảnh' : '', st.ocr && st.ocr.length ? 'nhận dạng chữ ' + st.ocr.length + ' trang' : ''].filter(Boolean).join(' · ') || 'xong');
             } else {
                 const mode = (document.querySelector('input[name="tXm"]:checked') || {}).value === 'no' ? 'no' : 'auto';
                 r = await PdfConv.buildXlsx(CV.model, { merge: mode, onlyTables: $('tXTab').checked, title: name }, tick);
                 const st = r.stats;
-                msg = 'Đã chuyển sang Excel: ' + [st.sheets + ' trang tính', st.tables ? st.tables + ' bảng' : '', st.numbers ? st.numbers + ' ô số' : '', st.dates ? st.dates + ' ô ngày' : ''].filter(Boolean).join(' · ');
+                msg = 'Đã chuyển sang Excel: ' + [st.sheets + ' trang tính', st.tables ? st.tables + ' bảng' : '', st.numbers ? st.numbers + ' ô số' : '', st.dates ? st.dates + ' ô ngày' : '', oc ? 'nhận dạng chữ ' + CV.model.pages.filter(p => p.ocr).length + ' trang' : ''].filter(Boolean).join(' · ');
             }
             deliverFiles([{ blob: r.blob, name: name + (word ? '.docx' : '.xlsx') }], res, msg, null);
             const note = document.createElement('div'); note.className = 'xr-note';
-            note.textContent = word ? 'Chữ, số chép đúng như trong PDF. Bố cục được dựng lại gần giống bản gốc — dòng ngắt có thể lệch chút ít tuỳ phông chữ trên máy.'
-                                    : 'Số tiền, ngày tháng đã thành số thật (cộng trừ, lọc được); số tài khoản, số CCCD, mã số giữ dạng chữ để không mất số 0 đầu.';
+            note.textContent = (oc ? '🔎 Chữ trên trang ảnh scan do máy tự nhận dạng (OCR) nên có thể sai vài chữ — nhất là tên người, số liệu, chữ viết tay, chữ bị con dấu đè: nhớ dò lại với bản gốc. ' : '') +
+                (word ? (oc ? 'Con dấu, chữ ký, hình minh hoạ giữ nguyên là ảnh đặt đúng chỗ.' : 'Chữ, số chép đúng như trong PDF. Bố cục được dựng lại gần giống bản gốc — dòng ngắt có thể lệch chút ít tuỳ phông chữ trên máy.')
+                      : 'Số tiền, ngày tháng đã thành số thật (cộng trừ, lọc được); số tài khoản, số CCCD, mã số giữ dạng chữ để không mất số 0 đầu.');
             (res.firstElementChild || res).appendChild(note);
             pv.dataset.kind = kind; pv.dataset.done = '1';
             pv.innerHTML = '<h4>Xem nhanh nội dung đã lấy ra' + (word ? '' : ' (trang tính đầu tiên)') + '</h4>' + (word ? PdfConv.previewHtml(CV.model, 3) : xlsPreview(r.preview));
